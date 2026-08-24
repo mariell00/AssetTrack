@@ -1,0 +1,13 @@
+{
+  "name": "AssetTrack Scanner",
+  "short_name": "AssetTrack",
+  "description": "Offline-first NFC asset verification companion for AssetTrack",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#111844",
+  "theme_color": "#111844",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "../src/renderer/assets/icons/crt-monitor.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
