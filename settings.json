@@ -1,0 +1,14 @@
+{
+  "port": 3000,
+  "localIp": null,
+  "dbFile": "inventory.db",
+  "backupIntervalHours": 24,
+  "mapBoundingBox": {
+    "note": "Default bounding box - replace with NBSC campus coordinates",
+    "minLat": 8.3600,
+    "minLng": 124.8600,
+    "maxLat": 8.3700,
+    "maxLng": 124.8750,
+    "zoomLevels": [15, 16, 17, 18]
+  }
+}
