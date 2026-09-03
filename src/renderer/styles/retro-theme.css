@@ -1,0 +1,181 @@
+/* retro-theme.css — global design tokens for the "1980s CRT / vintage
+   equipment" theme. Every UI file imports/links this stylesheet and must
+   reference these custom properties rather than hardcoding colors. */
+:root {
+  --primary: #111844;
+  --secondary: #4B5694;
+  --supporting: #7288AE;
+  --background: #EAE0CF;
+  --text-color: #111844;
+  --text-on-dark: #EAE0CF;
+  --border-chunky: 4px solid var(--secondary);
+  --border-chunky-thin: 3px solid var(--secondary);
+  --font-display: 'VT323', 'Press Start 2P', monospace;
+  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --glow: 0 0 8px rgba(75, 86, 148, 0.65);
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  background: var(--background);
+  color: var(--text-color);
+  font-family: var(--font-mono);
+}
+
+#shell {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  height: 100vh;
+}
+
+#sidebar {
+  background: var(--primary);
+  color: var(--text-on-dark);
+  border-right: var(--border-chunky);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+}
+
+.brand {
+  font-family: var(--font-display);
+  font-size: 28px;
+  letter-spacing: 2px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 16px;
+  border-bottom: var(--border-chunky-thin);
+  margin-bottom: 16px;
+  text-shadow: var(--glow);
+}
+.brand-icon { width: 28px; height: 28px; }
+
+#nav-links { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+#nav-links a {
+  color: var(--supporting);
+  text-decoration: none;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  padding: 10px 8px;
+  border: 3px solid transparent;
+  letter-spacing: 1px;
+}
+#nav-links a:hover,
+#nav-links a.active {
+  color: var(--text-on-dark);
+  border: var(--border-chunky-thin);
+  background: rgba(75, 86, 148, 0.35);
+  box-shadow: var(--glow);
+}
+
+.sidebar-footer {
+  border-top: var(--border-chunky-thin);
+  padding-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--supporting);
+}
+
+#app { padding: 24px; overflow-y: auto; }
+
+/* ---- Reusable CRT panel / bezel ---- */
+.crt-panel {
+  background: var(--background);
+  border: var(--border-chunky);
+  box-shadow: var(--glow);
+}
+.crt-header {
+  background: var(--primary);
+  color: var(--text-on-dark);
+  font-family: var(--font-display);
+  font-size: 22px;
+  letter-spacing: 2px;
+  padding: 10px 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  justify-content: space-between;
+}
+.crt-dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: #7BD88F; box-shadow: 0 0 6px #7BD88F;
+  display: inline-block;
+}
+.header-actions { display: flex; gap: 8px; font-size: 14px; }
+
+/* ---- Buttons / forms ---- */
+.btn-retro {
+  font-family: var(--font-mono);
+  font-weight: 600;
+  background: var(--secondary);
+  color: var(--text-on-dark);
+  border: var(--border-chunky-thin);
+  padding: 10px 16px;
+  cursor: pointer;
+  letter-spacing: 1px;
+}
+.btn-retro:hover { box-shadow: var(--glow); background: var(--primary); }
+.btn-retro.small { padding: 6px 10px; font-size: 12px; }
+.file-btn { display: inline-flex; align-items: center; }
+
+.retro-input, .retro-form input {
+  font-family: var(--font-mono);
+  background: var(--background);
+  border: var(--border-chunky-thin);
+  color: var(--text-color);
+  padding: 8px;
+  width: 100%;
+  margin-bottom: 12px;
+}
+
+.retro-form { display: flex; flex-direction: column; padding: 20px; gap: 4px; }
+.retro-form label { font-size: 12px; letter-spacing: 1px; color: var(--secondary); }
+.form-error { color: #B23A48; font-weight: 600; min-height: 18px; }
+
+.login-panel { max-width: 380px; margin: 60px auto; }
+
+/* ---- Table ---- */
+.retro-table { width: 100%; border-collapse: collapse; margin-top: 12px; }
+.retro-table th, .retro-table td {
+  border: 2px solid var(--supporting);
+  padding: 8px 10px;
+  text-align: left;
+  font-size: 13px;
+}
+.retro-table th {
+  background: var(--secondary);
+  color: var(--text-on-dark);
+  font-family: var(--font-display);
+  letter-spacing: 1px;
+}
+.condition-good { color: #2E7D4F; }
+.condition-damaged { color: #B23A48; }
+.condition-repair { color: #B98900; }
+
+/* ---- Panels / progress ---- */
+.panel { border: var(--border-chunky-thin); padding: 16px; margin-bottom: 20px; }
+.panel h3 { font-family: var(--font-display); font-size: 20px; margin-top: 0; }
+.mono-list { font-family: var(--font-mono); font-size: 13px; }
+.mono-row { padding: 4px 0; border-bottom: 1px dashed var(--supporting); }
+
+.progress-row { display: grid; grid-template-columns: 140px 1fr 100px; align-items: center; gap: 10px; margin-bottom: 8px; }
+.progress-track { background: var(--supporting); height: 14px; border: 2px solid var(--primary); }
+.progress-fill { background: var(--secondary); height: 100%; box-shadow: var(--glow); }
+
+/* ---- Map ---- */
+.map-viewport { height: 60vh; border-top: var(--border-chunky-thin); position: relative; }
+
+/* ---- QR panel ---- */
+.qr-panel { max-width: 420px; padding: 20px; text-align: center; }
+.qr-holder { margin: 16px 0; min-height: 240px; display: flex; align-items: center; justify-content: center; border: var(--border-chunky-thin); }
+.mono-small { font-size: 12px; color: var(--secondary); word-break: break-all; }
+
+.report-controls { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; padding: 16px; }
+.report-controls label { display: flex; flex-direction: column; font-size: 12px; gap: 4px; }
+.report-hint { padding: 0 16px 16px; font-size: 12px; color: var(--secondary); }
