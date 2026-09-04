@@ -8,6 +8,10 @@ router.get('/', (req, res) => {
   res.json({ ok: true, assets: svc.listAssets({ roomId, search }) });
 });
 
+router.get('/dashboard-stats', (req, res) => {
+  res.json({ ok: true, stats: svc.dashboardStats() });
+});
+
 router.get('/:id', (req, res) => {
   const asset = svc.getAsset(req.params.id);
   if (!asset) return res.status(404).json({ ok: false, error: 'Asset not found.' });
@@ -40,7 +44,20 @@ router.post('/:id/nfc', (req, res) => {
 router.get('/nfc/:uid', (req, res) => {
   const asset = svc.findAssetByNfcUid(req.params.uid);
   if (!asset) return res.status(404).json({ ok: false, error: 'No asset registered to this tag.' });
-  res.json({ ok: true, asset });
+  const detail = svc.getAssetDetail(asset.id);
+  res.json({ ok: true, asset: detail });
+});
+
+router.get('/:id/detail', (req, res) => {
+  const detail = svc.getAssetDetail(req.params.id);
+  if (!detail) return res.status(404).json({ ok: false, error: 'Asset not found.' });
+  res.json({ ok: true, asset: detail });
+});
+
+router.post('/:id/report-issue', (req, res) => {
+  const { note, reported_by } = req.body || {};
+  if (!note) return res.status(400).json({ ok: false, error: 'note is required.' });
+  res.status(201).json({ ok: true, issue: svc.reportIssue(req.params.id, note, reported_by) });
 });
 
 // Bulk import: expects raw .xlsx bytes as the request body
