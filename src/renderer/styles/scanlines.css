@@ -1,8 +1,7 @@
-/* scanlines.css — subtle CRT scanline overlay for the dashboard and map. */
-.scanline {
-  position: relative;
-  overflow: hidden;
-}
+/* scanlines.css — very subtle CRT scanline texture, opt-in via .scanline.
+   Kept minimal in the mainframe redesign so it doesn't fight the terminal
+   log's own readability; apply to a screen root if you want the texture. */
+.scanline { position: relative; overflow: hidden; }
 .scanline::before {
   content: "";
   position: absolute;
@@ -10,11 +9,10 @@
   pointer-events: none;
   background: repeating-linear-gradient(
     to bottom,
-    rgba(17, 24, 68, 0.06) 0px,
-    rgba(17, 24, 68, 0.06) 1px,
+    rgba(17, 24, 68, 0.04) 0px,
+    rgba(17, 24, 68, 0.04) 1px,
     transparent 1px,
     transparent 3px
   );
-  mix-blend-mode: multiply;
   z-index: 2;
 }
