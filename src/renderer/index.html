@@ -3,36 +3,59 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'" />
-  <title>AssetTrack — Admin Hub</title>
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
+  <title>AssetTrack — Mainframe</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/retro-theme.css" />
   <link rel="stylesheet" href="styles/scanlines.css" />
 </head>
 <body>
+  <div id="device-bezel"></div>
   <div id="shell">
-    <aside id="sidebar" class="crt-panel">
+    <aside id="sidebar">
       <div class="brand">
-        <img src="assets/icons/floppy.svg" alt="" class="brand-icon" />
-        <span>ASSETTRACK</span>
+        <span class="brand-icon">◆</span>
+        <div class="brand-text">
+          <span class="brand-line">ASSET</span>
+          <span class="brand-line">TRACK</span>
+        </div>
       </div>
+      <div class="brand-sub">v2.4.1 // MAINFRAME</div>
+
       <nav id="nav-links">
-        <a href="#/dashboard" data-nav="dashboard">▸ DASHBOARD</a>
-        <a href="#/assets" data-nav="assets">▸ ASSETS</a>
-        <a href="#/map" data-nav="map">▸ CLUSTER MAP</a>
-        <a href="#/reports" data-nav="reports">▸ REPORTS</a>
-        <a href="#/mobile" data-nav="mobile">▸ MOBILE QR</a>
+        <a href="#/dashboard" data-nav="dashboard"><span class="nav-icon">◈</span> DASHBOARD</a>
+        <a href="#/assets" data-nav="assets"><span class="nav-icon">▤</span> ASSET REGISTRY</a>
+        <a href="#/map" data-nav="map"><span class="nav-icon">▦</span> CLUSTER MAP</a>
+        <a href="#/inventory" data-nav="inventory"><span class="nav-icon">⟳</span> INVENTORY SYNC</a>
+        <a href="#/reports" data-nav="reports"><span class="nav-icon">▥</span> REPORTS</a>
+        <a href="#/mobile" data-nav="mobile"><span class="nav-icon">▧</span> QR DISTRIBUTION</a>
       </nav>
+
       <div class="sidebar-footer">
-        <span id="host-label"></span>
-        <button id="btn-logout" class="btn-retro small">LOG OUT</button>
+        <div class="user-card">
+          <span class="user-avatar" id="sidebar-avatar">AD</span>
+          <div class="user-meta">
+            <span class="user-name" id="sidebar-username">ADMIN</span>
+            <span class="user-role" id="sidebar-role">SUPERUSER</span>
+          </div>
+        </div>
+        <button id="btn-logout" class="btn-retro small full-width">⏻ LOGOUT</button>
       </div>
     </aside>
-    <main id="app"></main>
+
+    <main id="main-content">
+      <div id="top-bar">
+        <span id="breadcrumb">› DASHBOARD</span>
+        <div class="top-bar-right">
+          <span id="top-ip" class="status-green"></span>
+          <span id="top-clock"></span>
+          <span class="top-db-status"><span class="status-dot status-complete"></span> DATABASE: ONLINE</span>
+        </div>
+      </div>
+      <div id="app"></div>
+    </main>
   </div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <script type="module" src="js/router.js"></script>
 </body>
 </html>
