@@ -26,11 +26,31 @@ function registerFeatureRoutes(expressApp) {
   expressApp.use('/api/v1/map', require('./src/features/mapping/routes'));
   expressApp.use('/api/v1/qr', require('./src/features/qr-distribution/routes'));
   expressApp.use('/api/v1/reports', require('./src/features/reports/routes'));
+  expressApp.use('/api/v1/analytics', require('./src/features/analytics/routes'));
+  expressApp.use('/api/v1/system', require('./src/features/system/routes'));
 }
 
 function startServer(config) {
   const expressApp = express();
   expressApp.use(express.json({ limit: '10mb' }));
+
+  // The mobile PWA runs on the phone's own origin (its own IP/port context
+  // in the browser) while talking to this server over the LAN, so it needs
+  // permissive CORS — this is a closed office network, not a public API.
+  expressApp.use((req, res, next) => {
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    if (req.method === 'OPTIONS') return res.sendStatus(204);
+    next();
+  });
+
+  // Lightweight runtime counters feeding the QR Distribution "Network
+  // Status" panel (requests/min, distinct clients on the LAN).
+  expressApp.use((req, res, next) => {
+    require('./src/features/system/services').trackRequest(req.ip);
+    next();
+  });
 
   registerFeatureRoutes(expressApp);
 
@@ -72,9 +92,13 @@ app.whenReady().then(() => {
   config.localIp = discoverLocalIp();
 
   initDatabase(userDataPath);
+  require('./src/features/system/services').logEvent('INIT', 'AssetTrack Mainframe v2.4.1 starting...', 'info');
+
   startAutoBackup(userDataPath, config.backupIntervalHours);
 
   startServer(config);
+  require('./src/features/system/services').logEvent('INIT', 'System boot complete. DATABASE online.', 'success');
+
   createWindow(config);
 
   app.on('activate', () => {
