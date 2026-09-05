@@ -87,11 +87,11 @@ function createWindow(config) {
   });
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
   const config = loadConfig(userDataPath);
   config.localIp = discoverLocalIp();
 
-  initDatabase(userDataPath);
+  await initDatabase(userDataPath);
   require('./src/features/system/services').logEvent('INIT', 'AssetTrack Mainframe v2.4.1 starting...', 'info');
 
   startAutoBackup(userDataPath, config.backupIntervalHours);
@@ -107,6 +107,7 @@ app.whenReady().then(() => {
 });
 
 app.on('window-all-closed', () => {
+  try { require('./src/core/database').getDb().persist(); } catch { /* db never initialized */ }
   if (server) server.close();
   if (process.platform !== 'darwin') app.quit();
 });
