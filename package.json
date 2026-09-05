@@ -9,22 +9,19 @@
     "start": "electron .",
     "build:mobile": "node scripts/build-mobile.js",
     "build:desktop": "npm run build:mobile && electron-builder",
-    "tiles:fetch": "node src/features/mapping/tile-cache.js",
-    "postinstall": "electron-builder install-app-deps",
-    "rebuild": "electron-rebuild -f -w better-sqlite3"
+    "tiles:fetch": "node src/features/mapping/tile-cache.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
-    "better-sqlite3": "^11.3.0",
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
+    "sql.js": "^1.14.2",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@electron/rebuild": "^3.7.2",
     "electron": "^31.3.1",
     "electron-builder": "^24.13.3"
   },
