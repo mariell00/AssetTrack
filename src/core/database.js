@@ -1,112 +1,63 @@
-// main.js — Electron entry point. Boots the Express API inside the main
-// process, then opens a BrowserWindow pointed at that local server.
-const { app, BrowserWindow, shell } = require('electron');
+// core/database.js — single SQLite connection (singleton), shared by every
+// feature's models.js/services.js. No feature should ever open its own
+// connection — that's the whole point of dependency injection here.
+//
+// Backed by sql.js (SQLite-as-WebAssembly) via the compatibility wrapper in
+// sqlite-engine.js, instead of the native better-sqlite3 module. This means
+// zero native compilation on install — no Visual Studio / node-gyp / Python
+// required on any platform, which is what made the old setup fragile on
+// fresh Windows machines.
 const path = require('path');
-const express = require('express');
 const fs = require('fs');
+const { openDatabase } = require('./sqlite-engine');
 
-const { loadConfig, discoverLocalIp } = require('./src/core/config');
-const { initDatabase, startAutoBackup } = require('./src/core/database');
+let db = null;
 
-// ---- Portability: keep all runtime data NEXT TO the executable ----
-// Moving the whole AssetTrack_Desktop folder to another PC just works.
-const userDataPath = path.join(__dirname, 'data');
-if (!fs.existsSync(userDataPath)) fs.mkdirSync(userDataPath, { recursive: true });
-app.setPath('userData', userDataPath);
+async function initDatabase(userDataPath) {
+  const dbPath = path.join(userDataPath, 'inventory.db');
+  db = await openDatabase(dbPath);
+  db.pragma('foreign_keys = ON');
 
-let mainWindow;
-let server;
+  // Each feature owns its own schema; models.js files call this to register
+  // their CREATE TABLE IF NOT EXISTS statements against the shared db.
+  require('../features/auth/models').init(db);
+  require('../features/assets/models').init(db);
+  require('../features/inventory/models').init(db);
+  require('../features/system/models').init(db);
 
-function registerFeatureRoutes(expressApp) {
-  // Each feature module owns its own routes.js — mounted here so the
-  // architecture stays pluggable. Adding a feature = adding one require + use().
-  expressApp.use('/api/v1/auth', require('./src/features/auth/routes'));
-  expressApp.use('/api/v1/assets', require('./src/features/assets/routes'));
-  expressApp.use('/api/v1/inventory', require('./src/features/inventory/routes'));
-  expressApp.use('/api/v1/map', require('./src/features/mapping/routes'));
-  expressApp.use('/api/v1/qr', require('./src/features/qr-distribution/routes'));
-  expressApp.use('/api/v1/reports', require('./src/features/reports/routes'));
-  expressApp.use('/api/v1/analytics', require('./src/features/analytics/routes'));
-  expressApp.use('/api/v1/system', require('./src/features/system/routes'));
+  console.log(`[AssetTrack] SQLite (sql.js) ready at ${dbPath}`);
+  return db;
 }
 
-function startServer(config) {
-  const expressApp = express();
-  expressApp.use(express.json({ limit: '10mb' }));
-
-  // The mobile PWA runs on the phone's own origin (its own IP/port context
-  // in the browser) while talking to this server over the LAN, so it needs
-  // permissive CORS — this is a closed office network, not a public API.
-  expressApp.use((req, res, next) => {
-    res.setHeader('Access-Control-Allow-Origin', '*');
-    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    if (req.method === 'OPTIONS') return res.sendStatus(204);
-    next();
-  });
-
-  // Lightweight runtime counters feeding the QR Distribution "Network
-  // Status" panel (requests/min, distinct clients on the LAN).
-  expressApp.use((req, res, next) => {
-    require('./src/features/system/services').trackRequest(req.ip);
-    next();
-  });
-
-  registerFeatureRoutes(expressApp);
-
-  // Static hosting: offline map tiles + the mobile PWA bundle
-  expressApp.use('/static/map_tiles', express.static(path.join(__dirname, 'src/static/map_tiles')));
-  expressApp.use('/static/mobile', express.static(path.join(__dirname, 'src/static/mobile')));
-
-  server = expressApp.listen(config.port, '0.0.0.0', () => {
-    console.log(`[AssetTrack] API + PWA host listening on port ${config.port}`);
-  });
+function getDb() {
+  if (!db) throw new Error('Database not initialized — call initDatabase() first.');
+  return db;
 }
 
-function createWindow(config) {
-  mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 820,
-    minWidth: 960,
-    minHeight: 640,
-    backgroundColor: '#111844',
-    title: 'AssetTrack — Admin Hub',
-    webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
-      contextIsolation: true,
-      nodeIntegration: false
+// Auto-Backup: every N hours, copy the live db file to /data/backups with
+// a timestamped filename. Cheap, file-level backup — good enough for a
+// single-writer LAN app and trivially restorable (just copy the file back).
+function startAutoBackup(userDataPath, intervalHours = 24) {
+  const backupDir = path.join(userDataPath, '..', 'backups');
+  if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+
+  const runBackup = () => {
+    try {
+      const dbPath = path.join(userDataPath, 'inventory.db');
+      if (db) db.persist(); // flush any pending in-memory changes first
+      if (!fs.existsSync(dbPath)) return;
+      const stamp = new Date().toISOString().slice(0, 10);
+      const dest = path.join(backupDir, `inventory-backup-${stamp}.db`);
+      fs.copyFileSync(dbPath, dest);
+      console.log(`[AssetTrack] Backup written: ${dest}`);
+    } catch (err) {
+      console.error('[AssetTrack] Backup failed:', err);
     }
-  });
+  };
 
-  mainWindow.loadFile(path.join(__dirname, 'src/renderer/index.html'));
-
-  // Open external links (e.g. help docs) in the OS browser, not Electron.
-  mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    shell.openExternal(url);
-    return { action: 'deny' };
-  });
+  runBackup(); // one immediately on boot
+  const ms = Math.max(1, intervalHours) * 60 * 60 * 1000;
+  setInterval(runBackup, ms);
 }
 
-app.whenReady().then(() => {
-  const config = loadConfig(userDataPath);
-  config.localIp = discoverLocalIp();
-
-  initDatabase(userDataPath);
-  require('./src/features/system/services').logEvent('INIT', 'AssetTrack Mainframe v2.4.1 starting...', 'info');
-
-  startAutoBackup(userDataPath, config.backupIntervalHours);
-
-  startServer(config);
-  require('./src/features/system/services').logEvent('INIT', 'System boot complete. DATABASE online.', 'success');
-
-  createWindow(config);
-
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow(config);
-  });
-});
-
-app.on('window-all-closed', () => {
-  if (server) server.close();
-  if (process.platform !== 'darwin') app.quit();
-});
+module.exports = { initDatabase, getDb, startAutoBackup };
