@@ -62,6 +62,14 @@ function startServer(config) {
   // from one http:// origin keeps API calls same-origin and working.
   expressApp.use(express.static(path.join(__dirname, 'src/renderer')));
 
+  // The renderer's router.js imports each feature's ui.js straight from
+  // src/features/**  (e.g. `import ... from '../../features/auth/ui.js'`),
+  // but that folder lives outside src/renderer, so it was never reachable
+  // over HTTP — every feature module 404'd, the whole ES module graph
+  // failed to load, and #app never updated on ANY nav click. Serving
+  // src/features under /features makes those imports resolve.
+  expressApp.use('/features', express.static(path.join(__dirname, 'src/features')));
+
   // Static hosting: offline map tiles + the mobile PWA bundle
   expressApp.use('/static/map_tiles', express.static(path.join(__dirname, 'src/static/map_tiles')));
   expressApp.use('/static/mobile', express.static(path.join(__dirname, 'src/static/mobile')));
