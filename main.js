@@ -54,6 +54,14 @@ function startServer(config) {
 
   registerFeatureRoutes(expressApp);
 
+  // Serve the renderer UI itself from this same server (instead of loading
+  // it via file://). This is what makes every fetch('/api/v1/...') call in
+  // the UI actually reach this server — a relative fetch from a file://
+  // page does NOT resolve to http://localhost:PORT, so buttons would look
+  // like they do nothing (the request silently fails). Serving everything
+  // from one http:// origin keeps API calls same-origin and working.
+  expressApp.use(express.static(path.join(__dirname, 'src/renderer')));
+
   // Static hosting: offline map tiles + the mobile PWA bundle
   expressApp.use('/static/map_tiles', express.static(path.join(__dirname, 'src/static/map_tiles')));
   expressApp.use('/static/mobile', express.static(path.join(__dirname, 'src/static/mobile')));
@@ -78,7 +86,11 @@ function createWindow(config) {
     }
   });
 
-  mainWindow.loadFile(path.join(__dirname, 'src/renderer/index.html'));
+  // Load from the same http:// origin the API is served on (see the
+  // express.static() line in startServer) — NOT loadFile()/file://. This is
+  // what makes every relative fetch('/api/v1/...') in the UI actually reach
+  // the Express server instead of silently failing against the filesystem.
+  mainWindow.loadURL(`http://127.0.0.1:${config.port}/`);
 
   // Open external links (e.g. help docs) in the OS browser, not Electron.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
