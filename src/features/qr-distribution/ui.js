@@ -33,8 +33,13 @@ export function render() {
         </div>
 
         <div class="crt-panel">
+          <div class="panel-title">ACCESS MODE</div>
+          <div id="access-mode-badge" class="status-row"><span>MODE</span><strong id="access-mode-value">checking…</strong></div>
+        </div>
+
+        <div class="crt-panel">
           <div class="panel-title">HOW TO CONNECT</div>
-          <ol class="connect-steps">
+          <ol class="connect-steps" id="connect-steps">
             <li>Ensure device is on same WiFi network</li>
             <li>Open native camera or QR scanner app</li>
             <li>Point camera at QR code on left</li>
@@ -47,14 +52,49 @@ export function render() {
   `;
 
   let mobileUrl = '';
+  let qrRetryTimer = null;
+
+  function applyAccessMode(mode) {
+    const badge = el.querySelector('#access-mode-value');
+    const steps = el.querySelector('#connect-steps');
+    if (mode === 'public') {
+      badge.textContent = 'PUBLIC (INTERNET)';
+      badge.classList.add('status-green');
+      steps.innerHTML = `
+        <li>Works over any internet connection — same WiFi not required</li>
+        <li>Open native camera or QR scanner app</li>
+        <li>Point camera at QR code on left</li>
+        <li>Tap the auto-detected link</li>
+        <li>Log in with your mobile credentials</li>
+      `;
+    } else {
+      badge.textContent = 'LOCAL NETWORK ONLY';
+      badge.classList.remove('status-green');
+      steps.innerHTML = `
+        <li>Ensure device is on same WiFi network</li>
+        <li>Open native camera or QR scanner app</li>
+        <li>Point camera at QR code on left</li>
+        <li>Tap the auto-detected link</li>
+        <li>Log in with your mobile credentials</li>
+      `;
+    }
+  }
 
   async function loadQr() {
     const result = await apiGet('/api/v1/qr/code');
     const holder = el.querySelector('#qr-holder');
-    if (!result.ok) { holder.textContent = 'Unable to generate QR code.'; return; }
+    if (!result.ok) {
+      holder.textContent = result.error || 'Unable to generate QR code.';
+      // Public tunnels take a few seconds to come up on launch — retry
+      // instead of leaving the screen stuck on an error.
+      clearTimeout(qrRetryTimer);
+      qrRetryTimer = setTimeout(loadQr, 3000);
+      return;
+    }
     mobileUrl = result.url;
     holder.innerHTML = `<img src="${result.dataUrl}" alt="Scan to install AssetTrack mobile" width="220" height="220" />`;
     el.querySelector('#qr-url').textContent = result.url;
+    applyAccessMode(result.mode);
   }
 
   async function loadNetworkStatus() {
@@ -89,7 +129,7 @@ export function render() {
   loadNetworkStatus();
   const poll = setInterval(loadNetworkStatus, 10000);
   const observer = new MutationObserver(() => {
-    if (!document.body.contains(el)) { clearInterval(poll); observer.disconnect(); }
+    if (!document.body.contains(el)) { clearInterval(poll); clearTimeout(qrRetryTimer); observer.disconnect(); }
   });
   observer.observe(document.body, { childList: true, subtree: true });
 
