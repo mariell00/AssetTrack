@@ -50,19 +50,8 @@ function deleteUser(id) {
   return { ok: true };
 }
 
-function requireRole(role) {
-  return (req, res, next) => {
-    const auth = req.headers.authorization || '';
-    const token = auth.replace('Bearer ', '');
-    const { verifyToken } = require('../../core/security');
-    const payload = verifyToken(token);
-    if (!payload) return res.status(401).json({ ok: false, error: 'Unauthorized.' });
-    if (role && payload.role !== role && payload.role !== 'admin') {
-      return res.status(403).json({ ok: false, error: 'Forbidden.' });
-    }
-    req.user = payload;
-    next();
-  };
-}
+// requireRole now lives in core/security.js (it's used app-wide, not just
+// by auth — re-exported here so auth/routes.js doesn't need to change).
+const { requireRole } = require('../../core/security');
 
 module.exports = { login, listUsers, createUser, setUserStatus, deleteUser, requireRole };
