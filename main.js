@@ -7,6 +7,7 @@ const fs = require('fs');
 
 const { loadConfig, discoverLocalIp } = require('./src/core/config');
 const { initDatabase, startAutoBackup } = require('./src/core/database');
+const { requireAuth } = require('./src/core/security');
 
 // ---- Portability: keep all runtime data NEXT TO the executable ----
 // Moving the whole AssetTrack_Desktop folder to another PC just works.
@@ -52,6 +53,18 @@ function startServer(config) {
     next();
   });
 
+  // Require a valid, verified session token on every API route except the
+  // login endpoint itself (which is how you GET a token in the first
+  // place). Previously nothing enforced this server-side — the frontend
+  // attached a Bearer token, but no route ever checked it, so the entire
+  // API (desktop and mobile) was reachable by anyone who could reach the
+  // port, no login needed. This matters even more now that the server can
+  // optionally be exposed to the public internet (see setupMobileAccess).
+  expressApp.use('/api/v1', (req, res, next) => {
+    if (req.path === '/auth/login') return next();
+    return requireAuth(req, res, next);
+  });
+
   registerFeatureRoutes(expressApp);
 
   // Serve the renderer UI itself from this same server (instead of loading
@@ -77,6 +90,72 @@ function startServer(config) {
   server = expressApp.listen(config.port, '0.0.0.0', () => {
     console.log(`[AssetTrack] API + PWA host listening on port ${config.port}`);
   });
+
+  setupMobileAccess(expressApp, config);
+}
+
+// Decides what URL the QR Distribution screen encodes for mobile access.
+// Default (and always the immediate fallback): the desktop's LAN IP — only
+// reachable if the phone is on the same WiFi, which is the constraint we're
+// trying to lift.
+//
+// If settings.json has publicAccess.enabled = true, this additionally opens
+// a Cloudflare "quick tunnel" (via the `cloudflared` package — no account or
+// domain required) that maps a random https://*.trycloudflare.com URL to
+// this local server. Once that URL is live, the QR code switches to it, and
+// the phone can reach the mobile app over ANY internet connection, not just
+// this network. The tunnel URL is stored on expressApp.locals so the
+// /api/v1/qr/code route can read whichever is current.
+//
+// This is deliberately opt-in and off by default: it makes the API (now
+// protected by requireAuth, see startServer) reachable from the public
+// internet, and that's a real change in exposure worth an explicit choice
+// rather than a silent default.
+async function setupMobileAccess(expressApp, config) {
+  const lanUrl = `http://${config.localIp}:${config.port}`;
+  expressApp.locals.mobileBaseUrl = lanUrl;
+  expressApp.locals.mobileAccessMode = 'lan';
+  expressApp.locals.tunnelStarting = false;
+
+  if (!config.publicAccess || !config.publicAccess.enabled) return;
+
+  const logEvent = require('./src/features/system/services').logEvent;
+  expressApp.locals.tunnelStarting = true;
+
+  try {
+    const { bin, install, Tunnel } = require('cloudflared');
+
+    if (!fs.existsSync(bin)) {
+      logEvent('TUNNEL', 'Downloading cloudflared (first run only)...', 'info');
+      await install(bin);
+    }
+
+    const tunnel = Tunnel.quick(`http://127.0.0.1:${config.port}`);
+    tunnel.on('error', (err) => {
+      logEvent('TUNNEL', `Tunnel process error: ${err.message}`, 'error');
+    });
+    tunnel.on('exit', (code) => {
+      if (expressApp.locals.mobileAccessMode === 'public') {
+        logEvent('TUNNEL', `Tunnel process exited (code ${code}) — falling back to LAN-only access.`, 'error');
+        expressApp.locals.mobileBaseUrl = lanUrl;
+        expressApp.locals.mobileAccessMode = 'lan';
+      }
+    });
+
+    const url = await new Promise((resolve, reject) => {
+      const timer = setTimeout(() => reject(new Error('Timed out waiting for tunnel URL (30s)')), 30000);
+      tunnel.once('url', (u) => { clearTimeout(timer); resolve(u); });
+    });
+
+    expressApp.locals.mobileBaseUrl = url;
+    expressApp.locals.mobileAccessMode = 'public';
+    expressApp.locals.tunnelStarting = false;
+    logEvent('TUNNEL', `Public access ready: ${url}`, 'success');
+  } catch (err) {
+    expressApp.locals.tunnelStarting = false;
+    logEvent('TUNNEL', `Could not start public tunnel (${err.message}) — QR code will use the LAN address instead.`, 'error');
+    // mobileBaseUrl/mode were already set to the LAN fallback above.
+  }
 }
 
 function createWindow(config) {
