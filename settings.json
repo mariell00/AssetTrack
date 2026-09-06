@@ -2,7 +2,7 @@
   "port": 3000,
   "localIp": null,
   "publicAccess": {
-    "enabled": false,
+    "enabled": true,
     "note": "Set enabled to true to expose the mobile QR code over the public internet (via a Cloudflare quick tunnel) instead of requiring the phone to be on the same WiFi as this desktop. Requires internet access on this machine. All API routes require login either way."
   },
   "dbFile": "inventory.db",
