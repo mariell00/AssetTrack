@@ -2,17 +2,17 @@
   "port": 3000,
   "localIp": null,
   "publicAccess": {
-    "enabled": true,
+    "enabled": false,
     "note": "Set enabled to true to expose the mobile QR code over the public internet (via a Cloudflare quick tunnel) instead of requiring the phone to be on the same WiFi as this desktop. Requires internet access on this machine. All API routes require login either way."
   },
   "dbFile": "inventory.db",
   "backupIntervalHours": 24,
   "mapBoundingBox": {
-    "note": "Default bounding box - replace with NBSC campus coordinates",
-    "minLat": 8.3600,
-    "minLng": 124.8600,
+    "note": "Northern Bukidnon State College, Sitio Kihari, Tankulan, Manolo Fortich, Bukidnon. This is a locality-level estimate (no exact building footprint available) — nudge these if the campus renders offset from the actual grounds; Cluster Map still works correctly either way since room positions are entered independently.",
+    "minLat": 8.3620,
+    "minLng": 124.8620,
     "maxLat": 8.3700,
-    "maxLng": 124.8750,
-    "zoomLevels": [15, 16, 17, 18]
+    "maxLng": 124.8700,
+    "zoomLevels": [15, 16, 17, 18, 19]
   }
 }
