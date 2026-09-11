@@ -87,6 +87,13 @@ function startServer(config) {
   expressApp.use('/static/map_tiles', express.static(path.join(__dirname, 'src/static/map_tiles')));
   expressApp.use('/static/mobile', express.static(path.join(__dirname, 'src/static/mobile')));
 
+  // Leaflet itself, served locally from node_modules rather than a CDN —
+  // matches the app's offline-first design (tile-cache.js already caches
+  // map imagery locally; loading the mapping library from a CDN would
+  // defeat that the moment there's no internet) and keeps everything
+  // same-origin under the existing CSP (script-src 'self').
+  expressApp.use('/vendor/leaflet', express.static(path.join(__dirname, 'node_modules/leaflet/dist')));
+
   server = expressApp.listen(config.port, '0.0.0.0', () => {
     console.log(`[AssetTrack] API + PWA host listening on port ${config.port}`);
   });
