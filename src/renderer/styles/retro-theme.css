@@ -293,15 +293,40 @@ html, body {
 .room-block-ratio { font-size: 11px; color: var(--text-dim); align-self: flex-end; }
 .map-caption { text-align: center; font-size: 10px; color: var(--text-dim); margin-top: 10px; }
 
+.leaflet-map-holder {
+  height: 420px; width: 100%; border-radius: 6px; overflow: hidden;
+  background: #0b1030; color: var(--text-dim); display: flex;
+  align-items: center; justify-content: center; font-size: 12px;
+}
+/* Reskin Leaflet's default (light) controls to fit the dark CRT theme
+   instead of leaving a jarring white UI floating over the map. */
+.leaflet-control-zoom a {
+  background: #1b2456 !important; color: var(--text-on-dark) !important;
+  border-color: #39406e !important;
+}
+.leaflet-control-zoom a:hover { background: #39406e !important; }
+.leaflet-control-attribution {
+  background: rgba(17, 24, 68, 0.85) !important; color: var(--supporting) !important;
+  font-size: 9px !important;
+}
+.leaflet-control-attribution a { color: var(--supporting) !important; }
+.leaflet-tooltip {
+  background: #111844 !important; color: var(--text-on-dark) !important;
+  border: 1px solid #39406e !important; font-family: 'IBM Plex Mono', monospace;
+  font-size: 11px !important; box-shadow: none !important;
+}
+.leaflet-tooltip-top::before { border-top-color: #39406e !important; }
+
 .map-lower { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
 .legend-row { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 6px 0; color: var(--supporting); }
 .legend-swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
-.legend-swatch.tier-full { background: #1b2456; }
-.legend-swatch.tier-partial { background: #39406e; }
-.legend-swatch.tier-low { background: #6b4a52; }
+.legend-swatch.tier-full { background: var(--green); }
+.legend-swatch.tier-partial { background: var(--yellow); }
+.legend-swatch.tier-low { background: var(--red); }
 .room-detail { font-size: 12px; color: var(--text-dim); line-height: 1.8; }
 .room-detail-title { font-size: 14px; font-weight: 700; color: var(--text-on-dark); margin-bottom: 6px; }
 .room-detail-row { color: var(--supporting); }
+.room-detail-divider { border: none; border-top: 1px solid rgba(255, 255, 255, 0.08); margin: 8px 0; }
 .tier-text-full { color: var(--green); }
 .tier-text-partial { color: var(--yellow); }
 .tier-text-low { color: var(--red); }
