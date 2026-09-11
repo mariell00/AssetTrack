@@ -6,6 +6,7 @@
   "author": "Supply Office / NBSC",
   "license": "MIT",
   "scripts": {
+    "prestart": "npm run build:mobile",
     "start": "electron .",
     "build:mobile": "node scripts/build-mobile.js",
     "build:desktop": "npm run build:mobile && electron-builder",
