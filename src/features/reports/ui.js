@@ -42,6 +42,12 @@ export function render() {
         <span class="report-action-label">[ EXPORT EXCEL ]</span>
         <span class="report-action-caption">SPREADSHEET DATA EXPORT (.XLSX)</span>
       </button>
+      <label class="report-action-card report-action-card-upload" id="btn-import">
+        <span class="report-action-icon">⭱</span>
+        <span class="report-action-label">[ IMPORT EXCEL ]</span>
+        <span class="report-action-caption">BULK-LOAD ASSETS FROM .XLSX/.CSV</span>
+        <input type="file" id="report-import-file" accept=".xlsx,.csv" hidden />
+      </label>
     </div>
 
     <div class="crt-panel">
@@ -64,7 +70,7 @@ export function render() {
     const qs = new URLSearchParams({ from, to, room, status }).toString();
     const result = await apiGet(`/api/v1/reports/preview?${qs}`);
     const box = el.querySelector('#report-preview');
-    if (!result.ok) { box.textContent = 'Unable to load preview.'; return; }
+    if (!result.ok) { box.textContent = result.error || 'Unable to load preview.'; return; }
     const p = result.preview;
     box.innerHTML = `
       <div class="preview-stat"><span class="preview-label">TOTAL RECORDS</span><span class="preview-value">${p.total_records}</span></div>
@@ -74,18 +80,74 @@ export function render() {
     `;
   }
 
-  function downloadReport(format) {
+  // Fetched as a blob (rather than a plain window.location.href navigation)
+  // so a server-side failure can be shown as an alert instead of blowing
+  // away the whole Admin Hub UI with a raw JSON error page.
+  async function downloadReport(format, btn) {
     const { from, to, room, status } = currentParams();
     const qs = new URLSearchParams({ from, to, room, status, format }).toString();
-    window.location.href = `/api/v1/reports/download?${qs}`;
-    setTimeout(loadPreview, 800); // pick up the new EXPORT line in the activity log
+    const originalLabel = btn.querySelector('.report-action-label').textContent;
+    btn.disabled = true;
+    btn.querySelector('.report-action-label').textContent = '[ GENERATING… ]';
+
+    try {
+      const token = localStorage.getItem('assettrack_token');
+      const res = await fetch(`/api/v1/reports/download?${qs}`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {}
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        alert(body.error || `Report generation failed (HTTP ${res.status}).`);
+        return;
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = format === 'xlsx' ? 'assettrack-audit.xlsx' : 'assettrack-audit.pdf';
+      a.click();
+      URL.revokeObjectURL(url);
+      loadPreview();
+    } catch (err) {
+      alert('Report generation failed: ' + err.message);
+    } finally {
+      btn.disabled = false;
+      btn.querySelector('.report-action-label').textContent = originalLabel;
+    }
   }
 
   ['#report-from', '#report-to', '#report-room', '#report-status'].forEach((sel) => {
     el.querySelector(sel).addEventListener('change', loadPreview);
   });
-  el.querySelector('#btn-pdf').addEventListener('click', () => downloadReport('pdf'));
-  el.querySelector('#btn-xlsx').addEventListener('click', () => downloadReport('xlsx'));
+  el.querySelector('#btn-pdf').addEventListener('click', (e) => downloadReport('pdf', e.currentTarget));
+  el.querySelector('#btn-xlsx').addEventListener('click', (e) => downloadReport('xlsx', e.currentTarget));
+
+  el.querySelector('#report-import-file').addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const card = el.querySelector('#btn-import');
+    const label = card.querySelector('.report-action-label');
+    const originalLabel = label.textContent;
+    label.textContent = '[ IMPORTING… ]';
+
+    try {
+      const token = localStorage.getItem('assettrack_token');
+      const buffer = await file.arrayBuffer();
+      const res = await fetch('/api/v1/assets/import', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/octet-stream', ...(token ? { Authorization: `Bearer ${token}` } : {}) },
+        body: buffer
+      });
+      const result = await res.json().catch(() => ({ ok: false, error: `Import failed (HTTP ${res.status}).` }));
+      alert(result.ok ? `Imported ${result.imported} of ${result.total_rows} rows.` : (result.error || 'Import failed.'));
+      if (result.ok) loadPreview();
+    } catch (err) {
+      alert('Import failed: ' + err.message);
+    } finally {
+      label.textContent = originalLabel;
+      e.target.value = '';
+    }
+  });
 
   loadPreview();
   return el;
