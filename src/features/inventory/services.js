@@ -2,15 +2,33 @@
 // per room, and records new scan batches coming from the mobile app.
 const { getDb } = require('../../core/database');
 
+// A short "who + what device" label for the Mobile Check-in Log — source
+// and device name come from the requester's verified JWT / User-Agent (see
+// routes.js), not anything the client could fake by editing a request
+// body.
+function deviceLabel(username, source, ip, deviceName) {
+  const icon = source === 'mobile' ? '📱' : source === 'desktop' ? '🖥' : '❓';
+  const who = username || 'unknown';
+  const device = deviceName ? ` · ${deviceName}` : '';
+  return ip ? `${icon} ${who}${device} · ${ip}` : `${icon} ${who}${device}`;
+}
+
 // Accepts a batch of scans from the mobile sync endpoint:
-// [{ asset_tag | nfc_uid, room_id, scanned_by, status }]
-function recordSyncBatch(scans, scannedBy) {
+// [{ asset_tag | nfc_uid, room_id, scanned_by, status }]. `meta` (scannedBy,
+// source, ip, deviceName) describes the authenticated request itself — see
+// routes.js — and is trusted over any per-scan `scanned_by` the client
+// included.
+function recordSyncBatch(scans, meta = {}) {
   const db = getDb();
+  const scannedBy = meta.scannedBy || 'unknown';
+  const source = meta.source || null;
+  const ip = meta.ip || null;
+  const deviceName = meta.deviceName || null;
   const findByTag = db.prepare('SELECT id FROM assets WHERE asset_tag = ?');
   const findByNfc = db.prepare('SELECT asset_id AS id FROM nfc_tags WHERE uid = ?');
   const insertLog = db.prepare(`
-    INSERT INTO inventory_logs (asset_id, room_id, scanned_by, status)
-    VALUES (@asset_id, @room_id, @scanned_by, @status)
+    INSERT INTO inventory_logs (asset_id, room_id, scanned_by, status, device_source, device_ip, device_name)
+    VALUES (@asset_id, @room_id, @scanned_by, @status, @device_source, @device_ip, @device_name)
   `);
 
   let recorded = 0;
@@ -25,8 +43,11 @@ function recordSyncBatch(scans, scannedBy) {
       insertLog.run({
         asset_id: asset.id,
         room_id: s.room_id || null,
-        scanned_by: s.scanned_by || scannedBy || 'unknown',
-        status: s.status || 'verified'
+        scanned_by: s.scanned_by || scannedBy,
+        status: s.status || 'verified',
+        device_source: source,
+        device_ip: ip,
+        device_name: deviceName
       });
       recorded++;
     }
@@ -34,7 +55,7 @@ function recordSyncBatch(scans, scannedBy) {
   tx(scans);
 
   require('../system/services').logEvent(
-    'SYNC', `${scannedBy || 'Mobile client'} synced ${recorded} scan(s)`, recorded > 0 ? 'success' : 'warn'
+    'SYNC', `${deviceLabel(scannedBy, source, ip, deviceName)} synced ${recorded} scan(s)`, recorded > 0 ? 'success' : 'warn'
   );
   if (skipped.length > 0) {
     require('../system/services').logEvent('ALERT', `${skipped.length} scan(s) skipped — tag not registered`, 'alert');
@@ -72,8 +93,9 @@ function allRoomsProgress() {
   return rooms.map((r) => ({ room_name: r.name, ...roomProgress(r.id) }));
 }
 
-// "Mobile Check-in Log" — recent sync sessions with a rough device label
-// (scanned_by) and a COMPLETE/PARTIAL verdict against the room's expected count.
+// "Mobile Check-in Log" — recent sync sessions with a verified device label
+// (who + mobile/desktop + phone/PC model + IP — see deviceLabel above) and
+// a COMPLETE/PARTIAL verdict against the room's expected count.
 function syncLog(limit = 20) {
   const db = getDb();
   const sessions = db.prepare(`
@@ -88,7 +110,8 @@ function syncLog(limit = 20) {
   if (sessions.length > 0) {
     return sessions.map((s) => ({
       time: s.created_at,
-      device: s.scanned_by,
+      device: deviceLabel(s.scanned_by, s.device_source, s.device_ip, s.device_name),
+      user: s.scanned_by,
       room: s.room_name || 'Unassigned',
       count: s.total_scanned,
       status: s.expected > 0 && s.total_scanned >= s.expected ? 'complete' : 'partial'
@@ -100,26 +123,36 @@ function syncLog(limit = 20) {
   return db.prepare(`
     SELECT
       substr(l.scanned_at, 1, 16) AS time,
-      l.scanned_by AS device,
+      l.scanned_by AS user,
+      l.device_source AS source,
+      l.device_ip AS ip,
+      l.device_name AS device_name,
       COALESCE(r.name, 'Unassigned') AS room,
       COUNT(*) AS count
     FROM inventory_logs l
     LEFT JOIN rooms r ON r.id = l.room_id
-    GROUP BY time, device, room
+    GROUP BY time, user, source, ip, device_name, room
     ORDER BY time DESC
     LIMIT ?
-  `).all(limit).map((row) => ({ ...row, status: 'complete' }));
+  `).all(limit).map((row) => ({
+    time: row.time,
+    device: deviceLabel(row.user, row.source, row.ip, row.device_name),
+    user: row.user,
+    room: row.room,
+    count: row.count,
+    status: 'complete'
+  }));
 }
 
 // A single, immediate "Mark Scanned" action from the mobile Asset Info
 // screen — same underlying log table as a batch sync, just one row.
-function markScanned(assetId, scannedBy) {
+function markScanned(assetId, meta = {}) {
   const db = getDb();
   const asset = db.prepare('SELECT room_id FROM assets WHERE id = ?').get(assetId);
   db.prepare(`
-    INSERT INTO inventory_logs (asset_id, room_id, scanned_by, status)
-    VALUES (?, ?, ?, 'verified')
-  `).run(assetId, asset ? asset.room_id : null, scannedBy || 'unknown');
+    INSERT INTO inventory_logs (asset_id, room_id, scanned_by, status, device_source, device_ip, device_name)
+    VALUES (?, ?, ?, 'verified', ?, ?, ?)
+  `).run(assetId, asset ? asset.room_id : null, meta.scannedBy || 'unknown', meta.source || null, meta.ip || null, meta.deviceName || null);
   return { ok: true };
 }
 
@@ -130,8 +163,8 @@ function recordSyncSession(data) {
   const db = getDb();
   const info = db.prepare(`
     INSERT INTO sync_sessions
-      (room_id, scanned_by, total_scanned, missing_count, notify_supervisor, auto_sync, save_offline, notes, signature_data)
-    VALUES (@room_id, @scanned_by, @total_scanned, @missing_count, @notify_supervisor, @auto_sync, @save_offline, @notes, @signature_data)
+      (room_id, scanned_by, total_scanned, missing_count, notify_supervisor, auto_sync, save_offline, notes, signature_data, device_source, device_ip, device_name)
+    VALUES (@room_id, @scanned_by, @total_scanned, @missing_count, @notify_supervisor, @auto_sync, @save_offline, @notes, @signature_data, @device_source, @device_ip, @device_name)
   `).run({
     room_id: data.room_id || null,
     scanned_by: data.scanned_by || 'unknown',
@@ -141,7 +174,10 @@ function recordSyncSession(data) {
     auto_sync: data.auto_sync ? 1 : 0,
     save_offline: data.save_offline ? 1 : 0,
     notes: data.notes || null,
-    signature_data: data.signature_data || null
+    signature_data: data.signature_data || null,
+    device_source: data.device_source || null,
+    device_ip: data.device_ip || null,
+    device_name: data.device_name || null
   });
   return { ok: true, id: info.lastInsertRowid };
 }
