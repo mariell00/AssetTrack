@@ -6,7 +6,7 @@ const svc = require('./services');
 
 router.get('/status', (req, res) => {
   const config = loadConfig();
-  res.json({ ok: true, status: svc.systemStatus(config.port) });
+  res.json({ ok: true, status: svc.systemStatus(config.port, config.httpsPort) });
 });
 
 router.get('/activity', (req, res) => {
