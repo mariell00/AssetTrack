@@ -1,5 +1,6 @@
 {
   "port": 3000,
+  "httpsPort": 8443,
   "localIp": null,
   "publicAccess": {
     "enabled": true,
@@ -8,11 +9,17 @@
   "dbFile": "inventory.db",
   "backupIntervalHours": 24,
   "mapBoundingBox": {
-    "note": "Northern Bukidnon State College, Sitio Kihari, Tankulan, Manolo Fortich, Bukidnon. This is a locality-level estimate (no exact building footprint available) — nudge these if the campus renders offset from the actual grounds; Cluster Map still works correctly either way since room positions are entered independently.",
-    "minLat": 8.3620,
-    "minLng": 124.8620,
+    "note": "Roughly Manolo Fortich / NBSC's general area (Tankulan/Kihare, Bukidnon) — good enough to center the Cluster Map's tile download and initial view, but not a precise per-building survey. Run 'npm run tiles:fetch' after adjusting this so the map works offline; use the Cluster Map screen's PLACE ON MAP button per room to pin each room's exact spot once you can see real buildings on the map.",
+    "minLat": 8.3600,
+    "minLng": 124.8600,
     "maxLat": 8.3700,
-    "maxLng": 124.8700,
+    "maxLng": 124.8750,
     "zoomLevels": [15, 16, 17, 18, 19]
+  },
+  "tileProvider": {
+    "note": "tiles:fetch needs a real tile provider here — it will refuse to run without one. Bulk-downloading straight from tile.openstreetmap.org (the public tile.openstreetmap.org server) is explicitly against OpenStreetMap's tile usage policy (osmfoundation.org/wiki/Policies/Tile_usage): that server auto-detects bulk/scripted downloads and blocks them, returning a black-and-yellow 'Access blocked' image INSTEAD of the real tile — which is exactly what got saved into src/static/map_tiles/ and is now showing up on the Cluster Map. Sign up for a free API key from a provider meant for this (e.g. MapTiler: https://cloud.maptiler.com — free tier covers a small single-campus map easily) and paste its raw tile URL template below with {key} where the key goes, e.g. 'https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={key}'.",
+    "urlTemplate": null,
+    "apiKey": null,
+    "attribution": "&copy; MapTiler &copy; OpenStreetMap contributors"
   }
 }
