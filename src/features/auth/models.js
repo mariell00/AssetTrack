@@ -25,6 +25,19 @@ function init(db) {
   if (!columnExists(db, 'users', 'last_active')) {
     db.exec(`ALTER TABLE users ADD COLUMN last_active TEXT`);
   }
+  // Tracks which client last logged this user in — 'mobile' (the phone
+  // scanner PWA) or 'desktop' (the Admin Hub) — plus the IP it came from,
+  // so the Admin Hub's Manage Users screen can show staff logging in from
+  // the field, not just a bare "last active" timestamp.
+  if (!columnExists(db, 'users', 'last_login_source')) {
+    db.exec(`ALTER TABLE users ADD COLUMN last_login_source TEXT`);
+  }
+  if (!columnExists(db, 'users', 'last_login_ip')) {
+    db.exec(`ALTER TABLE users ADD COLUMN last_login_ip TEXT`);
+  }
+  if (!columnExists(db, 'users', 'last_login_device')) {
+    db.exec(`ALTER TABLE users ADD COLUMN last_login_device TEXT`);
+  }
 
   // Seed a default admin on first run so the app is usable out-of-the-box.
   const row = db.prepare('SELECT COUNT(*) AS c FROM users').get();
