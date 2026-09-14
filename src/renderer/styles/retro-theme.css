@@ -240,7 +240,7 @@ html, body {
 
 /* ---------------- Tables ---------------- */
 .retro-table { width: 100%; border-collapse: collapse; }
-.retro-table th, .retro-table td { padding: 10px 12px; text-align: left; font-size: 12px; border-bottom: var(--border-thin); }
+.retro-table th, .retro-table td { padding: 10px 12px; text-align: left; font-size: 12px; border-bottom: var(--border-thin); vertical-align: middle; line-height: 1.4; }
 .retro-table th { color: var(--text-dim); font-weight: 700; letter-spacing: 1px; font-size: 10px; text-transform: uppercase; }
 .retro-table tbody tr:hover { background: rgba(75, 86, 148, 0.15); }
 .mono-strong { font-weight: 700; color: var(--cyan); }
@@ -259,6 +259,12 @@ html, body {
 .badge-asset-offline, .badge-status-inactive { background: rgba(235, 87, 87, 0.2); color: var(--red); }
 .badge-role-admin { background: rgba(199, 125, 255, 0.2); color: var(--magenta); }
 .badge-role-staff { background: rgba(114, 136, 174, 0.25); color: var(--supporting); }
+.badge-source-mobile { background: rgba(94, 196, 242, 0.2); color: var(--cyan); }
+.badge-source-desktop { background: rgba(114, 136, 174, 0.25); color: var(--text-dim); }
+
+.last-login-cell { display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+.last-login-cell .badge { width: fit-content; }
+.last-login-empty { color: var(--text-dim); font-style: italic; }
 
 .status-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 4px; }
 .status-dot.status-complete { background: var(--green); }
@@ -278,58 +284,43 @@ html, body {
 .modal-close { background: none; border: none; color: var(--text-on-dark); cursor: pointer; font-size: 14px; }
 .modal-form { padding-top: 4px; }
 
-/* ---------------- Cluster Map ---------------- */
-.room-grid { display: flex; flex-wrap: wrap; gap: 10px; }
-.room-block {
-  flex: 1 1 180px; min-height: 90px; border-radius: 4px; padding: 12px;
-  display: flex; flex-direction: column; justify-content: space-between; cursor: pointer;
-  border: 2px solid transparent;
+.qr-label-box { width: 320px; }
+.qr-label-body { display: flex; flex-direction: column; align-items: center; padding: 16px 0 4px; text-align: center; }
+.qr-label-img { width: 200px; height: 200px; border: 2px solid var(--secondary); background: var(--background); padding: 6px; }
+.qr-label-tag { font-size: 15px; margin-top: 14px; letter-spacing: 1px; }
+.qr-label-name { font-size: 12px; color: var(--supporting); margin-top: 2px; }
+.qr-label-actions { display: flex; gap: 10px; margin-top: 16px; width: 100%; }
+.qr-label-actions .btn-retro { flex: 1; }
+
+/* ---------------- Cluster Map (real Leaflet + Leaflet.markercluster) ---------------- */
+.leaflet-map-container {
+  height: 480px;
+  border: 2px solid var(--secondary);
+  background: #0c1230; /* visible while tiles are still loading/uncached */
 }
-.room-block.selected { border-color: var(--cyan); }
-.room-block.tier-full { background: #1b2456; }
-.room-block.tier-partial { background: #39406e; }
-.room-block.tier-low { background: #6b4a52; }
-.room-block-name { font-weight: 700; font-size: 12px; color: var(--text-on-dark); }
-.room-block-ratio { font-size: 11px; color: var(--text-dim); align-self: flex-end; }
 .map-caption { text-align: center; font-size: 10px; color: var(--text-dim); margin-top: 10px; }
-
-.leaflet-map-holder {
-  height: 420px; width: 100%; border-radius: 6px; overflow: hidden;
-  background: #0b1030; color: var(--text-dim); display: flex;
-  align-items: center; justify-content: center; font-size: 12px;
-}
-/* Reskin Leaflet's default (light) controls to fit the dark CRT theme
-   instead of leaving a jarring white UI floating over the map. */
-.leaflet-control-zoom a {
-  background: #1b2456 !important; color: var(--text-on-dark) !important;
-  border-color: #39406e !important;
-}
-.leaflet-control-zoom a:hover { background: #39406e !important; }
-.leaflet-control-attribution {
-  background: rgba(17, 24, 68, 0.85) !important; color: var(--supporting) !important;
-  font-size: 9px !important;
-}
-.leaflet-control-attribution a { color: var(--supporting) !important; }
-.leaflet-tooltip {
-  background: #111844 !important; color: var(--text-on-dark) !important;
-  border: 1px solid #39406e !important; font-family: 'IBM Plex Mono', monospace;
-  font-size: 11px !important; box-shadow: none !important;
-}
-.leaflet-tooltip-top::before { border-top-color: #39406e !important; }
-
 .map-lower { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-.legend-row { display: flex; align-items: center; gap: 8px; font-size: 11px; padding: 6px 0; color: var(--supporting); }
-.legend-swatch { width: 14px; height: 14px; border-radius: 3px; display: inline-block; }
-.legend-swatch.tier-full { background: var(--green); }
-.legend-swatch.tier-partial { background: var(--yellow); }
-.legend-swatch.tier-low { background: var(--red); }
+
+.mono-row-place { display: flex; align-items: center; justify-content: space-between; }
+
 .room-detail { font-size: 12px; color: var(--text-dim); line-height: 1.8; }
 .room-detail-title { font-size: 14px; font-weight: 700; color: var(--text-on-dark); margin-bottom: 6px; }
 .room-detail-row { color: var(--supporting); }
-.room-detail-divider { border: none; border-top: 1px solid rgba(255, 255, 255, 0.08); margin: 8px 0; }
 .tier-text-full { color: var(--green); }
 .tier-text-partial { color: var(--yellow); }
 .tier-text-low { color: var(--red); }
+
+/* Marker hover tooltip content — the tooltip chrome itself (bubble, arrow)
+   comes from Leaflet's own CSS; this just styles what's inside it. */
+.map-tooltip { font-family: var(--font-mono); font-size: 11px; max-width: 220px; }
+.map-tip-title { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
+.map-tip-count { color: #666; margin-bottom: 4px; }
+.map-tip-asset { padding: 2px 0; border-top: 1px solid #ddd; }
+.map-tip-asset:first-of-type { border-top: none; }
+.map-tip-tag { font-weight: 700; }
+.map-tip-user { color: #555; font-style: italic; }
+.map-tip-empty { color: #888; font-style: italic; }
+
 
 /* ---------------- Inventory Sync ---------------- */
 .sync-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 12px; }
@@ -348,7 +339,8 @@ html, body {
 /* ---------------- Reports ---------------- */
 .report-params-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; }
 .report-params-grid label { margin-bottom: 0; }
-.report-action-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.report-action-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.report-action-card-upload { text-align: center; }
 .report-action-card {
   background: var(--primary); border: var(--border-thin); border-radius: var(--panel-radius);
   padding: 30px; display: flex; flex-direction: column; align-items: center; gap: 8px;
@@ -377,6 +369,7 @@ html, body {
 .qr-download-banner {
   background: var(--secondary); border-radius: var(--panel-radius); padding: 16px; text-align: center;
 }
+.qr-download-banner .btn-retro { margin-top: 10px; }
 .download-title { font-weight: 700; font-size: 13px; letter-spacing: 1px; }
 .download-caption { font-size: 10px; color: rgba(234, 224, 207, 0.75); margin-top: 4px; }
 .connect-steps { margin: 0; padding-left: 18px; font-size: 11px; color: var(--supporting); line-height: 2; }
