@@ -1,5 +1,6 @@
 // features/assets/services.js — CRUD logic + Excel-to-JSON bulk importer.
 const XLSX = require('xlsx');
+const QRCode = require('qrcode');
 const { getDb } = require('../../core/database');
 
 function listAssets({ roomId, search } = {}) {
@@ -129,6 +130,11 @@ function findAssetByNfcUid(uid) {
   `).get(uid);
 }
 
+function findAssetByTag(tag) {
+  const db = getDb();
+  return db.prepare('SELECT * FROM assets WHERE asset_tag = ?').get(tag);
+}
+
 function reportIssue(assetId, note, reportedBy) {
   const db = getDb();
   const info = db.prepare(`
@@ -201,7 +207,21 @@ function dashboardStats() {
   return { totalAssets, verifiedToday, pendingSync, maintenanceDue };
 }
 
+// Generates a printable QR code encoding just the asset's Asset Tag —
+// the same value the mobile Scan screen sends back for matching (see
+// features/inventory/services.js: it looks up asset_tag before nfc_uid),
+// so a label printed with this code Just Works with the mobile scanner,
+// no separate NFC tag registration required.
+async function generateAssetQrDataUrl(assetTag) {
+  return QRCode.toDataURL(assetTag, {
+    color: { dark: '#111844', light: '#EAE0CF' },
+    margin: 1,
+    width: 320
+  });
+}
+
 module.exports = {
   listAssets, getAsset, getAssetDetail, createAsset, updateAsset, deleteAsset,
-  registerNfcTag, findAssetByNfcUid, importFromExcelBuffer, reportIssue, dashboardStats
+  registerNfcTag, findAssetByNfcUid, findAssetByTag, importFromExcelBuffer, reportIssue, dashboardStats,
+  generateAssetQrDataUrl
 };
