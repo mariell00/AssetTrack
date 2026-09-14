@@ -131,11 +131,25 @@ function updateSidebarUser() {
   document.getElementById('sidebar-avatar').textContent = user.username.slice(0, 2).toUpperCase();
   document.getElementById('sidebar-username').textContent = user.username.toUpperCase();
   document.getElementById('sidebar-role').textContent = user.role === 'admin' ? 'SUPERUSER' : 'STAFF';
+  // Manage Users is admin-only server-side (requireRole('admin') on every
+  // /api/v1/auth/users route) — hide the link entirely for staff accounts
+  // rather than showing a screen that will just error on load.
+  document.getElementById('nav-users').style.display = user.role === 'admin' ? '' : 'none';
 }
 
 function navigate() {
   let path = window.location.hash.replace('#', '') || '/dashboard';
   if (!isAuthed() && path !== '/login') path = '/login';
+
+  // Manage Users is admin-only — the nav link is hidden for staff, but the
+  // route itself needs its own guard too since the hash can be typed
+  // directly. The API would reject it anyway (requireRole('admin')), this
+  // just avoids showing a broken "Unable to load users" screen first.
+  if (path === '/users') {
+    const raw = localStorage.getItem('assettrack_user');
+    const role = raw ? JSON.parse(raw).role : null;
+    if (role !== 'admin') path = '/dashboard';
+  }
 
   const renderFn = routes[path] || renderDashboard;
   app.innerHTML = '';
