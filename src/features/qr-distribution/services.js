@@ -1,11 +1,13 @@
 // features/qr-distribution/services.js — generates a QR code encoding the
-// URL where the mobile PWA is served (http://[desktop-local-ip]:[port]/static/mobile/index.html).
+// URL where the mobile PWA is served. Takes the full base URL to use
+// (an "http://LAN-ip:port" address, or an "https://*.trycloudflare.com"
+// tunnel URL when public access is enabled) — see main.js's
+// setupMobileAccess(), which decides which one is current and hands it to
+// this via app.locals.mobileBaseUrl / routes.js.
 const QRCode = require('qrcode');
-const { discoverLocalIp } = require('../../core/config');
 
-async function generateMobileQrDataUrl(port) {
-  const ip = discoverLocalIp();
-  const url = `http://${ip}:${port}/static/mobile/index.html`;
+async function generateMobileQrDataUrl(baseUrl) {
+  const url = `${baseUrl.replace(/\/$/, '')}/static/mobile/index.html`;
   const dataUrl = await QRCode.toDataURL(url, {
     color: { dark: '#111844', light: '#EAE0CF' },
     margin: 1,
