@@ -9,11 +9,11 @@
   "dbFile": "inventory.db",
   "backupIntervalHours": 24,
   "mapBoundingBox": {
-    "note": "Roughly Manolo Fortich / NBSC's general area (Tankulan/Kihare, Bukidnon) — good enough to center the Cluster Map's tile download and initial view, but not a precise per-building survey. Run 'npm run tiles:fetch' after adjusting this so the map works offline; use the Cluster Map screen's PLACE ON MAP button per room to pin each room's exact spot once you can see real buildings on the map.",
-    "minLat": 8.3600,
-    "minLng": 124.8600,
-    "maxLat": 8.3700,
-    "maxLng": 124.8750,
+    "note": "Centered on NBSC's actual campus coordinates (8.359999, 124.868103), Manolo Fortich, Bukidnon — good enough to center the Cluster Map's tile download and initial view, but not a precise per-building survey. Run 'npm run tiles:fetch' after adjusting this so the map works offline; use the Cluster Map screen's PLACE ON MAP button per room to pin each room's exact spot once you can see real buildings on the map.",
+    "minLat": 8.354999,
+    "minLng": 124.860603,
+    "maxLat": 8.364999,
+    "maxLng": 124.875603,
     "zoomLevels": [15, 16, 17, 18, 19]
   },
   "tileProvider": {
