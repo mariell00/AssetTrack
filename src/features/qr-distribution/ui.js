@@ -28,8 +28,8 @@ export function render() {
         </div>
 
         <div class="qr-download-banner">
-          <div class="download-title">⬇ DOWNLOAD APK / PWA</div>
-          <div class="download-caption">ASSETTRACK MOBILE v2.4.1 // ANDROID + PWA</div>
+          <div class="download-title">📲 GETTING THE APP ON A PHONE</div>
+          <div class="download-caption">Scanning the code opens a page that lets each staff member choose to INSTALL APP (adds a home-screen icon) or CONTINUE IN BROWSER — no separate download needed.</div>
         </div>
 
         <div class="crt-panel">
@@ -65,16 +65,19 @@ export function render() {
         <li>Open native camera or QR scanner app</li>
         <li>Point camera at QR code on left</li>
         <li>Tap the auto-detected link</li>
+        <li>Choose INSTALL APP or CONTINUE IN BROWSER</li>
         <li>Log in with your mobile credentials</li>
       `;
     } else {
-      badge.textContent = 'LOCAL NETWORK ONLY';
+      badge.textContent = 'LOCAL NETWORK (SECURE)';
       badge.classList.remove('status-green');
       steps.innerHTML = `
         <li>Ensure device is on same WiFi network</li>
         <li>Open native camera or QR scanner app</li>
         <li>Point camera at QR code on left</li>
         <li>Tap the auto-detected link</li>
+        <li><strong>First time only:</strong> the browser will warn "connection is not private" — tap Advanced → Proceed. This is expected: it's this server's own private LAN certificate, not a public website, and it's what makes the camera scanner work.</li>
+        <li>Choose INSTALL APP or CONTINUE IN BROWSER</li>
         <li>Log in with your mobile credentials</li>
       `;
     }
@@ -85,8 +88,6 @@ export function render() {
     const holder = el.querySelector('#qr-holder');
     if (!result.ok) {
       holder.textContent = result.error || 'Unable to generate QR code.';
-      // Public tunnels take a few seconds to come up on launch — retry
-      // instead of leaving the screen stuck on an error.
       clearTimeout(qrRetryTimer);
       qrRetryTimer = setTimeout(loadQr, 3000);
       return;
@@ -104,7 +105,8 @@ export function render() {
     const s = result.status;
     box.innerHTML = `
       <div class="status-row"><span>LOCAL IP</span><strong class="status-green">${s.localIp}</strong></div>
-      <div class="status-row"><span>PORT</span><strong>${s.port}</strong></div>
+      <div class="status-row"><span>ADMIN PORT</span><strong>${s.port}</strong></div>
+      <div class="status-row"><span>MOBILE PORT (HTTPS)</span><strong>${s.mobilePort}</strong></div>
       <div class="status-row"><span>PROTOCOL</span><strong>${s.protocol}</strong></div>
       <div class="status-row"><span>SUBNET</span><strong>${s.subnet}</strong></div>
       <div class="status-row"><span>CLIENTS CONNECTED</span><strong>${s.clientsConnected}</strong></div>
