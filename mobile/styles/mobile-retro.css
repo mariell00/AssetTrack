@@ -21,6 +21,14 @@ html, body {
 
 .m-shell { display: flex; flex-direction: column; height: 100vh; }
 
+.m-userbar {
+  background: var(--secondary);
+  color: var(--background);
+  font-size: 11px;
+  letter-spacing: 1px;
+  padding: 6px 10px;
+}
+
 .m-tabs {
   display: flex;
   border-bottom: 4px solid var(--secondary);
@@ -31,10 +39,10 @@ html, body {
   color: var(--supporting);
   border: none;
   border-right: 2px solid var(--secondary);
-  padding: 14px 0;
+  padding: 14px 2px;
   font-family: var(--font-mono);
   font-weight: 600;
-  font-size: 13px;
+  font-size: 11px;
 }
 .m-tab.active { color: var(--background); background: var(--secondary); }
 
@@ -54,7 +62,8 @@ html, body {
   margin-bottom: 12px;
 }
 
-.m-login input, .m-sync input {
+.m-login input, .m-sync input, .m-register input, .m-register select,
+.m-asset-edit input, .m-asset-edit select, .m-asset-edit textarea {
   width: 100%;
   font-family: var(--font-mono);
   background: var(--background);
@@ -63,7 +72,8 @@ html, body {
   padding: 10px;
   margin-bottom: 12px;
 }
-.m-login label, .m-sync label { font-size: 12px; color: var(--supporting); }
+.m-asset-edit textarea { resize: vertical; }
+.m-login label, .m-sync label, .m-register label, .m-asset-edit label { font-size: 12px; color: var(--supporting); }
 
 .m-btn {
   width: 100%;
@@ -76,12 +86,48 @@ html, body {
   font-size: 15px;
 }
 .m-btn-big { font-size: 20px; padding: 20px; }
+.m-btn-secondary {
+  background: transparent;
+  color: var(--background);
+  border: 3px solid var(--secondary);
+  margin-top: 10px;
+}
 
 .m-error { color: #E8888C; font-weight: 600; }
 .m-status { color: var(--supporting); font-size: 13px; }
 
+.m-room-picker {
+  background: var(--primary);
+  padding: 10px 14px;
+  border-bottom: 3px solid var(--secondary);
+}
+.m-room-picker label {
+  display: block;
+  font-size: 11px;
+  color: var(--supporting);
+  letter-spacing: 1px;
+  margin-bottom: 4px;
+}
+.m-room-picker select {
+  width: 100%;
+  font-family: var(--font-mono);
+  background: var(--background);
+  color: var(--primary);
+  border: 3px solid var(--secondary);
+  padding: 8px;
+}
+
 .m-scanner-panel { text-align: center; }
-.m-nfc-icon { font-size: 64px; margin: 20px 0; }
+.m-qr-video {
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border: 3px solid var(--background);
+  margin: 16px auto;
+  display: block;
+  background: #000;
+}
 
 .m-scanned-list { margin-top: 16px; }
 .m-row {
@@ -90,3 +136,5 @@ html, body {
   font-size: 13px;
   color: var(--background);
 }
+
+.m-asset-edit { margin-bottom: 16px; }
