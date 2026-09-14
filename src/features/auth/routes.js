@@ -2,13 +2,20 @@
 const express = require('express');
 const router = express.Router();
 const { login, listUsers, createUser, setUserStatus, deleteUser, requireRole } = require('./services');
+const { simplifyUserAgent } = require('../../core/device');
 
 router.post('/login', (req, res) => {
   const { username, password } = req.body || {};
   if (!username || !password) {
     return res.status(400).json({ ok: false, error: 'username and password are required.' });
   }
-  const result = login(username, password);
+  // The mobile PWA's api-client sends 'X-Client-Type: mobile' on every
+  // request; the Admin Hub sends none, so it falls back to 'desktop' in
+  // login(). This is how one shared /auth/login route tells the two
+  // clients apart for the activity log and the Manage Users screen.
+  const source = (req.headers['x-client-type'] || '').toLowerCase() === 'mobile' ? 'mobile' : 'desktop';
+  const device = simplifyUserAgent(req.headers['user-agent']);
+  const result = login(username, password, { source, ip: req.ip, device });
   if (!result.ok) return res.status(401).json(result);
   res.json(result);
 });
