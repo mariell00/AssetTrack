@@ -123,11 +123,11 @@ export function render() {
     if (!mapEl.isConnected) return; // user navigated away while Leaflet was still loading
 
     mapEl.textContent = '';
-    // Centered on the NBSC campus bounding box from settings.json
-    // (Manolo Fortich, Bukidnon). Exact per-building placement then
-    // happens via the PLACE ON MAP buttons below — general-area geocoding
-    // can't tell which specific NBSC building is which lab/room.
-    map = window.L.map(mapEl).setView([8.365, 124.8675], 17);
+    // Centered on NBSC's actual campus coordinates (Manolo Fortich,
+    // Bukidnon). Exact per-building placement then happens via the
+    // PLACE ON MAP buttons below — a single campus-wide point can't tell
+    // which specific NBSC building is which lab/room.
+    map = window.L.map(mapEl).setView([8.359999, 124.868103], 17);
 
     window.L.tileLayer('/static/map_tiles/{z}/{x}/{y}.png', {
       maxZoom: 19,
