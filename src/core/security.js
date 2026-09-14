@@ -62,16 +62,34 @@ function verifyToken(token) {
 }
 
 // Express middleware: rejects the request unless it carries a valid
-// Bearer token. Attaches the decoded payload to req.user on success.
-// Previously this check existed nowhere in the app — every /api/v1/*
-// route executed with zero server-side authentication, regardless of what
-// the client sent. This (wired up in main.js) is what actually enforces it.
+// Bearer token AND the account behind it is still active. Previously this
+// only checked the JWT's signature/expiry — a token stays cryptographically
+// valid for its full 12h lifetime regardless of what happens to the
+// account afterward, so DEACTIVATE on the Manage Users screen only blocked
+// *future* logins; anyone already holding a token from before they were
+// deactivated kept full access until it expired. The status re-check below
+// closes that: a deactivated account is rejected on its very next request,
+// not just its next login attempt.
 function requireAuth(req, res, next) {
   const header = req.headers.authorization || '';
   const token = header.startsWith('Bearer ') ? header.slice(7).trim() : header.trim();
   if (!token) return res.status(401).json({ ok: false, error: 'Authentication required.' });
   const payload = verifyToken(token);
   if (!payload) return res.status(401).json({ ok: false, error: 'Invalid or expired token.' });
+
+  const { getDb } = require('./database');
+  let user;
+  try {
+    user = getDb().prepare('SELECT status FROM users WHERE id = ?').get(payload.id);
+  } catch {
+    // Database not initialized yet (shouldn't happen once the server is
+    // actually up) — fail closed rather than letting the request through.
+    return res.status(401).json({ ok: false, error: 'Invalid or expired token.' });
+  }
+  if (!user || user.status !== 'active') {
+    return res.status(401).json({ ok: false, error: 'This account has been deactivated.' });
+  }
+
   req.user = payload;
   next();
 }
