@@ -9,6 +9,10 @@ const SETTINGS_PATH = path.join(__dirname, '..', '..', 'settings.json');
 function loadConfig() {
   const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8');
   const config = JSON.parse(raw);
+  // Older settings.json files (from before self-signed HTTPS support) won't
+  // have this key — default it here so an in-place upgrade doesn't need a
+  // manual settings.json edit before the mobile HTTPS listener can start.
+  if (!config.httpsPort) config.httpsPort = 8443;
   return config;
 }
 
