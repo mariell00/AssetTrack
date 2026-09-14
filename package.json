@@ -18,9 +18,9 @@
     "exceljs": "^4.4.0",
     "express": "^4.19.2",
     "jsonwebtoken": "^9.0.2",
-    "leaflet": "^1.9.4",
     "pdf-lib": "^1.17.1",
     "qrcode": "^1.5.4",
+    "selfsigned": "^2.4.1",
     "sql.js": "^1.14.2",
     "xlsx": "^0.18.5"
   },
