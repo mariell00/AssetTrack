@@ -28,12 +28,13 @@ function recentActivity(limit = 30) {
   return db.prepare('SELECT * FROM activity_log ORDER BY id DESC LIMIT ?').all(limit);
 }
 
-function systemStatus(port) {
+function systemStatus(port, mobilePort) {
   const ip = discoverLocalIp();
   return {
     localIp: ip,
     port,
-    protocol: 'HTTP/1.1',
+    mobilePort,
+    protocol: 'HTTPS (self-signed, LAN) / HTTP (admin)',
     subnet: ip.split('.').slice(0, 3).join('.') + '.0/24',
     clientsConnected: recentClientIps.size,
     requestsPerMin: requestTimestamps.length,
