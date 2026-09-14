@@ -4,10 +4,12 @@ const { app, BrowserWindow, shell } = require('electron');
 const path = require('path');
 const express = require('express');
 const fs = require('fs');
+const https = require('https');
 
 const { loadConfig, discoverLocalIp } = require('./src/core/config');
 const { initDatabase, startAutoBackup } = require('./src/core/database');
 const { requireAuth } = require('./src/core/security');
+const { getOrCreateCert } = require('./src/core/tls');
 
 // ---- Portability: keep all runtime data NEXT TO the executable ----
 // Moving the whole AssetTrack_Desktop folder to another PC just works.
@@ -17,6 +19,7 @@ app.setPath('userData', userDataPath);
 
 let mainWindow;
 let server;
+let httpsServer;
 
 function registerFeatureRoutes(expressApp) {
   // Each feature module owns its own routes.js — mounted here so the
@@ -41,7 +44,7 @@ function startServer(config) {
   expressApp.use((req, res, next) => {
     res.setHeader('Access-Control-Allow-Origin', '*');
     res.setHeader('Access-Control-Allow-Methods', 'GET,POST,PUT,PATCH,DELETE,OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Client-Type');
     if (req.method === 'OPTIONS') return res.sendStatus(204);
     next();
   });
@@ -87,39 +90,59 @@ function startServer(config) {
   expressApp.use('/static/map_tiles', express.static(path.join(__dirname, 'src/static/map_tiles')));
   expressApp.use('/static/mobile', express.static(path.join(__dirname, 'src/static/mobile')));
 
-  // Leaflet itself, served locally from node_modules rather than a CDN —
-  // matches the app's offline-first design (tile-cache.js already caches
-  // map imagery locally; loading the mapping library from a CDN would
-  // defeat that the moment there's no internet) and keeps everything
-  // same-origin under the existing CSP (script-src 'self').
-  expressApp.use('/vendor/leaflet', express.static(path.join(__dirname, 'node_modules/leaflet/dist')));
-
   server = expressApp.listen(config.port, '0.0.0.0', () => {
-    console.log(`[AssetTrack] API + PWA host listening on port ${config.port}`);
+    console.log(`[AssetTrack] API + PWA host listening on http://0.0.0.0:${config.port}`);
   });
+
+  // A second listener on the SAME Express app, but over HTTPS with a
+  // self-signed LAN certificate (see core/tls.js) — this is what lets the
+  // camera (getUserMedia) work for phones on the LAN with zero internet
+  // access, since plain http:// never counts as a "secure context" no
+  // matter what camera permission the phone grants. The Admin Hub window
+  // itself keeps loading the plain http:// server above unchanged; only
+  // the mobile-facing URL switches to this one (see setupMobileAccess).
+  try {
+    const { cert, key } = getOrCreateCert(userDataPath, config.localIp);
+    httpsServer = https.createServer({ cert, key }, expressApp);
+    httpsServer.listen(config.httpsPort, '0.0.0.0', () => {
+      console.log(`[AssetTrack] Mobile HTTPS (self-signed) host listening on port ${config.httpsPort}`);
+    });
+    httpsServer.on('error', (err) => {
+      require('./src/features/system/services').logEvent(
+        'INIT', `Mobile HTTPS server failed to start (${err.message}) — camera access on LAN will not work until this is resolved.`, 'error'
+      );
+    });
+  } catch (err) {
+    require('./src/features/system/services').logEvent(
+      'INIT', `Could not generate/load the self-signed certificate (${err.message}) — camera access on LAN will not work; the public tunnel (if enabled) is unaffected.`, 'error'
+    );
+  }
 
   setupMobileAccess(expressApp, config);
 }
 
 // Decides what URL the QR Distribution screen encodes for mobile access.
-// Default (and always the immediate fallback): the desktop's LAN IP — only
-// reachable if the phone is on the same WiFi, which is the constraint we're
-// trying to lift.
+// Default (and always the immediate fallback): the desktop's LAN IP over
+// the self-signed HTTPS listener (see startServer/core/tls.js) — only
+// reachable if the phone is on the same WiFi, but unlike a plain http://
+// LAN address, this one IS a secure context, so the camera/QR scanner
+// works even with zero internet access on this machine.
 //
 // If settings.json has publicAccess.enabled = true, this additionally opens
 // a Cloudflare "quick tunnel" (via the `cloudflared` package — no account or
 // domain required) that maps a random https://*.trycloudflare.com URL to
 // this local server. Once that URL is live, the QR code switches to it, and
 // the phone can reach the mobile app over ANY internet connection, not just
-// this network. The tunnel URL is stored on expressApp.locals so the
-// /api/v1/qr/code route can read whichever is current.
+// this network, with a properly-trusted certificate (no browser warning).
+// The tunnel URL is stored on expressApp.locals so the /api/v1/qr/code
+// route can read whichever is current.
 //
 // This is deliberately opt-in and off by default: it makes the API (now
 // protected by requireAuth, see startServer) reachable from the public
 // internet, and that's a real change in exposure worth an explicit choice
 // rather than a silent default.
 async function setupMobileAccess(expressApp, config) {
-  const lanUrl = `http://${config.localIp}:${config.port}`;
+  const lanUrl = `https://${config.localIp}:${config.httpsPort}`;
   expressApp.locals.mobileBaseUrl = lanUrl;
   expressApp.locals.mobileAccessMode = 'lan';
   expressApp.locals.tunnelStarting = false;
@@ -215,5 +238,6 @@ app.whenReady().then(async () => {
 app.on('window-all-closed', () => {
   try { require('./src/core/database').getDb().persist(); } catch { /* db never initialized */ }
   if (server) server.close();
+  if (httpsServer) httpsServer.close();
   if (process.platform !== 'darwin') app.quit();
 });
