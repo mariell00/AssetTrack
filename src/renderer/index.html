@@ -8,7 +8,16 @@
   <link href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/retro-theme.css" />
   <link rel="stylesheet" href="styles/scanlines.css" />
-  <link rel="stylesheet" href="/vendor/leaflet/leaflet.css" />
+  <!-- Leaflet + Leaflet.markercluster, vendored locally (not a CDN) so the
+       Cluster Map keeps working with zero internet access — see
+       src/features/mapping/ui-map.js. Loaded here per Leaflet's own
+       "Using a Downloaded Version" instructions rather than injected by
+       ui-map.js, so it's available before that screen's code ever runs. -->
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <link rel="stylesheet" href="vendor/leaflet.markercluster/MarkerCluster.css" />
+  <link rel="stylesheet" href="vendor/leaflet.markercluster/MarkerCluster.Default.css" />
+  <script src="vendor/leaflet.markercluster/leaflet.markercluster.js"></script>
 </head>
 <body>
   <div id="device-bezel"></div>
@@ -30,6 +39,7 @@
         <a href="#/inventory" data-nav="inventory"><span class="nav-icon">⟳</span> INVENTORY SYNC</a>
         <a href="#/reports" data-nav="reports"><span class="nav-icon">▥</span> REPORTS</a>
         <a href="#/mobile" data-nav="mobile"><span class="nav-icon">▧</span> QR DISTRIBUTION</a>
+        <a href="#/users" data-nav="users" id="nav-users"><span class="nav-icon">☺</span> MANAGE USERS</a>
       </nav>
 
       <div class="sidebar-footer">
@@ -57,7 +67,6 @@
     </main>
   </div>
 
-  <script src="/vendor/leaflet/leaflet.js"></script>
   <script type="module" src="js/router.js"></script>
 </body>
 </html>
