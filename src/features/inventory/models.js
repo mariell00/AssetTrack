@@ -1,4 +1,8 @@
 // features/inventory/models.js — InventoryLog schema (scanned_by, room, timestamp).
+function columnExists(db, table, column) {
+  return db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
+}
+
 function init(db) {
   db.exec(`
     CREATE TABLE IF NOT EXISTS inventory_logs (
@@ -29,6 +33,24 @@ function init(db) {
       created_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // Which client the scan/sync actually came from ('mobile' or 'desktop',
+  // read from the requester's verified JWT — see core/security.js), its IP,
+  // and a short device name parsed from its User-Agent (see core/device.js)
+  // — not just the self-reported "scanned_by" username — so the Inventory
+  // Sync screen's Mobile Check-in Log can show who AND what phone, not
+  // just a name someone could have typed into any client.
+  for (const table of ['inventory_logs', 'sync_sessions']) {
+    if (!columnExists(db, table, 'device_source')) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN device_source TEXT`);
+    }
+    if (!columnExists(db, table, 'device_ip')) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN device_ip TEXT`);
+    }
+    if (!columnExists(db, table, 'device_name')) {
+      db.exec(`ALTER TABLE ${table} ADD COLUMN device_name TEXT`);
+    }
+  }
 }
 
 module.exports = { init };
