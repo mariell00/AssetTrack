@@ -3,26 +3,43 @@
 const { getDb } = require('../../core/database');
 const { verifyPassword, issueToken, hashPassword } = require('../../core/security');
 
-function login(username, password) {
+// `meta.source` is 'mobile' or 'desktop', `meta.device` a short label like
+// "iPhone" or "Windows PC" (see core/device.js) — both passed in by
+// routes.js based on the request itself (the mobile PWA and the Admin Hub
+// share this one login route). Defaults to 'desktop' so old clients /
+// direct API calls that don't send the header still behave exactly as
+// before.
+function login(username, password, meta = {}) {
+  const source = meta.source === 'mobile' ? 'mobile' : 'desktop';
+  const ip = meta.ip || null;
+  const device = meta.device || null;
   const db = getDb();
   const { logEvent } = require('../system/services');
   const user = db.prepare('SELECT * FROM users WHERE username = ?').get(username);
-  if (!user) { logEvent('AUTH', `Failed login attempt for "${username}"`, 'alert'); return { ok: false, error: 'Invalid username or password.' }; }
+  if (!user) { logEvent('AUTH', `Failed login attempt for "${username}" (${source})`, 'alert'); return { ok: false, error: 'Invalid username or password.' }; }
   if (user.status === 'inactive') return { ok: false, error: 'This account has been deactivated.' };
 
   const valid = verifyPassword(password, user.password_hash);
-  if (!valid) { logEvent('AUTH', `Failed login attempt for "${username}"`, 'alert'); return { ok: false, error: 'Invalid username or password.' }; }
+  if (!valid) { logEvent('AUTH', `Failed login attempt for "${username}" (${source})`, 'alert'); return { ok: false, error: 'Invalid username or password.' }; }
 
-  db.prepare("UPDATE users SET last_active = datetime('now') WHERE id = ?").run(user.id);
-  logEvent('AUTH', `Admin login: user=${user.username.toUpperCase()}`, 'success');
+  db.prepare(
+    "UPDATE users SET last_active = datetime('now'), last_login_source = ?, last_login_ip = ?, last_login_device = ? WHERE id = ?"
+  ).run(source, ip, device, user.id);
 
-  const token = issueToken({ id: user.id, username: user.username, role: user.role });
-  return { ok: true, token, user: { id: user.id, username: user.username, role: user.role } };
+  const label = source === 'mobile' ? 'Mobile login' : 'Admin login';
+  logEvent('AUTH', `${label}: user=${user.username.toUpperCase()}${device ? ` · ${device}` : ''}${ip ? ` from ${ip}` : ''}`, 'success');
+
+  const token = issueToken({ id: user.id, username: user.username, role: user.role, source });
+  return {
+    ok: true,
+    token,
+    user: { id: user.id, username: user.username, role: user.role, last_login_source: source }
+  };
 }
 
 function listUsers({ search } = {}) {
   const db = getDb();
-  let sql = 'SELECT id, username, role, status, assigned_area, last_active, created_at FROM users';
+  let sql = 'SELECT id, username, role, status, assigned_area, last_active, last_login_source, last_login_ip, last_login_device, created_at FROM users';
   const params = [];
   if (search) { sql += ' WHERE username LIKE ?'; params.push(`%${search}%`); }
   sql += ' ORDER BY username';
