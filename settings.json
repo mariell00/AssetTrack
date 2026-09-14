@@ -18,8 +18,8 @@
   },
   "tileProvider": {
     "note": "tiles:fetch needs a real tile provider here — it will refuse to run without one. Bulk-downloading straight from tile.openstreetmap.org (the public tile.openstreetmap.org server) is explicitly against OpenStreetMap's tile usage policy (osmfoundation.org/wiki/Policies/Tile_usage): that server auto-detects bulk/scripted downloads and blocks them, returning a black-and-yellow 'Access blocked' image INSTEAD of the real tile — which is exactly what got saved into src/static/map_tiles/ and is now showing up on the Cluster Map. Sign up for a free API key from a provider meant for this (e.g. MapTiler: https://cloud.maptiler.com — free tier covers a small single-campus map easily) and paste its raw tile URL template below with {key} where the key goes, e.g. 'https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={key}'.",
-    "urlTemplate": null,
-    "apiKey": null,
+    "urlTemplate": "https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={key}",
+    "apiKey": "vux7lhW4KeOhltaVgf2G",
     "attribution": "&copy; MapTiler &copy; OpenStreetMap contributors"
   }
 }
