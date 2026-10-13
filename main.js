@@ -20,6 +20,7 @@ app.setPath('userData', userDataPath);
 let mainWindow;
 let server;
 let httpsServer;
+let namedTunnelProcess;
 
 function registerFeatureRoutes(expressApp) {
   // Each feature module owns its own routes.js — mounted here so the
@@ -129,13 +130,29 @@ function startServer(config) {
 // works even with zero internet access on this machine.
 //
 // If settings.json has publicAccess.enabled = true, this additionally opens
-// a Cloudflare "quick tunnel" (via the `cloudflared` package — no account or
-// domain required) that maps a random https://*.trycloudflare.com URL to
-// this local server. Once that URL is live, the QR code switches to it, and
-// the phone can reach the mobile app over ANY internet connection, not just
-// this network, with a properly-trusted certificate (no browser warning).
-// The tunnel URL is stored on expressApp.locals so the /api/v1/qr/code
-// route can read whichever is current.
+// a Cloudflare tunnel so the phone can reach the mobile app over ANY
+// internet connection, not just this network, with a properly-trusted
+// certificate (no browser warning). Two modes, chosen by publicAccess.mode:
+//
+//   "quick" (default) — a Cloudflare "quick tunnel" (via the `cloudflared`
+//   package — no account or domain required) that maps a random
+//   https://*.trycloudflare.com URL to this local server. Simplest to turn
+//   on, but that random URL is reassigned every time the app restarts,
+//   which means every phone that already logged in (see mobile's
+//   core/api-client.js, which caches the URL) silently starts failing with
+//   "No connection to desktop host" until someone updates it from the
+//   mobile app's SYNC screen.
+//
+//   "named" — a Cloudflare Tunnel created once in the Cloudflare Zero Trust
+//   dashboard (Networks > Tunnels), with a public hostname on your own
+//   domain (e.g. assettrack.yourdomain.com) mapped to this local server.
+//   That hostname never changes across restarts, so phones stay connected
+//   permanently. Requires a free Cloudflare account + a domain added to it,
+//   plus the run token from the dashboard's connector install step, stored
+//   in settings.json under publicAccess.namedTunnel.{token,hostname}.
+//
+// Either way, the resulting URL is stored on expressApp.locals so the
+// /api/v1/qr/code route can read whichever is current.
 //
 // This is deliberately opt-in and off by default: it makes the API (now
 // protected by requireAuth, see startServer) reachable from the public
@@ -150,6 +167,15 @@ async function setupMobileAccess(expressApp, config) {
   if (!config.publicAccess || !config.publicAccess.enabled) return;
 
   const logEvent = require('./src/features/system/services').logEvent;
+  const mode = config.publicAccess.mode || 'quick';
+
+  if (mode === 'named') {
+    return setupNamedTunnel(expressApp, config, lanUrl, logEvent);
+  }
+  return setupQuickTunnel(expressApp, config, lanUrl, logEvent);
+}
+
+async function setupQuickTunnel(expressApp, config, lanUrl, logEvent) {
   expressApp.locals.tunnelStarting = true;
 
   try {
@@ -188,10 +214,86 @@ async function setupMobileAccess(expressApp, config) {
   }
 }
 
+// Runs `cloudflared tunnel run --token <token>` directly (bypassing the
+// `cloudflared` package's Tunnel.quick() helper, which only knows how to
+// start random quick tunnels) — this is the exact command Cloudflare's own
+// dashboard shows you after creating a named tunnel and adding a public
+// hostname to it. The hostname itself is fixed at creation time in the
+// dashboard, so unlike the quick tunnel we already know the final URL
+// up front from settings.json rather than needing to wait for one to be
+// assigned.
+async function setupNamedTunnel(expressApp, config, lanUrl, logEvent) {
+  const { token, hostname } = (config.publicAccess && config.publicAccess.namedTunnel) || {};
+  if (!token || !hostname) {
+    logEvent(
+      'TUNNEL',
+      'publicAccess.mode is "named" but settings.json is missing publicAccess.namedTunnel.token and/or .hostname — falling back to LAN-only access.',
+      'error'
+    );
+    return;
+  }
+
+  expressApp.locals.tunnelStarting = true;
+
+  try {
+    const { bin, install } = require('cloudflared');
+    if (!fs.existsSync(bin)) {
+      logEvent('TUNNEL', 'Downloading cloudflared (first run only)...', 'info');
+      await install(bin);
+    }
+
+    const { spawn } = require('child_process');
+    const proc = spawn(bin, ['tunnel', 'run', '--token', token], { stdio: ['ignore', 'pipe', 'pipe'] });
+    namedTunnelProcess = proc;
+
+    let connected = false;
+    const markConnected = () => {
+      if (connected) return;
+      connected = true;
+      expressApp.locals.mobileBaseUrl = `https://${hostname}`;
+      expressApp.locals.mobileAccessMode = 'public';
+      expressApp.locals.tunnelStarting = false;
+      logEvent('TUNNEL', `Public access ready: https://${hostname}`, 'success');
+    };
+
+    // cloudflared logs a "Registered tunnel connection" line once it's
+    // actually live — that's the same "it's ready" signal the quick tunnel
+    // gets from its 'url' event. A fallback timeout below covers older/newer
+    // cloudflared builds that phrase that log line differently, so a wording
+    // change upstream doesn't leave the QR code stuck on "starting" forever.
+    const watchForConnection = (chunk) => {
+      if (/registered tunnel connection/i.test(chunk.toString())) markConnected();
+    };
+    proc.stdout.on('data', watchForConnection);
+    proc.stderr.on('data', watchForConnection);
+    const fallbackTimer = setTimeout(markConnected, 8000);
+
+    proc.on('error', (err) => {
+      clearTimeout(fallbackTimer);
+      expressApp.locals.tunnelStarting = false;
+      logEvent('TUNNEL', `Named tunnel process error: ${err.message}`, 'error');
+    });
+    proc.on('exit', (code) => {
+      clearTimeout(fallbackTimer);
+      if (expressApp.locals.mobileAccessMode === 'public' || expressApp.locals.tunnelStarting) {
+        logEvent('TUNNEL', `Named tunnel process exited (code ${code}) — falling back to LAN-only access.`, 'error');
+        expressApp.locals.mobileBaseUrl = lanUrl;
+        expressApp.locals.mobileAccessMode = 'lan';
+        expressApp.locals.tunnelStarting = false;
+      }
+      namedTunnelProcess = null;
+    });
+  } catch (err) {
+    expressApp.locals.tunnelStarting = false;
+    logEvent('TUNNEL', `Could not start named tunnel (${err.message}) — QR code will use the LAN address instead.`, 'error');
+  }
+}
+
 function createWindow(config) {
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
+    center: true,
     minWidth: 960,
     minHeight: 640,
     backgroundColor: '#111844',
@@ -202,6 +304,10 @@ function createWindow(config) {
       nodeIntegration: false
     }
   });
+
+  // Drop Electron's default File/Edit/View/Window/Help menu bar (Windows/Linux;
+  // no-op on macOS, which keeps its own app menu).
+  mainWindow.removeMenu();
 
   // Load from the same http:// origin the API is served on (see the
   // express.static() line in startServer) — NOT loadFile()/file://. This is
@@ -239,5 +345,6 @@ app.on('window-all-closed', () => {
   try { require('./src/core/database').getDb().persist(); } catch { /* db never initialized */ }
   if (server) server.close();
   if (httpsServer) httpsServer.close();
+  if (namedTunnelProcess) namedTunnelProcess.kill();
   if (process.platform !== 'darwin') app.quit();
 });
