@@ -5,35 +5,94 @@ import { apiPost, apiGet, apiPatch } from '../../js/api-client.js';
 export function render() {
   const el = document.createElement('div');
   el.className = 'screen screen-login';
+  // "blue" = school palette (cobalt #0033FF / navy #0A1A3F / white). Use 'red' for the old charcoal + red look.
+  el.dataset.accent = 'blue';
   el.innerHTML = `
-    <div class="crt-panel login-panel">
-      <div class="login-avatar">
-        <img src="assets/icons/crt-monitor.svg" alt="" width="36" height="36" />
+    <div class="lg-ghost" aria-hidden="true">nbsc supply office nbsc supply office nbsc supply office nbsc supply office nbsc supply office nbsc supply office</div>
+    <div class="lg-card">
+      <header class="lg-head">
+        <div>
+          <h1 class="lg-nbsc">NBSC</h1>
+          <p class="lg-college">Northern Bukidnon State College</p>
+        </div>
+        <h2 class="lg-office">supply office</h2>
+      </header>
+
+      <div class="lg-marks" aria-hidden="true">
+        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13" cy="13" r="8"/><path d="M13 1v8M13 17v8M1 13h8M17 13h8"/></svg>
+        <span class="lg-bar"></span>
+        <span class="lg-dots"></span>
+        <span class="lg-code">asset registry</span>
       </div>
-      <h2 class="login-title">Admin Portal &mdash; Secure Login</h2>
-      <p class="login-subtitle">Authorized supply office staff only</p>
-      <form id="login-form" class="retro-form">
-        <label>USERNAME OR EMAIL</label>
-        <input type="text" id="login-username" autocomplete="username" placeholder="e.g. admin" required />
-        <label>PASSWORD</label>
-        <input type="password" id="login-password" autocomplete="current-password" placeholder="••••••••" required />
-        <button type="submit" class="btn-retro">▶ SIGN IN</button>
-        <p id="login-error" class="form-error"></p>
-      </form>
-      <p class="login-footer">Lost access? Contact your system administrator.</p>
+
+      <div class="lg-body">
+        <figure class="lg-figure">
+          <!-- Placeholder photo: replace assets/login/placeholder.jpg with the real campus image. -->
+          <img src="assets/login/placeholder.jpg" alt="" />
+          <figcaption class="lg-figcap">photo placeholder</figcaption>
+        </figure>
+
+        <form id="login-form" class="lg-form" novalidate>
+          <div class="lg-field">
+            <label for="login-username">user name</label>
+            <input type="text" id="login-username" autocomplete="username" required />
+          </div>
+          <div class="lg-field">
+            <label for="login-password">password</label>
+            <input type="password" id="login-password" autocomplete="current-password" required />
+          </div>
+          <button type="submit" class="lg-submit" id="login-submit">Login</button>
+          <p id="login-error" class="lg-status" role="alert"></p>
+          <button type="button" class="lg-forgot" id="login-forgot">forget password?</button>
+        </form>
+      </div>
+
+      <div class="lg-foot">
+        <div class="lg-desc-wrap">
+          <svg class="lg-globe" width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="32" cy="32" r="28"/><ellipse cx="32" cy="32" rx="12" ry="28"/><ellipse cx="32" cy="32" rx="22" ry="28"/>
+            <path d="M32 4v56M4 32h56M8 20h48M8 44h48"/>
+          </svg>
+          <p class="lg-desc">Track, tag and verify every college asset, even without a connection. Authorized supply office staff only.</p>
+        </div>
+        <div class="lg-checker" aria-hidden="true"></div>
+      </div>
     </div>
   `;
 
-  el.querySelector('#login-form').addEventListener('submit', async (e) => {
+  const form = el.querySelector('#login-form');
+  const errorEl = el.querySelector('#login-error');
+  const submitBtn = el.querySelector('#login-submit');
+
+  function setStatus(message, kind = 'error') {
+    errorEl.textContent = message;
+    errorEl.dataset.kind = kind;
+  }
+
+  // No self-service reset exists on the backend, so say who can do it.
+  el.querySelector('#login-forgot').addEventListener('click', () => {
+    setStatus('Password resets are done by your system administrator. Ask them to set a temporary password.', 'info');
+  });
+
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     const username = el.querySelector('#login-username').value.trim();
     const password = el.querySelector('#login-password').value;
-    const errorEl = el.querySelector('#login-error');
-    errorEl.textContent = '';
+    setStatus('');
 
+    if (!username || !password) {
+      setStatus('Enter your user name and password.');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Checking';
     const result = await apiPost('/api/v1/auth/login', { username, password });
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Login';
+
     if (!result.ok) {
-      errorEl.textContent = result.error || 'Login failed.';
+      setStatus(result.error || 'Login failed. Check your user name and password.');
       return;
     }
     localStorage.setItem('assettrack_token', result.token);
