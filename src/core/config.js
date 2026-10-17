@@ -4,11 +4,21 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
-const SETTINGS_PATH = path.join(__dirname, '..', '..', 'settings.json');
+const { settingsPath, localSettingsPath } = require('./paths');
+
+function deepMerge(base, over) {
+  for (const [k, v] of Object.entries(over || {})) {
+    if (v && typeof v === 'object' && !Array.isArray(v) && base[k] && typeof base[k] === 'object') deepMerge(base[k], v);
+    else base[k] = v;
+  }
+  return base;
+}
 
 function loadConfig() {
-  const raw = fs.readFileSync(SETTINGS_PATH, 'utf-8');
+  const raw = fs.readFileSync(settingsPath(), 'utf-8');
   const config = JSON.parse(raw);
+  // Secrets (map API key, SMTP password) belong in settings.local.json, which is git-ignored.
+  try { deepMerge(config, JSON.parse(fs.readFileSync(localSettingsPath(), 'utf-8'))); } catch { /* no local overrides */ }
   // Older settings.json files (from before self-signed HTTPS support) won't
   // have this key — default it here so an in-place upgrade doesn't need a
   // manual settings.json edit before the mobile HTTPS listener can start.
@@ -17,7 +27,7 @@ function loadConfig() {
 }
 
 function saveConfig(config) {
-  fs.writeFileSync(SETTINGS_PATH, JSON.stringify(config, null, 2));
+  fs.writeFileSync(settingsPath(), JSON.stringify(config, null, 2));
 }
 
 // Scans all network interfaces and returns the first non-internal IPv4

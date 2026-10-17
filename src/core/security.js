@@ -15,7 +15,7 @@ const crypto = require('crypto');
 // support), a shared/guessable secret is a real vulnerability, so instead
 // we generate a random 256-bit secret on first run and persist it next to
 // the local database — unique per install, never committed to source.
-const SECRET_PATH = path.join(__dirname, '..', '..', 'data', 'jwt-secret.key');
+const SECRET_PATH = path.join(require('./paths').DATA_DIR, 'jwt-secret.key');
 
 function getOrCreateSecret() {
   try {

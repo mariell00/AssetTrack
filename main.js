@@ -13,7 +13,7 @@ const { getOrCreateCert } = require('./src/core/tls');
 
 // ---- Portability: keep all runtime data NEXT TO the executable ----
 // Moving the whole AssetTrack_Desktop folder to another PC just works.
-const userDataPath = path.join(__dirname, 'data');
+const userDataPath = require('./src/core/paths').DATA_DIR;
 if (!fs.existsSync(userDataPath)) fs.mkdirSync(userDataPath, { recursive: true });
 app.setPath('userData', userDataPath);
 

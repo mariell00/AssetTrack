@@ -17,7 +17,7 @@ AssetTrack_Desktop/
 ```
 
 Each feature module (`auth`, `assets`, `inventory`, `mapping`, `reports`,
-`qr-distribution`) is self-contained: its own database schema, business logic,
+`qr-distribution`, `analytics`, `system`) is self-contained: its own database schema, business logic,
 Express routes, and UI. To add a new feature (e.g. "depreciation"), copy the
 shape of an existing feature folder, register its routes in `main.js`, and
 add a nav link in `src/renderer/index.html` — nothing else needs to change.
@@ -54,6 +54,9 @@ with the seeded default account:
 - **Username:** `admin`
 - **Password:** `changeme` — change this immediately via the user panel.
 
+Public internet access (Cloudflare tunnel) is controlled by `publicAccess.enabled`; see
+`publicAccess` in `settings.json` (`quick` or `named` mode). Set it to `false` for LAN-only phones.
+
 ## 4. Build the portable desktop app
 
 ```bash
@@ -63,7 +66,9 @@ npm run build:desktop
 This runs `build-mobile.js` (copies `/mobile` into `src/static/mobile`) and
 then `electron-builder`, producing a portable `.exe` (Windows) or
 `.AppImage` (Linux) inside `/dist`. The whole `dist` output folder is
-self-contained — copy it to any PC and run it with zero configuration
+self-contained — `data/` and an optional `settings.json` / `settings.local.json`
+are read from next to the executable, and your development `data/` folder is
+never bundled. Copy it to any PC and run it with zero configuration
 changes, aside from re-scanning the QR code if the local IP changes.
 
 ## 5. Install the mobile app on staff phones
@@ -97,15 +102,7 @@ changes, aside from re-scanning the QR code if the local IP changes.
 
 ## Extending the system
 
-Want to add a "Depreciation" feature? Create:
-
-```
-src/features/depreciation/
-├── models.js     # CREATE TABLE IF NOT EXISTS ...
-├── services.js   # business logic, imports getDb() from core/database
-├── routes.js     # Express router, mounted at /api/v1/depreciation
-└── ui.js         # export function render() { ... }
-```
-
-Then add one line to `main.js` (`expressApp.use('/api/v1/depreciation', ...)`)
-and one nav link in `index.html`. No other file needs to change.
+Add a feature by creating `src/features/<name>/` with `models.js`, `services.js`,
+`routes.js` and `ui.js` (same shape as any existing feature), then add one
+`expressApp.use('/api/v1/<name>', ...)` line to `main.js` and one nav link in
+`src/renderer/index.html`.

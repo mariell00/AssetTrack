@@ -4,26 +4,37 @@
   "localIp": null,
   "publicAccess": {
     "enabled": true,
-    "note": "Set enabled to true to expose the mobile QR code over the public internet (via a Cloudflare quick tunnel) instead of requiring the phone to be on the same WiFi as this desktop. Requires internet access on this machine. All API routes require login either way."
+    "note": "Set enabled to true to expose the mobile QR code over the public internet (via a Cloudflare tunnel) instead of requiring the phone to be on the same WiFi as this desktop. On in this install; set enabled to false for LAN-only access. Requires internet access on this machine. All API routes require login either way. mode: \"quick\" (default, random trycloudflare.com URL that changes on every restart) or \"named\" (stable hostname; also set namedTunnel.token and namedTunnel.hostname from the Cloudflare Zero Trust dashboard).",
+    "mode": "quick",
+    "namedTunnel": {
+      "token": "",
+      "hostname": ""
+    }
   },
   "dbFile": "inventory.db",
   "backupIntervalHours": 24,
   "mapBoundingBox": {
-    "note": "Centered on NBSC's actual campus coordinates (8.359999, 124.868103), Manolo Fortich, Bukidnon — good enough to center the Cluster Map's tile download and initial view, but not a precise per-building survey. Run 'npm run tiles:fetch' after adjusting this so the map works offline; use the Cluster Map screen's PLACE ON MAP button per room to pin each room's exact spot once you can see real buildings on the map.",
+    "note": "Centered on NBSC's actual campus coordinates (8.359999, 124.868103), Manolo Fortich, Bukidnon \u2014 good enough to center the Cluster Map's tile download and initial view, but not a precise per-building survey. Run 'npm run tiles:fetch' after adjusting this so the map works offline; use the Cluster Map screen's PLACE ON MAP button per room to pin each room's exact spot once you can see real buildings on the map.",
     "minLat": 8.354999,
     "minLng": 124.860603,
     "maxLat": 8.364999,
     "maxLng": 124.875603,
-    "zoomLevels": [15, 16, 17, 18, 19]
+    "zoomLevels": [
+      15,
+      16,
+      17,
+      18,
+      19
+    ]
   },
   "tileProvider": {
-    "note": "tiles:fetch needs a real tile provider here — it will refuse to run without one. Bulk-downloading straight from tile.openstreetmap.org (the public tile.openstreetmap.org server) is explicitly against OpenStreetMap's tile usage policy (osmfoundation.org/wiki/Policies/Tile_usage): that server auto-detects bulk/scripted downloads and blocks them, returning a black-and-yellow 'Access blocked' image INSTEAD of the real tile — which is exactly what got saved into src/static/map_tiles/ and is now showing up on the Cluster Map. Sign up for a free API key from a provider meant for this (e.g. MapTiler: https://cloud.maptiler.com — free tier covers a small single-campus map easily) and paste its raw tile URL template below with {key} where the key goes, e.g. 'https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={key}'.",
+    "note": "tiles:fetch needs a real tile provider here \u2014 it will refuse to run without one. Bulk-downloading straight from tile.openstreetmap.org (the public tile.openstreetmap.org server) is explicitly against OpenStreetMap's tile usage policy (osmfoundation.org/wiki/Policies/Tile_usage): that server auto-detects bulk/scripted downloads and blocks them, returning a black-and-yellow 'Access blocked' image INSTEAD of the real tile \u2014 which is exactly what got saved into src/static/map_tiles/ and is now showing up on the Cluster Map. Sign up for a free API key from a provider meant for this (e.g. MapTiler: https://cloud.maptiler.com \u2014 free tier covers a small single-campus map easily) and paste its raw tile URL template below with {key} where the key goes, e.g. 'https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={key}'.",
     "urlTemplate": "https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={key}",
     "apiKey": "vux7lhW4KeOhltaVgf2G",
     "attribution": "&copy; MapTiler &copy; OpenStreetMap contributors"
   },
   "recovery": {
-    "note": "Where the superadmin's one-time recovery code is emailed (the system administrator / creator). For Gmail: turn on 2-step verification, create an App Password, and put that 16-character password in 'pass' (NOT your normal password). Keep this file private — it holds the mail password.",
+    "note": "Where the superadmin's one-time recovery code is emailed (the system administrator / creator). For Gmail: turn on 2-step verification, create an App Password, and put that 16-character password in 'pass' (NOT your normal password). Keep this file private \u2014 it holds the mail password.",
     "email": "creator@example.com",
     "smtp": {
       "host": "smtp.gmail.com",

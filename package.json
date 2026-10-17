@@ -1,6 +1,6 @@
 {
   "name": "assettrack-desktop",
-  "version": "1.0.0",
+  "version": "2.4.1",
   "description": "AssetTrack - offline-first, portable asset management system (Retro Computing edition)",
   "main": "main.js",
   "author": "Supply Office / NBSC",
@@ -42,15 +42,6 @@
       "mobile/**/*",
       "node_modules/**/*",
       "package.json"
-    ],
-    "extraResources": [
-      {
-        "from": "data",
-        "to": "data",
-        "filter": [
-          "**/*"
-        ]
-      }
     ],
     "win": {
       "target": "portable",
