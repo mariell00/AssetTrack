@@ -5,9 +5,19 @@
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'" />
   <title>AssetTrack — Mainframe</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=VT323&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles/retro-theme.css" />
   <link rel="stylesheet" href="styles/scanlines.css" />
+  <link rel="stylesheet" href="styles/fonts.css" />
+  <link rel="stylesheet" href="styles/login-brutal.css" />
+  <!-- Boot guard: the markup below ships the full app chrome (sidebar, top bar,
+       "DASHBOARD" breadcrumb). Keep it hidden until router.js has decided
+       whether this is the login screen or the app, so neither flashes first. -->
+  <style>
+    #shell:not(.ready) { visibility: hidden; }
+    /* Invisible strip you can drag the window by (the native title bar is hidden). */
+    #titlebar-drag { position: fixed; top: 0; left: 0; right: 0; height: 32px; z-index: 1; -webkit-app-region: drag; }
+  </style>
   <!-- Leaflet + Leaflet.markercluster, vendored locally (not a CDN) so the
        Cluster Map keeps working with zero internet access — see
        src/features/mapping/ui-map.js. Loaded here per Leaflet's own
@@ -20,9 +30,11 @@
   <script src="vendor/leaflet.markercluster/leaflet.markercluster.js"></script>
 </head>
 <body>
+  <div id="titlebar-drag"></div>
   <div id="device-bezel"></div>
   <div id="shell">
     <aside id="sidebar">
+      <button id="btn-sidebar-toggle" class="sidebar-toggle" aria-label="Toggle menu" title="Hide/minimize menu">☰</button>
       <div class="brand">
         <span class="brand-icon">◆</span>
         <div class="brand-text">
@@ -33,13 +45,14 @@
       <div class="brand-sub">v2.4.1 // MAINFRAME</div>
 
       <nav id="nav-links">
-        <a href="#/dashboard" data-nav="dashboard"><span class="nav-icon">◈</span> DASHBOARD</a>
-        <a href="#/assets" data-nav="assets"><span class="nav-icon">▤</span> ASSET REGISTRY</a>
-        <a href="#/map" data-nav="map"><span class="nav-icon">▦</span> CLUSTER MAP</a>
-        <a href="#/inventory" data-nav="inventory"><span class="nav-icon">⟳</span> INVENTORY SYNC</a>
-        <a href="#/reports" data-nav="reports"><span class="nav-icon">▥</span> REPORTS</a>
-        <a href="#/mobile" data-nav="mobile"><span class="nav-icon">▧</span> QR DISTRIBUTION</a>
-        <a href="#/users" data-nav="users" id="nav-users"><span class="nav-icon">☺</span> MANAGE USERS</a>
+        <a href="#/dashboard" data-nav="dashboard"><span class="nav-icon">◈</span><span class="nav-label"> DASHBOARD</span></a>
+        <a href="#/assets" data-nav="assets"><span class="nav-icon">▤</span><span class="nav-label"> ASSET REGISTRY</span></a>
+        <a href="#/map" data-nav="map"><span class="nav-icon">▦</span><span class="nav-label"> CLUSTER MAP</span></a>
+        <a href="#/locations" data-nav="locations" id="nav-locations"><span class="nav-icon">⌂</span><span class="nav-label"> LOCATIONS</span></a>
+        <a href="#/inventory" data-nav="inventory"><span class="nav-icon">⟳</span><span class="nav-label"> INVENTORY SYNC</span></a>
+        <a href="#/reports" data-nav="reports"><span class="nav-icon">▥</span><span class="nav-label"> REPORTS</span></a>
+        <a href="#/mobile" data-nav="mobile"><span class="nav-icon">▧</span><span class="nav-label"> QR DISTRIBUTION</span></a>
+        <a href="#/users" data-nav="users" id="nav-users"><span class="nav-icon">☺</span><span class="nav-label"> MANAGE USERS</span></a>
       </nav>
 
       <div class="sidebar-footer">
@@ -50,7 +63,7 @@
             <span class="user-role" id="sidebar-role">SUPERUSER</span>
           </div>
         </div>
-        <button id="btn-logout" class="btn-retro small full-width">⏻ LOGOUT</button>
+        <button id="btn-logout" class="btn-retro small full-width"><span class="nav-icon">⏻</span><span class="nav-label"> LOGOUT</span></button>
       </div>
     </aside>
 
