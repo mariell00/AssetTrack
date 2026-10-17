@@ -33,12 +33,18 @@ export function render() {
         </figure>
 
         <form id="login-form" class="lg-form" novalidate>
-          <div class="lg-field">
-            <label for="login-username">user name</label>
+          <div class="lg-field" id="field-username">
+            <div class="lg-field-head">
+              <label for="login-username">user name</label>
+              <span class="lg-flag" id="flag-username" aria-live="polite"></span>
+            </div>
             <input type="text" id="login-username" autocomplete="username" required />
           </div>
-          <div class="lg-field">
-            <label for="login-password">password</label>
+          <div class="lg-field" id="field-password">
+            <div class="lg-field-head">
+              <label for="login-password">password</label>
+              <span class="lg-flag" id="flag-password" aria-live="polite"></span>
+            </div>
             <input type="password" id="login-password" autocomplete="current-password" required />
           </div>
           <button type="submit" class="lg-submit" id="login-submit">Login</button>
@@ -58,6 +64,56 @@ export function render() {
         <div class="lg-checker" aria-hidden="true"></div>
       </div>
     </div>
+
+    <dialog class="lg-modal" id="forgot-dialog" aria-labelledby="forgot-title">
+      <div class="lg-modal-box">
+        <div class="lg-modal-bar">
+          <span class="lg-modal-code">superadmin recovery</span>
+          <button type="button" class="lg-modal-x" id="forgot-x" aria-label="Close">&times;</button>
+        </div>
+        <div class="lg-modal-body">
+          <h3 class="lg-modal-title" id="forgot-title">forget password?</h3>
+
+          <section class="lg-step" data-step="request">
+            <p class="lg-modal-text">A one-time code will be emailed to the system administrator &mdash; the person who set up AssetTrack. With that code you can set a new user name and password for the superadmin account.</p>
+            <p class="lg-status lg-modal-status" id="forgot-status" role="alert"></p>
+            <button type="button" class="lg-submit lg-modal-ok" id="forgot-send">Send code</button>
+            <div class="lg-modal-links"><button type="button" class="lg-linkbtn" id="forgot-have-code">I already have a code</button></div>
+          </section>
+
+          <form class="lg-step" data-step="reset" id="reset-form" novalidate hidden>
+            <p class="lg-modal-text" id="reset-hint"></p>
+            <div class="lg-field" id="field-code">
+              <div class="lg-field-head"><label for="reset-code">one-time code</label><span class="lg-flag" id="flag-code" aria-live="polite"></span></div>
+              <input type="text" id="reset-code" class="lg-code-input" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="XXXX-XXXX" />
+            </div>
+            <div class="lg-field" id="field-newuser">
+              <div class="lg-field-head"><label for="reset-user">new user name</label><span class="lg-flag" id="flag-newuser" aria-live="polite"></span></div>
+              <input type="text" id="reset-user" autocomplete="username" spellcheck="false" />
+            </div>
+            <div class="lg-field" id="field-newpass">
+              <div class="lg-field-head"><label for="reset-pass">new password</label><span class="lg-flag" id="flag-newpass" aria-live="polite"></span></div>
+              <input type="password" id="reset-pass" autocomplete="new-password" />
+            </div>
+            <div class="lg-field" id="field-newpass2">
+              <div class="lg-field-head"><label for="reset-pass2">confirm password</label><span class="lg-flag" id="flag-newpass2" aria-live="polite"></span></div>
+              <input type="password" id="reset-pass2" autocomplete="new-password" />
+            </div>
+            <p class="lg-status lg-modal-status" id="reset-status" role="alert"></p>
+            <button type="submit" class="lg-submit lg-modal-ok" id="reset-submit">Reset superadmin</button>
+            <div class="lg-modal-links">
+              <button type="button" class="lg-linkbtn" id="reset-resend">send a new code</button>
+              <button type="button" class="lg-linkbtn" id="reset-back">back</button>
+            </div>
+          </form>
+
+          <section class="lg-step" data-step="done" hidden>
+            <p class="lg-modal-text" id="done-text"></p>
+            <button type="button" class="lg-submit lg-modal-ok" id="done-ok">Back to login</button>
+          </section>
+        </div>
+      </div>
+    </dialog>
   `;
 
   const form = el.querySelector('#login-form');
@@ -69,9 +125,191 @@ export function render() {
     errorEl.dataset.kind = kind;
   }
 
-  // No self-service reset exists on the backend, so say who can do it.
+  // Red-field feedback: the field turns red and a short flag ("incorrect" /
+  // "required") appears beside its label. Editing a field clears its flag.
+  const fieldIds = {
+    username: ['field-username', 'login-username', 'flag-username'],
+    password: ['field-password', 'login-password', 'flag-password'],
+    code:     ['field-code', 'reset-code', 'flag-code'],
+    newUser:  ['field-newuser', 'reset-user', 'flag-newuser'],
+    newPass:  ['field-newpass', 'reset-pass', 'flag-newpass'],
+    newPass2: ['field-newpass2', 'reset-pass2', 'flag-newpass2']
+  };
+  const fields = {};
+  for (const [name, [wrap, input, flag]] of Object.entries(fieldIds)) {
+    fields[name] = { wrap: el.querySelector('#' + wrap), input: el.querySelector('#' + input), flag: el.querySelector('#' + flag) };
+  }
+  const LOGIN_FIELDS = ['username', 'password'];
+  const RESET_FIELDS = ['code', 'newUser', 'newPass', 'newPass2'];
+  function flagField(name, text) {
+    const f = fields[name];
+    f.wrap.dataset.invalid = 'true';
+    f.input.setAttribute('aria-invalid', 'true');
+    f.flag.textContent = text;
+  }
+  function clearFlag(name) {
+    const f = fields[name];
+    delete f.wrap.dataset.invalid;
+    f.input.removeAttribute('aria-invalid');
+    f.flag.textContent = '';
+  }
+  Object.keys(fields).forEach((name) => fields[name].input.addEventListener('input', () => clearFlag(name)));
+
+  // ---- "forget password?" — emailed one-time code → new superadmin credentials ----
+  // Native <dialog>: overlays the screen (no layout shift), Esc closes it, and
+  // focus returns to the "forget password?" button afterwards. Steps: request →
+  // reset → done. The code itself is only ever emailed, never shown here.
+  const forgotDialog = el.querySelector('#forgot-dialog');
+  const stepEls = [...forgotDialog.querySelectorAll('.lg-step')];
+  const forgotTitle = el.querySelector('#forgot-title');
+  const STEP_TITLES = { request: 'forget password?', reset: 'enter your code', done: 'all set' };
+  const sendBtn = el.querySelector('#forgot-send');
+  const requestStatus = el.querySelector('#forgot-status');
+  const resetForm = el.querySelector('#reset-form');
+  const resetStatus = el.querySelector('#reset-status');
+  const resetHint = el.querySelector('#reset-hint');
+  const resendBtn = el.querySelector('#reset-resend');
+  const resetSubmit = el.querySelector('#reset-submit');
+  let currentStep = 'request';
+  let resendTimer = null;
+  let resendUntil = 0;
+  let recoveredUsername = '';
+
+  function inlineStatus(node, message, kind = 'error') {
+    node.textContent = message;
+    node.dataset.kind = kind;
+  }
+  function showStep(name, { focus = true } = {}) {
+    currentStep = name;
+    stepEls.forEach((step) => { step.hidden = step.dataset.step !== name; });
+    forgotTitle.textContent = STEP_TITLES[name];
+    if (focus) {
+      const first = forgotDialog.querySelector(`.lg-step[data-step="${name}"] input, .lg-step[data-step="${name}"] button`);
+      if (first) first.focus();
+    }
+  }
+  function startResendCooldown(seconds) {
+    clearInterval(resendTimer);
+    resendUntil = Date.now() + seconds * 1000;
+    const tick = () => {
+      const left = Math.ceil((resendUntil - Date.now()) / 1000);
+      if (left <= 0) {
+        clearInterval(resendTimer);
+        resendBtn.disabled = false;
+        resendBtn.textContent = 'send a new code';
+        return;
+      }
+      resendBtn.disabled = true;
+      resendBtn.textContent = `send a new code (${left}s)`;
+    };
+    tick();
+    resendTimer = setInterval(tick, 500);
+  }
+
+  // Asks the server to email a fresh code. `statusNode` is where any problem is shown.
+  async function requestCode(button, statusNode) {
+    inlineStatus(statusNode, '');
+    const label = button.textContent;
+    button.disabled = true;
+    button.textContent = 'Sending…';
+    let result;
+    try {
+      result = await apiPost('/api/v1/auth/recovery/request', {});
+    } catch (_) {
+      result = { ok: false, error: 'Could not reach the AssetTrack server.' };
+    }
+    button.textContent = label;
+    button.disabled = false;
+    if (!result.ok) {
+      inlineStatus(statusNode, result.error || 'Could not send the code. Please try again.');
+      return;
+    }
+    resetHint.textContent = `Code sent to ${result.maskedEmail}. It expires in ${result.expiresInMinutes} minutes and works once.`;
+    startResendCooldown(result.cooldownSeconds || 60);
+    showStep('reset');
+  }
+
   el.querySelector('#login-forgot').addEventListener('click', () => {
-    setStatus('Password resets are done by your system administrator. Ask them to set a temporary password.', 'info');
+    showStep('request', { focus: false });
+    forgotDialog.showModal();
+  });
+  sendBtn.addEventListener('click', () => requestCode(sendBtn, requestStatus));
+  resendBtn.addEventListener('click', () => requestCode(resendBtn, resetStatus));
+  el.querySelector('#forgot-have-code').addEventListener('click', () => {
+    inlineStatus(requestStatus, '');
+    resetHint.textContent = 'Enter the code from the email sent to the system administrator.';
+    showStep('reset');
+  });
+  el.querySelector('#reset-back').addEventListener('click', () => showStep('request'));
+  el.querySelector('#forgot-x').addEventListener('click', () => forgotDialog.close());
+  el.querySelector('#done-ok').addEventListener('click', () => forgotDialog.close());
+  // Backdrop click closes — except mid-form, where a stray click would throw away what was typed.
+  forgotDialog.addEventListener('click', (e) => {
+    if (e.target === forgotDialog && currentStep !== 'reset') forgotDialog.close();
+  });
+  // However it closed (×, Esc, button): wipe anything typed, go back to step 1.
+  forgotDialog.addEventListener('close', () => {
+    clearInterval(resendTimer);
+    resendBtn.disabled = false;
+    resendBtn.textContent = 'send a new code';
+    RESET_FIELDS.forEach((name) => { fields[name].input.value = ''; clearFlag(name); });
+    inlineStatus(requestStatus, '');
+    inlineStatus(resetStatus, '');
+    showStep('request', { focus: false });
+    if (recoveredUsername) {
+      // Hand the new user name to the login form so only the password is left to type.
+      LOGIN_FIELDS.forEach(clearFlag);
+      fields.username.input.value = recoveredUsername;
+      fields.password.input.value = '';
+      fields.password.input.focus();
+      recoveredUsername = '';
+    }
+  });
+
+  resetForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    inlineStatus(resetStatus, '');
+    RESET_FIELDS.forEach(clearFlag);
+    const code = fields.code.input.value.trim();
+    const user = fields.newUser.input.value.trim();
+    const pass = fields.newPass.input.value;
+    const pass2 = fields.newPass2.input.value;
+
+    let missing = false;
+    if (!code) { flagField('code', 'required'); missing = true; }
+    if (!user) { flagField('newUser', 'required'); missing = true; }
+    if (!pass) { flagField('newPass', 'required'); missing = true; }
+    if (!pass2) { flagField('newPass2', 'required'); missing = true; }
+    else if (pass && pass !== pass2) { flagField('newPass2', 'no match'); missing = true; }
+    if (missing) return;
+
+    resetSubmit.disabled = true;
+    resetSubmit.textContent = 'Resetting…';
+    let result;
+    try {
+      result = await apiPost('/api/v1/auth/recovery/reset', { code, username: user, password: pass });
+    } catch (_) {
+      result = { ok: false, error: 'Could not reach the AssetTrack server.' };
+    }
+    resetSubmit.disabled = false;
+    resetSubmit.textContent = 'Reset superadmin';
+
+    if (!result.ok) {
+      if (result.code === 'invalid_code') flagField('code', 'incorrect');
+      if (result.fields && result.fields.username) flagField('newUser', result.fields.username.flag);
+      if (result.fields && result.fields.password) flagField('newPass', result.fields.password.flag);
+      const detail = result.fields
+        ? Object.values(result.fields).map((f) => f.message).join(' ')
+        : result.error;
+      inlineStatus(resetStatus, detail || 'Could not reset the account. Please try again.');
+      return;
+    }
+
+    recoveredUsername = result.username;
+    ['code', 'newPass', 'newPass2'].forEach((name) => { fields[name].input.value = ''; }); // don't leave secrets in the DOM
+    el.querySelector('#done-text').textContent =
+      `Superadmin credentials updated. Log in as “${result.username}” with your new password.`;
+    showStep('done');
   });
 
   form.addEventListener('submit', async (e) => {
@@ -79,9 +317,11 @@ export function render() {
     const username = el.querySelector('#login-username').value.trim();
     const password = el.querySelector('#login-password').value;
     setStatus('');
+    LOGIN_FIELDS.forEach(clearFlag);
 
     if (!username || !password) {
-      setStatus('Enter your user name and password.');
+      if (!username) flagField('username', 'required');
+      if (!password) flagField('password', 'required');
       return;
     }
 
@@ -92,7 +332,15 @@ export function render() {
     submitBtn.textContent = 'Login';
 
     if (!result.ok) {
-      setStatus(result.error || 'Login failed. Check your user name and password.');
+      if (/invalid username or password/i.test(result.error || '')) {
+        // Wrong credentials: turn both fields red. (The server doesn't say which
+        // one was wrong, on purpose.) Other failures — deactivated account, server
+        // error — aren't "incorrect", so those still get a written message.
+        flagField('username', 'incorrect');
+        flagField('password', 'incorrect');
+      } else {
+        setStatus(result.error || 'Login failed. Please try again.');
+      }
       return;
     }
     localStorage.setItem('assettrack_token', result.token);
