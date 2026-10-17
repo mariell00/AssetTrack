@@ -20,7 +20,7 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
   --lg-ink: #E6E3DE;
   --lg-dim: #9A968F;
   --lg-line: #E6E3DE;
-  --lg-danger: #FF2E63;
+  --lg-danger: #FF3B3B;
 
   --lg-acc: #D8443F;        /* fills + frames */
   --lg-acc-text: #F0625B;   /* accent used as text/thin lines on charcoal */
@@ -29,6 +29,7 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
   position: relative;
   min-height: 100vh;
   padding: clamp(12px, 2.4vw, 32px);
+  padding-top: calc(32px + clamp(12px, 2.4vw, 32px)); /* room for the window buttons (custom title bar) */
   display: flex; align-items: center; justify-content: center;
   overflow: hidden;
   background: var(--lg-stage);
@@ -116,6 +117,12 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
 .lg-form { display: flex; flex-direction: column; gap: 18px; }
 .lg-field { display: flex; flex-direction: column; gap: 6px; }
 .lg-field label { font-family: var(--font-data); font-weight: 700; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-ink); }
+/* label row: "user name" on the left, red "incorrect"/"required" flag on the right */
+.lg-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 16px; }
+.lg-flag { font-family: var(--font-data); font-weight: 700; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-danger); }
+.lg-field[data-invalid="true"] label { color: var(--lg-danger); }
+.lg-field[data-invalid="true"] input { border-color: var(--lg-danger); background: rgba(255, 59, 59, .14); }
+.lg-field[data-invalid="true"] input:focus-visible { outline-color: var(--lg-danger); }
 .lg-field input {
   width: 100%; margin: 0; padding: 13px 14px; border-radius: 0;
   background: var(--lg-field); color: var(--lg-ink);
@@ -149,6 +156,23 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
 }
 .lg-forgot:hover, .lg-forgot:focus-visible { background: var(--lg-ink); color: #000; border-style: solid; border-color: var(--lg-ink); }
 .lg-forgot:focus-visible { outline: 3px solid var(--lg-acc-text); outline-offset: 2px; }
+
+/* ---- forgot-password pop-up (native <dialog>, sits above the card) ---- */
+.lg-modal {
+  padding: 0; border: 3px solid var(--lg-line); border-radius: 0; background: var(--lg-card); color: var(--lg-ink);
+  width: min(460px, 92vw); max-width: none; box-shadow: 10px 10px 0 var(--lg-acc);
+}
+.lg-modal::backdrop { background: rgba(2, 6, 18, .78); }
+.lg-modal[open] { animation: lg-pop .14s ease-out; }
+@keyframes lg-pop { from { transform: translateY(8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.lg-modal-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 16px; background: var(--lg-acc); color: var(--lg-on-acc); }
+.lg-modal-code { font-family: var(--font-data); font-weight: 700; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; }
+.lg-modal-x { width: 34px; height: 34px; padding: 0; border-radius: 0; cursor: pointer; background: transparent; color: var(--lg-on-acc); border: 2px solid var(--lg-on-acc); font-family: var(--font-data); font-size: 22px; line-height: 1; }
+.lg-modal-x:hover, .lg-modal-x:focus-visible { background: var(--lg-ink); color: #000; outline: none; }
+.lg-modal-body { display: flex; flex-direction: column; gap: 14px; padding: 24px 22px 26px; }
+.lg-modal-title { margin: 0; font-family: var(--font-head); font-weight: 700; font-size: 30px; line-height: .95; letter-spacing: -.02em; color: var(--lg-acc-text); }
+.lg-modal-text { margin: 0; font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.lg-modal-ok { width: 100%; margin-top: 6px; align-self: stretch; font-size: 20px; }
 
 /* ---- foot: description under the photo, checker strip under the form ---- */
 .lg-foot { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(290px, 1fr); gap: clamp(18px, 2.6vw, 36px); align-items: end; }
