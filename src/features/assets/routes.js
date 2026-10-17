@@ -35,19 +35,6 @@ router.delete('/:id', (req, res) => {
   res.json(svc.deleteAsset(req.params.id));
 });
 
-router.post('/:id/nfc', (req, res) => {
-  const { uid } = req.body || {};
-  if (!uid) return res.status(400).json({ ok: false, error: 'uid is required.' });
-  res.status(201).json({ ok: true, tag: svc.registerNfcTag(uid, req.params.id) });
-});
-
-router.get('/nfc/:uid', (req, res) => {
-  const asset = svc.findAssetByNfcUid(req.params.uid);
-  if (!asset) return res.status(404).json({ ok: false, error: 'No asset registered to this tag.' });
-  const detail = svc.getAssetDetail(asset.id);
-  res.json({ ok: true, asset: detail });
-});
-
 // Looked up by the mobile Scan screen right after a QR read, so staff can
 // pull up and edit the asset's details on the spot — QR labels encode the
 // Asset Tag (see generateAssetQrDataUrl below), not the numeric id.

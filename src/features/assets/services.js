@@ -6,8 +6,7 @@ const { getDb } = require('../../core/database');
 function listAssets({ roomId, search } = {}) {
   const db = getDb();
   let sql = `
-    SELECT a.*, r.name AS room_name, p.photo AS assigned_photo,
-      (SELECT t.uid FROM nfc_tags t WHERE t.asset_id = a.id ORDER BY t.id LIMIT 1) AS nfc_uid
+    SELECT a.*, r.name AS room_name, p.photo AS assigned_photo
     FROM assets a
     LEFT JOIN rooms r ON r.id = a.room_id
     LEFT JOIN people p ON p.name = a.assigned_to COLLATE NOCASE
@@ -111,10 +110,6 @@ function createAsset(data) {
   // (people table) rather than this asset row.
   if (data.assigned_photo) upsertPersonPhoto(db, data.assigned_to, data.assigned_photo);
 
-  if (data.nfc_uid) {
-    db.prepare('INSERT OR IGNORE INTO nfc_tags (uid, asset_id) VALUES (?, ?)').run(data.nfc_uid, info.lastInsertRowid);
-  }
-
   require('../system/services').logEvent('IMPORT', `Asset ${data.asset_tag} registered: ${data.name}`, 'success');
   return getAsset(info.lastInsertRowid);
 }
@@ -135,10 +130,6 @@ function updateAsset(id, data) {
   // update (merged.assigned_to), same as createAsset() above.
   if (data.assigned_photo) upsertPersonPhoto(db, merged.assigned_to, data.assigned_photo);
 
-  if (data.nfc_uid) {
-    db.prepare('INSERT OR IGNORE INTO nfc_tags (uid, asset_id) VALUES (?, ?)').run(data.nfc_uid, id);
-  }
-
   const { logEvent } = require('../system/services');
   if (data.status && data.status !== existing.status) {
     logEvent('UPDATE', `${merged.asset_tag} status: ${data.status.toUpperCase()}`, data.status === 'active' ? 'success' : 'warn');
@@ -152,21 +143,6 @@ function deleteAsset(id) {
   db.prepare('DELETE FROM assets WHERE id = ?').run(id);
   if (existing) require('../system/services').logEvent('UPDATE', `Asset ${existing.asset_tag} deleted`, 'warn');
   return { ok: true };
-}
-
-function registerNfcTag(uid, assetId) {
-  const db = getDb();
-  const info = db.prepare('INSERT INTO nfc_tags (uid, asset_id) VALUES (?, ?)').run(uid, assetId);
-  return { id: info.lastInsertRowid, uid, asset_id: assetId };
-}
-
-function findAssetByNfcUid(uid) {
-  const db = getDb();
-  return db.prepare(`
-    SELECT a.* FROM assets a
-    JOIN nfc_tags t ON t.asset_id = a.id
-    WHERE t.uid = ?
-  `).get(uid);
 }
 
 function findAssetByTag(tag) {
@@ -301,9 +277,8 @@ function dashboardStats() {
 
 // Generates a printable QR code encoding just the asset's Asset Tag —
 // the same value the mobile Scan screen sends back for matching (see
-// features/inventory/services.js: it looks up asset_tag before nfc_uid),
-// so a label printed with this code Just Works with the mobile scanner,
-// no separate NFC tag registration required.
+// features/inventory/services.js, which looks scans up by asset_tag), so a
+// label printed with this code works with the mobile scanner as-is.
 async function generateAssetQrDataUrl(assetTag) {
   return QRCode.toDataURL(assetTag, {
     color: { dark: '#111844', light: '#EAE0CF' },
@@ -314,6 +289,6 @@ async function generateAssetQrDataUrl(assetTag) {
 
 module.exports = {
   listAssets, getAsset, getAssetDetail, createAsset, updateAsset, deleteAsset,
-  registerNfcTag, findAssetByNfcUid, findAssetByTag, importFromExcelBuffer, reportIssue, dashboardStats,
+  findAssetByTag, importFromExcelBuffer, reportIssue, dashboardStats,
   generateAssetQrDataUrl
 };

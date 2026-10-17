@@ -21,18 +21,12 @@ async function fetchRoomsList() {
   return apiGet('/api/v1/map/rooms/list');
 }
 
-// The scanned QR value is sent as BOTH asset_tag and nfc_uid: the backend's
-// /api/v1/inventory/sync endpoint already looks a scan up by asset_tag
-// first, then falls back to the nfc_tags table (see
-// features/inventory/services.js on the desktop side). Sending both means
-// this works whether a printed QR label encodes an asset's Asset Tag or an
-// older UID that was already registered as an NFC tag — no desktop/server
-// changes are needed to support QR.
+// The scanned QR value is the asset's Asset Tag; the backend's
+// /api/v1/inventory/sync endpoint matches scans by asset_tag.
 async function recordScan(qrValue, roomId, status = 'verified') {
   const user = currentUser();
   await addPendingScan({
     asset_tag: qrValue,
-    nfc_uid: qrValue,
     room_id: roomId,
     scanned_by: user ? user.username : 'unknown',
     status

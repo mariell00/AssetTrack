@@ -13,7 +13,7 @@ function statusBadge(status) {
 // Shows the QR code for one asset (as returned by GET /api/v1/assets/:id/qr)
 // with buttons to download the PNG or open a print-formatted popup — for
 // sticking a physical label on the asset that the mobile Scan screen can
-// read straight away, no NFC tag registration needed.
+// read straight away.
 function showQrLabelModal(root, { asset_tag, name, dataUrl }) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';

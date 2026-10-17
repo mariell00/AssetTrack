@@ -14,7 +14,7 @@ function deviceLabel(username, source, ip, deviceName) {
 }
 
 // Accepts a batch of scans from the mobile sync endpoint:
-// [{ asset_tag | nfc_uid, room_id, scanned_by, status }]. `meta` (scannedBy,
+// [{ asset_tag, room_id, scanned_by, status }]. `meta` (scannedBy,
 // source, ip, deviceName) describes the authenticated request itself — see
 // routes.js — and is trusted over any per-scan `scanned_by` the client
 // included.
@@ -25,7 +25,6 @@ function recordSyncBatch(scans, meta = {}) {
   const ip = meta.ip || null;
   const deviceName = meta.deviceName || null;
   const findByTag = db.prepare('SELECT id FROM assets WHERE asset_tag = ?');
-  const findByNfc = db.prepare('SELECT asset_id AS id FROM nfc_tags WHERE uid = ?');
   const insertLog = db.prepare(`
     INSERT INTO inventory_logs (asset_id, room_id, scanned_by, status, device_source, device_ip, device_name)
     VALUES (@asset_id, @room_id, @scanned_by, @status, @device_source, @device_ip, @device_name)
@@ -37,7 +36,6 @@ function recordSyncBatch(scans, meta = {}) {
     for (const s of records) {
       let asset = null;
       if (s.asset_tag) asset = findByTag.get(s.asset_tag);
-      if (!asset && s.nfc_uid) asset = findByNfc.get(s.nfc_uid);
       if (!asset) { skipped.push(s); continue; }
 
       insertLog.run({

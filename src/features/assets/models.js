@@ -1,4 +1,4 @@
-// features/assets/models.js — Asset, NFC_Tag, Room schemas.
+// features/assets/models.js — Asset, Room, issue and people schemas.
 function columnExists(db, table, column) {
   return db.prepare(`PRAGMA table_info(${table})`).all().some((c) => c.name === column);
 }
@@ -28,16 +28,7 @@ function init(db) {
       FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE SET NULL
     );
 
-    CREATE TABLE IF NOT EXISTS nfc_tags (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      uid TEXT NOT NULL UNIQUE,
-      asset_id INTEGER NOT NULL,
-      registered_at TEXT NOT NULL DEFAULT (datetime('now')),
-      FOREIGN KEY (asset_id) REFERENCES assets(id) ON DELETE CASCADE
-    );
-
     CREATE INDEX IF NOT EXISTS idx_assets_room ON assets(room_id);
-    CREATE INDEX IF NOT EXISTS idx_nfc_asset ON nfc_tags(asset_id);
 
     CREATE TABLE IF NOT EXISTS asset_issues (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -64,6 +55,10 @@ function init(db) {
       updated_at TEXT NOT NULL DEFAULT (datetime('now'))
     );
   `);
+
+  // NFC tags were replaced by QR labels (matched on asset_tag); drop the old
+  // table from any database created before that change.
+  db.exec('DROP TABLE IF EXISTS nfc_tags');
 
   if (!columnExists(db, 'assets', 'assigned_to')) {
     db.exec(`ALTER TABLE assets ADD COLUMN assigned_to TEXT`);
