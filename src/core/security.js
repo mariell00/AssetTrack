@@ -80,7 +80,7 @@ function requireAuth(req, res, next) {
   const { getDb } = require('./database');
   let user;
   try {
-    user = getDb().prepare('SELECT status FROM users WHERE id = ?').get(payload.id);
+    user = getDb().prepare('SELECT status, tokens_valid_after FROM users WHERE id = ?').get(payload.id);
   } catch {
     // Database not initialized yet (shouldn't happen once the server is
     // actually up) — fail closed rather than letting the request through.
@@ -88,6 +88,12 @@ function requireAuth(req, res, next) {
   }
   if (!user || user.status !== 'active') {
     return res.status(401).json({ ok: false, error: 'This account has been deactivated.' });
+  }
+
+  // Credentials were reset after this token was issued (superadmin recovery):
+  // the session is over even though the token itself hasn't expired yet.
+  if (user.tokens_valid_after && (payload.iat || 0) < user.tokens_valid_after) {
+    return res.status(401).json({ ok: false, error: 'Your session has ended. Please log in again.' });
   }
 
   req.user = payload;
