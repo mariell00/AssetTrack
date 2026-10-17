@@ -4,6 +4,7 @@
 import { render as renderLogin, renderUserManagement } from '../../features/auth/ui.js';
 import { render as renderAssets } from '../../features/assets/ui.js';
 import { render as renderMap } from '../../features/mapping/ui-map.js';
+import { render as renderLocations } from '../../features/mapping/ui-locations.js';
 import { render as renderReports } from '../../features/reports/ui.js';
 import { render as renderQr } from '../../features/qr-distribution/ui.js';
 import { render as renderInventory } from '../../features/inventory/ui.js';
@@ -19,6 +20,7 @@ const ROUTE_TITLES = {
   '/dashboard': 'DASHBOARD',
   '/assets': 'ASSET REGISTRY',
   '/map': 'CLUSTER MAP',
+  '/locations': 'LOCATIONS',
   '/inventory': 'INVENTORY SYNC',
   '/reports': 'REPORTS',
   '/mobile': 'QR DISTRIBUTION',
@@ -106,6 +108,7 @@ const routes = {
   '/login': renderLogin,
   '/assets': renderAssets,
   '/map': renderMap,
+  '/locations': renderLocations,
   '/inventory': renderInventory,
   '/reports': renderReports,
   '/mobile': renderQr,
@@ -115,7 +118,20 @@ const routes = {
 };
 
 function isAuthed() {
-  return !!localStorage.getItem('assettrack_token');
+  const token = localStorage.getItem('assettrack_token');
+  if (!token) return false;
+  // The token lives in localStorage across app restarts but expires after 12h.
+  // Drop an expired one up front — otherwise the dashboard renders, its first
+  // API call comes back 401, and only then are we bounced to the login screen.
+  try {
+    const payload = JSON.parse(atob(token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/')));
+    if (payload.exp && payload.exp * 1000 <= Date.now()) {
+      localStorage.removeItem('assettrack_token');
+      localStorage.removeItem('assettrack_user');
+      return false;
+    }
+  } catch (_) { /* unreadable token: let the server decide */ }
+  return true;
 }
 
 function setActiveNav(path) {
@@ -135,6 +151,11 @@ function updateSidebarUser() {
   // /api/v1/auth/users route) — hide the link entirely for staff accounts
   // rather than showing a screen that will just error on load.
   document.getElementById('nav-users').style.display = user.role === 'admin' ? '' : 'none';
+  // Managing Buildings/Rooms is an admin-level configuration task (like
+  // Manage Users) — staff still see the resulting rooms everywhere they
+  // need them (Cluster Map, Asset Registry's ROOM dropdown, mobile scan),
+  // they just don't edit the list itself.
+  document.getElementById('nav-locations').style.display = user.role === 'admin' ? '' : 'none';
 }
 
 function navigate() {
@@ -145,7 +166,7 @@ function navigate() {
   // route itself needs its own guard too since the hash can be typed
   // directly. The API would reject it anyway (requireRole('admin')), this
   // just avoids showing a broken "Unable to load users" screen first.
-  if (path === '/users') {
+  if (path === '/users' || path === '/locations') {
     const raw = localStorage.getItem('assettrack_user');
     const role = raw ? JSON.parse(raw).role : null;
     if (role !== 'admin') path = '/dashboard';
@@ -159,12 +180,30 @@ function navigate() {
   shell.classList.toggle('auth-mode', path === '/login');
   breadcrumb.textContent = `› ${ROUTE_TITLES[path] || 'DASHBOARD'}`;
   if (path !== '/login') updateSidebarUser();
+  shell.classList.add('ready'); // un-hide the shell (see boot guard in index.html)
 }
 
 document.getElementById('btn-logout').addEventListener('click', () => {
   localStorage.removeItem('assettrack_token');
   localStorage.removeItem('assettrack_user');
   window.location.hash = '#/login';
+});
+
+// Collapsible menu bar: clicking the ☰ toggles the sidebar between full
+// width (icons + labels) and a minimized icon-only rail (see the
+// #sidebar.collapsed / #shell.sidebar-collapsed rules in retro-theme.css).
+// Preference persists across restarts via localStorage.
+const sidebarToggleBtn = document.getElementById('btn-sidebar-toggle');
+const sidebarEl = document.getElementById('sidebar');
+function applySidebarCollapsed(collapsed) {
+  sidebarEl.classList.toggle('collapsed', collapsed);
+  shell.classList.toggle('sidebar-collapsed', collapsed);
+}
+applySidebarCollapsed(localStorage.getItem('assettrack_sidebar_collapsed') === '1');
+sidebarToggleBtn.addEventListener('click', () => {
+  const collapsed = !sidebarEl.classList.contains('collapsed');
+  applySidebarCollapsed(collapsed);
+  localStorage.setItem('assettrack_sidebar_collapsed', collapsed ? '1' : '0');
 });
 
 // Top bar: live clock + local IP, refreshed independently of route changes.
