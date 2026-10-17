@@ -64,8 +64,11 @@ function startServer(config) {
   // API (desktop and mobile) was reachable by anyone who could reach the
   // port, no login needed. This matters even more now that the server can
   // optionally be exposed to the public internet (see setupMobileAccess).
+  // The two recovery endpoints are also token-free (you're locked out), but
+  // auth/routes.js restricts them to this computer's own Admin Hub window.
+  const PUBLIC_API_PATHS = new Set(['/auth/login', '/auth/recovery/request', '/auth/recovery/reset']);
   expressApp.use('/api/v1', (req, res, next) => {
-    if (req.path === '/auth/login') return next();
+    if (PUBLIC_API_PATHS.has(req.path)) return next();
     return requireAuth(req, res, next);
   });
 
@@ -289,7 +292,17 @@ async function setupNamedTunnel(expressApp, config, lanUrl, logEvent) {
   }
 }
 
+// Custom title bar (Windows/Linux): the native black title strip is hidden and
+// only the minimize/maximize/close buttons stay, tinted to match whichever
+// screen is showing. macOS keeps its normal traffic-light title bar.
+const TITLEBAR_HEIGHT = 32; // keep in sync with #titlebar-drag in index.html and .screen-login padding
+const TITLEBAR_THEMES = {
+  login: { color: '#060F26', symbolColor: '#FFFFFF' }, // navy login stage
+  app:   { color: '#EAE0CF', symbolColor: '#111844' }  // cream app background
+};
+
 function createWindow(config) {
+  const customTitleBar = process.platform !== 'darwin';
   mainWindow = new BrowserWindow({
     width: 1280,
     height: 820,
@@ -298,6 +311,10 @@ function createWindow(config) {
     minHeight: 640,
     backgroundColor: '#111844',
     title: 'AssetTrack — Admin Hub',
+    ...(customTitleBar && {
+      titleBarStyle: 'hidden',
+      titleBarOverlay: { ...TITLEBAR_THEMES.login, height: TITLEBAR_HEIGHT }
+    }),
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -308,6 +325,14 @@ function createWindow(config) {
   // Drop Electron's default File/Edit/View/Window/Help menu bar (Windows/Linux;
   // no-op on macOS, which keeps its own app menu).
   mainWindow.removeMenu();
+
+  // Re-tint the window buttons when the router switches between login and the app.
+  if (customTitleBar) {
+    mainWindow.webContents.on('did-navigate-in-page', (_e, url) => {
+      const theme = /#\/login\b/.test(url) ? TITLEBAR_THEMES.login : TITLEBAR_THEMES.app;
+      try { mainWindow.setTitleBarOverlay({ ...theme, height: TITLEBAR_HEIGHT }); } catch (_) { /* window closing */ }
+    });
+  }
 
   // Load from the same http:// origin the API is served on (see the
   // express.static() line in startServer) — NOT loadFile()/file://. This is
