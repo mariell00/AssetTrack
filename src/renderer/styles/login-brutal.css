@@ -173,6 +173,16 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
 .lg-modal-title { margin: 0; font-family: var(--font-head); font-weight: 700; font-size: 30px; line-height: .95; letter-spacing: -.02em; color: var(--lg-acc-text); }
 .lg-modal-text { margin: 0; font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
 .lg-modal-ok { width: 100%; margin-top: 6px; align-self: stretch; font-size: 20px; }
+/* recovery steps inside the pop-up */
+.lg-modal { width: min(480px, 92vw); max-height: calc(100vh - 24px); overflow-y: auto; }
+.lg-step { display: flex; flex-direction: column; gap: 14px; }
+.lg-step[hidden] { display: none; }
+.lg-modal .lg-status { margin: 0; }
+.lg-modal-links { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.lg-linkbtn { padding: 4px 0; border: 0; border-radius: 0; background: none; cursor: pointer; font-family: var(--font-data); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--lg-acc-text); text-decoration: underline; text-underline-offset: 3px; }
+.lg-linkbtn:hover:not(:disabled), .lg-linkbtn:focus-visible { color: var(--lg-ink); outline: none; }
+.lg-linkbtn:disabled { color: var(--lg-dim); text-decoration: none; cursor: default; }
+.lg-code-input { font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
 
 /* ---- foot: description under the photo, checker strip under the form ---- */
 .lg-foot { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(290px, 1fr); gap: clamp(18px, 2.6vw, 36px); align-items: end; }
