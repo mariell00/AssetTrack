@@ -39,6 +39,27 @@ function init(db) {
     db.exec(`ALTER TABLE users ADD COLUMN last_login_device TEXT`);
   }
 
+  // Set when the superadmin's credentials are reset through the emailed
+  // one-time code (see recovery.js). requireAuth rejects any session token
+  // issued before this moment, so a reset also signs out whoever was logged in.
+  if (!columnExists(db, 'users', 'tokens_valid_after')) {
+    db.exec(`ALTER TABLE users ADD COLUMN tokens_valid_after INTEGER`);
+  }
+
+  // One-time recovery codes for the superadmin. Only a bcrypt hash of the code
+  // is stored — the code itself exists only in the email that was sent.
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS password_reset_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code_hash TEXT NOT NULL,
+      created_at INTEGER NOT NULL,
+      expires_at INTEGER NOT NULL,
+      attempts INTEGER NOT NULL DEFAULT 0,
+      used_at INTEGER,
+      requested_ip TEXT
+    );
+  `);
+
   // Seed a default admin on first run so the app is usable out-of-the-box.
   const row = db.prepare('SELECT COUNT(*) AS c FROM users').get();
   if (row.c === 0) {
