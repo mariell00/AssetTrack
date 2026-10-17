@@ -38,23 +38,25 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
   font-size: 14px;
 }
 .screen-login[data-accent="blue"] {
-  /* Blue/white school theme: cobalt #0033FF, navy #0A1A3F, white #FFFFFF. */
-  --lg-stage: #060F26;      /* darker navy behind the card */
-  --lg-card: #0A1A3F;
-  --lg-field: #07122E;
-  --lg-ink: #FFFFFF;
-  --lg-dim: #8FA0CC;
+  /* Palette: Electric Cobalt #0033FF · Midnight Navy #0A1A3F · Hard White #FFFFFF
+             · Static Mist #E8ECF5 · Void #000000 — and nothing else (bar the error red). */
+  --lg-stage: #060F26;      /* dark navy behind the card (a shade deeper than Midnight Navy) */
+  --lg-card: #0A1A3F;       /* Midnight Navy: panels */
+  --lg-field: #07122E;      /* dark navy input wells */
+  --lg-ink: #FFFFFF;        /* Hard White: text, outlines, highlights */
+  --lg-dim: #E8ECF5;        /* Static Mist: secondary text, disabled states */
   --lg-line: #FFFFFF;
-  --lg-acc: #0033FF;        /* fills + frames */
-  --lg-acc-text: #6F8CFF;   /* light cobalt tint: #0033FF itself is unreadable on navy */
+  --lg-acc: #0033FF;        /* Electric Cobalt: fills, buttons, borders */
+  --lg-acc-text: #FFFFFF;   /* cobalt is too dark to read as text / thin lines on navy or black, so those are white; cobalt stays on fills + borders */
   --lg-on-acc: #FFFFFF;
+  --lg-ghost: rgba(232, 236, 245, .10);
 }
 
 /* Ghost text + faint registration lines on the stage, like the poster's backdrop. */
 .lg-ghost {
   position: absolute; inset: auto -2% -2% auto; width: 62%;
   font-family: var(--font-data); font-size: clamp(22px, 3vw, 44px); line-height: 1.25;
-  color: rgba(230, 227, 222, .10); text-transform: uppercase;
+  color: var(--lg-ghost, rgba(230, 227, 222, .10)); text-transform: uppercase;
   pointer-events: none; user-select: none; word-break: break-all;
 }
 .screen-login::before, .screen-login::after {
@@ -89,7 +91,7 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
   font-size: clamp(52px, min(10vw, 15vh), 150px);
   line-height: .8; letter-spacing: -.055em; color: var(--lg-ink);
 }
-.lg-college { margin: 14px 0 0 -.0879em; font-family: var(--font-body); font-size: clamp(14px, 1.45vw, 19px); letter-spacing: .01em; color: var(--lg-ink); }
+.lg-college { margin: 14px 0 0 -.0879em; font-family: var(--font-body); font-size: clamp(14px, 1.45vw, 19px); letter-spacing: .01em; color: var(--lg-dim); }
 .lg-office {
   margin: 0; font-family: var(--font-head); font-weight: 700; text-align: right;
   font-size: clamp(22px, min(3.8vw, 6.4vh), 60px); line-height: .9; letter-spacing: -.04em;
@@ -102,8 +104,8 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
 .lg-bar { flex: none; width: 88px; height: 12px; border: 2px solid var(--lg-acc-text); border-radius: 0; position: relative; }
 .lg-bar::after { content: ""; position: absolute; inset: 2px 14px 2px 2px; background: var(--lg-acc-text); }
 .lg-dots { flex: 1; height: 8px; min-width: 0;
-  background: radial-gradient(circle, var(--lg-acc-text) 1.8px, transparent 2.2px) 0 50% / 14px 8px repeat-x; opacity: .9; }
-.lg-code { font-family: var(--font-data); font-weight: 700; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-acc-text); white-space: nowrap; }
+  background: radial-gradient(circle, var(--lg-acc-text) 1.8px, transparent 2.2px) 0 50% / 14px 8px repeat-x; opacity: .6; }
+.lg-code { font-family: var(--font-data); font-weight: 700; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-dim); white-space: nowrap; }
 
 /* ---- body: photo + form ---- */
 .lg-body { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(290px, 1fr); gap: clamp(18px, 2.6vw, 36px); align-items: stretch; }
@@ -116,7 +118,7 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
 
 .lg-form { display: flex; flex-direction: column; gap: 18px; }
 .lg-field { display: flex; flex-direction: column; gap: 6px; }
-.lg-field label { font-family: var(--font-data); font-weight: 700; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-ink); }
+.lg-field label { font-family: var(--font-data); font-weight: 700; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-dim); }
 /* label row: "user name" on the left, red "incorrect"/"required" flag on the right */
 .lg-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 16px; }
 .lg-flag { font-family: var(--font-data); font-weight: 700; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-danger); }
@@ -140,11 +142,11 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
 .lg-submit:hover, .lg-submit:focus-visible { background: var(--lg-ink); color: #000; }
 .lg-submit:active { transform: translate(5px, 5px); box-shadow: none; }
 .lg-submit:focus-visible { outline: 3px solid var(--lg-acc-text); outline-offset: 4px; }
-.lg-submit:disabled { background: #444; color: var(--lg-dim); box-shadow: none; cursor: progress; }
+.lg-submit:disabled { background: var(--lg-dim); color: #000; opacity: .55; box-shadow: none; cursor: progress; }
 
 .lg-status {
   margin: 0; padding: 8px 12px; border-left: 4px solid var(--lg-danger);
-  font-family: var(--font-data); font-size: 13px; line-height: 1.45; color: var(--lg-ink); background: rgba(255, 46, 99, .12);
+  font-family: var(--font-data); font-size: 13px; line-height: 1.45; color: var(--lg-ink); background: rgba(255, 59, 59, .14);
 }
 .lg-status:empty { display: none; }
 .lg-status[data-kind="info"] { border-left-color: var(--lg-acc-text); background: rgba(255, 255, 255, .06); }
@@ -162,7 +164,7 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
   padding: 0; border: 3px solid var(--lg-line); border-radius: 0; background: var(--lg-card); color: var(--lg-ink);
   width: min(460px, 92vw); max-width: none; box-shadow: 10px 10px 0 var(--lg-acc);
 }
-.lg-modal::backdrop { background: rgba(2, 6, 18, .78); }
+.lg-modal::backdrop { background: rgba(0, 0, 0, .78); }
 .lg-modal[open] { animation: lg-pop .14s ease-out; }
 @keyframes lg-pop { from { transform: translateY(8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
 .lg-modal-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 16px; background: var(--lg-acc); color: var(--lg-on-acc); }
@@ -181,14 +183,14 @@ body:has(#shell.auth-mode) #device-bezel { display: none; }
 .lg-modal-links { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
 .lg-linkbtn { padding: 4px 0; border: 0; border-radius: 0; background: none; cursor: pointer; font-family: var(--font-data); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--lg-acc-text); text-decoration: underline; text-underline-offset: 3px; }
 .lg-linkbtn:hover:not(:disabled), .lg-linkbtn:focus-visible { color: var(--lg-ink); outline: none; }
-.lg-linkbtn:disabled { color: var(--lg-dim); text-decoration: none; cursor: default; }
+.lg-linkbtn:disabled { color: var(--lg-dim); opacity: .55; text-decoration: none; cursor: default; }
 .lg-code-input { font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
 
 /* ---- foot: description under the photo, checker strip under the form ---- */
 .lg-foot { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(290px, 1fr); gap: clamp(18px, 2.6vw, 36px); align-items: end; }
 .lg-desc-wrap { display: flex; align-items: center; justify-content: center; gap: 22px; }
 .lg-globe { flex: none; color: var(--lg-acc-text); }
-.lg-desc { margin: 0; max-width: 38ch; font-size: 15px; line-height: 1.55; color: var(--lg-ink); }
+.lg-desc { margin: 0; max-width: 38ch; font-size: 15px; line-height: 1.55; color: var(--lg-dim); }
 .lg-checker { height: 24px; background: repeating-conic-gradient(var(--lg-acc) 0 25%, transparent 0 50%) 0 0 / 8px 8px; }
 
 /* ---- narrow windows: stack like a phone poster ---- */

@@ -7,9 +7,18 @@ import { apiGet, apiPut } from '../../core/api-client.js';
 
 // Reuses the same room-progress data the Admin Hub's Inventory Sync screen
 // shows (GET /api/v1/inventory/progress) just for the {room_id, room_name}
-// pairs — no separate "list rooms" endpoint needed.
+// pairs — kept as-is for the session-level "ROOM BEING INVENTORIED" picker
+// in ui-scan.js, which only ever needs a flat list.
 async function fetchRooms() {
   return apiGet('/api/v1/inventory/progress');
+}
+
+// The managed room list (mapping/ui-locations.js on the desktop), grouped
+// by building — used for the per-asset ROOM field on the post-scan "Asset
+// Info" panel (ui-asset-edit.js), so correcting one item's room is also a
+// pick-from-the-list dropdown rather than free text.
+async function fetchRoomsList() {
+  return apiGet('/api/v1/map/rooms/list');
 }
 
 // The scanned QR value is sent as BOTH asset_tag and nfc_uid: the backend's
@@ -47,4 +56,4 @@ async function updateAssetDetail(assetId, data) {
   return apiPut(`/api/v1/assets/${assetId}`, data);
 }
 
-export { recordScan, fetchAssetByTag, updateAssetDetail, fetchRooms };
+export { recordScan, fetchAssetByTag, updateAssetDetail, fetchRooms, fetchRoomsList };

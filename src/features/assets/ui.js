@@ -1,7 +1,7 @@
 // features/assets/ui.js — "Asset Registry" screen: search, add/edit modal,
-// CSV/XLSX bulk import, printable QR labels, and a table with NFC UID +
-// status badges.
+// CSV/XLSX bulk import, printable QR labels, and a table with status badges.
 import { apiGet, apiPost, apiPut, apiDelete } from '../../js/api-client.js';
+import { compressImageFile } from '../../js/photo.js';
 
 const STATUS_LABELS = { active: 'ACTIVE', maintenance: 'MAINT.', pending: 'PENDING', offline: 'OFFLINE' };
 
@@ -72,8 +72,33 @@ function showQrLabelModal(root, { asset_tag, name, dataUrl }) {
   });
 }
 
-function openAssetModal(root, { asset } = {}) {
+// Rooms are now a managed list (see mapping/ui-locations.js) grouped by
+// Building, instead of a free-typed name — this is what the ROOM <select>
+// below is populated from, so scanning/registering picks from what's
+// actually listed rather than risking "Lab 201" vs "Room 201" typos.
+function roomOptionsHtml(rooms, selectedRoomId) {
+  const grouped = new Map(); // building_name (or null) -> rooms[]
+  for (const r of rooms) {
+    const key = r.building_name || null;
+    if (!grouped.has(key)) grouped.set(key, []);
+    grouped.get(key).push(r);
+  }
+  const optionHtml = (r) => `<option value="${r.id}" ${Number(selectedRoomId) === r.id ? 'selected' : ''}>${r.name}</option>`;
+
+  let html = `<option value="">— Unassigned —</option>`;
+  for (const [buildingName, roomsInBuilding] of grouped) {
+    html += buildingName
+      ? `<optgroup label="${buildingName}">${roomsInBuilding.map(optionHtml).join('')}</optgroup>`
+      : roomsInBuilding.map(optionHtml).join(''); // no building set yet — flat, ungrouped
+  }
+  return html;
+}
+
+async function openAssetModal(root, { asset } = {}) {
   const isEdit = !!asset;
+  const roomsResult = await apiGet('/api/v1/map/rooms/list');
+  const rooms = roomsResult.ok ? roomsResult.rooms : [];
+
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
@@ -93,13 +118,19 @@ function openAssetModal(root, { asset } = {}) {
           <input type="text" id="f-category" class="retro-input" value="${asset ? (asset.category || '') : ''}" />
         </label>
         <label>ROOM
-          <input type="text" id="f-room" class="retro-input" value="${asset ? (asset.room_name || '') : ''}" placeholder="e.g. Lab 201" />
+          <select id="f-room" class="retro-input">${roomOptionsHtml(rooms, asset ? asset.room_id : '')}</select>
         </label>
         <label>ASSIGNED TO (ASSET USER)
           <input type="text" id="f-assigned" class="retro-input" value="${asset ? (asset.assigned_to || '') : ''}" placeholder="e.g. Juan Dela Cruz" />
         </label>
-        <label>NFC UID
-          <input type="text" id="f-nfc" class="retro-input" value="${asset ? (asset.nfc_uid || '') : ''}" placeholder="optional — QR label works without this" />
+        <label>ASSIGNED USER PHOTO <span class="mono-dim">(optional${isEdit ? ' — leave as-is to keep the current one' : ''})</span>
+          <div class="photo-field-row">
+            <img id="f-assigned-photo-preview" class="photo-preview photo-preview-round" src="${asset && asset.assigned_photo ? asset.assigned_photo : ''}" style="${asset && asset.assigned_photo ? '' : 'display:none;'}" alt="" />
+            <label class="btn-retro small outline file-btn">
+              <span id="f-assigned-photo-label">${asset && asset.assigned_photo ? 'CHANGE PHOTO' : 'ATTACH PHOTO'}</span>
+              <input type="file" id="f-assigned-photo" accept="image/*" hidden />
+            </label>
+          </div>
         </label>
         <label>STATUS
           <select id="f-status" class="retro-input">
@@ -107,6 +138,15 @@ function openAssetModal(root, { asset } = {}) {
               `<option value="${val}" ${asset && asset.status === val ? 'selected' : ''}>${label}</option>`
             ).join('')}
           </select>
+        </label>
+        <label>PHOTO <span class="mono-dim">(optional${isEdit ? ' — leave as-is to keep the current one' : ''})</span>
+          <div class="photo-field-row">
+            <img id="f-photo-preview" class="photo-preview" src="${asset && asset.photo ? asset.photo : ''}" style="${asset && asset.photo ? '' : 'display:none;'}" alt="" />
+            <label class="btn-retro small outline file-btn">
+              <span id="f-photo-label">${asset && asset.photo ? 'CHANGE PHOTO' : 'ATTACH PHOTO'}</span>
+              <input type="file" id="f-photo" accept="image/*" hidden />
+            </label>
+          </div>
         </label>
         <button type="submit" class="btn-retro">${isEdit ? '▶ SAVE CHANGES' : '▶ REGISTER ASSET'}</button>
         <p id="modal-error" class="form-error"></p>
@@ -118,20 +158,67 @@ function openAssetModal(root, { asset } = {}) {
   overlay.querySelector('#modal-close').addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
 
+  let newPhotoDataUrl = null; // stays null unless a new photo is picked, so saving without touching it keeps the existing one on edit
+  const photoInput = overlay.querySelector('#f-photo');
+  const photoPreview = overlay.querySelector('#f-photo-preview');
+  const photoLabel = overlay.querySelector('#f-photo-label');
+  photoInput.addEventListener('change', async () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+    photoLabel.textContent = 'COMPRESSING…';
+    try {
+      newPhotoDataUrl = await compressImageFile(file);
+      photoPreview.src = newPhotoDataUrl;
+      photoPreview.style.display = 'block';
+      photoLabel.textContent = 'CHANGE PHOTO';
+    } catch {
+      newPhotoDataUrl = null;
+      photoLabel.textContent = 'ATTACH PHOTO — failed, try again';
+    }
+  });
+
+  // Same pattern as the item photo above, but for the assigned user's
+  // profile picture (assets.assigned_photo) — shown as an avatar on the
+  // Cluster Map instead of initials once set (see ui-map.js).
+  let newAssignedPhotoDataUrl = null;
+  const assignedPhotoInput = overlay.querySelector('#f-assigned-photo');
+  const assignedPhotoPreview = overlay.querySelector('#f-assigned-photo-preview');
+  const assignedPhotoLabel = overlay.querySelector('#f-assigned-photo-label');
+  assignedPhotoInput.addEventListener('change', async () => {
+    const file = assignedPhotoInput.files[0];
+    if (!file) return;
+    assignedPhotoLabel.textContent = 'COMPRESSING…';
+    try {
+      newAssignedPhotoDataUrl = await compressImageFile(file);
+      assignedPhotoPreview.src = newAssignedPhotoDataUrl;
+      assignedPhotoPreview.style.display = 'block';
+      assignedPhotoLabel.textContent = 'CHANGE PHOTO';
+    } catch {
+      newAssignedPhotoDataUrl = null;
+      assignedPhotoLabel.textContent = 'ATTACH PHOTO — failed, try again';
+    }
+  });
+
   overlay.querySelector('#asset-form').addEventListener('submit', async (e) => {
     e.preventDefault();
     const payload = {
       asset_tag: overlay.querySelector('#f-asset-tag').value.trim(),
       name: overlay.querySelector('#f-name').value.trim(),
       category: overlay.querySelector('#f-category').value.trim() || null,
-      nfc_uid: overlay.querySelector('#f-nfc').value.trim() || null,
       assigned_to: overlay.querySelector('#f-assigned').value.trim() || null,
       status: overlay.querySelector('#f-status').value
     };
-    // Room is looked up/created by name via the room text field — the
-    // backend accepts room_id, so we resolve or create it first.
-    const roomName = overlay.querySelector('#f-room').value.trim();
-    if (roomName) payload.room_name = roomName;
+    // Room comes from the managed list (mapping/ui-locations.js) as a
+    // room_id now, rather than a free-typed name the backend had to
+    // resolve/create on the fly — "" (Unassigned) becomes null.
+    const roomValue = overlay.querySelector('#f-room').value;
+    payload.room_id = roomValue ? Number(roomValue) : null;
+    // Only send `photo`/`assigned_photo` if a new one was actually picked —
+    // omitting the key (rather than sending null) is what keeps
+    // updateAsset() from wiping out an existing photo on an edit that
+    // didn't touch it.
+    if (newPhotoDataUrl) payload.photo = newPhotoDataUrl;
+    if (newAssignedPhotoDataUrl) payload.assigned_photo = newAssignedPhotoDataUrl;
 
     const result = isEdit
       ? await apiPut(`/api/v1/assets/${asset.id}`, payload)
@@ -170,7 +257,7 @@ export function render() {
       </div>
       <table class="retro-table">
         <thead>
-          <tr><th>ASSET ID</th><th>NAME</th><th>ASSIGNED TO</th><th>NFC UID</th><th>ROOM</th><th>STATUS</th><th>ACTIONS</th></tr>
+          <tr><th></th><th>ASSET ID</th><th>NAME</th><th>ASSIGNED TO</th><th>ROOM</th><th>STATUS</th><th>ACTIONS</th></tr>
         </thead>
         <tbody id="asset-rows"><tr><td colspan="7">Loading…</td></tr></tbody>
       </table>
@@ -190,10 +277,13 @@ export function render() {
     countEl.textContent = `RECORDS: ${result.assets.length}/${result.assets.length} // QUERY: ${search || 'NONE'}`;
     tbody.innerHTML = result.assets.map((a) => `
       <tr>
+        <td>${a.photo ? `<img src="${a.photo}" class="asset-row-photo" alt="" />` : ''}</td>
         <td class="mono-strong">${a.asset_tag}</td>
         <td>${a.name}</td>
-        <td>${a.assigned_to || '—'}</td>
-        <td class="mono-dim">${a.nfc_uid || '—'}</td>
+        <td>
+          ${a.assigned_photo ? `<img src="${a.assigned_photo}" class="assigned-row-photo" alt="" />` : ''}
+          ${a.assigned_to || '—'}
+        </td>
         <td>${a.room_name || '—'}</td>
         <td>${statusBadge(a.status)}</td>
         <td class="row-actions">

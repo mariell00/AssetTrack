@@ -11,8 +11,8 @@
   --text-dim: #8B93B8;
   --border-chunky: 3px solid var(--secondary);
   --border-thin: 1px solid rgba(114, 136, 174, 0.35);
-  --font-display: 'VT323', 'Press Start 2P', monospace;
-  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-display: 'Open Sans', sans-serif;
+  --font-mono: 'Open Sans', sans-serif;
   --glow: 0 0 10px rgba(75, 86, 148, 0.5);
 
   --green: #5FD68C;
@@ -55,10 +55,12 @@ html, body {
   min-height: calc(100vh - 18px);
   padding: 16px;
   gap: 16px;
+  transition: grid-template-columns 0.18s ease;
 }
 #shell.auth-mode { grid-template-columns: 1fr; }
 #shell.auth-mode #sidebar { display: none; }
 #shell.auth-mode #top-bar { display: none; }
+#shell.sidebar-collapsed { grid-template-columns: 60px 1fr; }
 
 /* ---------------- Sidebar ---------------- */
 #sidebar {
@@ -68,12 +70,19 @@ html, body {
   display: flex;
   flex-direction: column;
   padding: 18px 14px;
+  overflow: hidden;
 }
+.sidebar-toggle {
+  background: none; border: none; color: var(--supporting); cursor: pointer;
+  font-size: 16px; padding: 4px 0; margin-bottom: 12px; align-self: flex-start;
+  line-height: 1;
+}
+.sidebar-toggle:hover { color: var(--text-on-dark); }
 .brand { display: flex; align-items: center; gap: 8px; }
-.brand-icon { color: var(--secondary); font-size: 20px; text-shadow: var(--glow); }
-.brand-text { display: flex; flex-direction: column; line-height: 1; }
+.brand-icon { color: var(--secondary); font-size: 20px; text-shadow: var(--glow); flex-shrink: 0; }
+.brand-text { display: flex; flex-direction: column; line-height: 1; white-space: nowrap; }
 .brand-line { font-weight: 700; font-size: 15px; letter-spacing: 1px; color: var(--text-on-dark); }
-.brand-sub { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; margin: 4px 0 18px 0; }
+.brand-sub { color: var(--text-dim); font-size: 10px; letter-spacing: 1px; margin: 4px 0 18px 0; white-space: nowrap; }
 
 #nav-links { display: flex; flex-direction: column; gap: 2px; flex: 1; }
 #nav-links a {
@@ -89,8 +98,10 @@ html, body {
   display: flex;
   align-items: center;
   gap: 8px;
+  white-space: nowrap;
 }
-.nav-icon { font-size: 13px; width: 14px; text-align: center; }
+.nav-icon { font-size: 13px; width: 14px; text-align: center; flex-shrink: 0; }
+.nav-label { overflow: hidden; }
 #nav-links a:hover { background: rgba(75, 86, 148, 0.25); color: var(--text-on-dark); }
 #nav-links a.active {
   background: rgba(75, 86, 148, 0.4);
@@ -104,11 +115,26 @@ html, body {
   width: 34px; height: 34px; border-radius: 4px;
   background: var(--secondary); color: var(--text-on-dark);
   display: flex; align-items: center; justify-content: center;
-  font-weight: 700; font-size: 12px;
+  font-weight: 700; font-size: 12px; flex-shrink: 0;
 }
-.user-meta { display: flex; flex-direction: column; line-height: 1.3; }
+.user-meta { display: flex; flex-direction: column; line-height: 1.3; white-space: nowrap; }
 .user-name { font-weight: 700; font-size: 12px; }
 .user-role { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; }
+
+/* Collapsed/minimized state — toggled by clicking the ☰ bar (see
+   router.js). Hides every text label so only the icon rail remains,
+   rather than removing the sidebar entirely. */
+#sidebar.collapsed .brand-text,
+#sidebar.collapsed .brand-sub,
+#sidebar.collapsed .nav-label,
+#sidebar.collapsed .user-meta {
+  display: none;
+}
+#sidebar.collapsed .sidebar-toggle { align-self: center; }
+#sidebar.collapsed .brand { justify-content: center; }
+#sidebar.collapsed #nav-links a { justify-content: center; padding: 10px 0; }
+#sidebar.collapsed .user-card { justify-content: center; margin-bottom: 10px; }
+#sidebar.collapsed #btn-logout { justify-content: center; }
 
 /* ---------------- Top bar ---------------- */
 #main-content { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
@@ -192,6 +218,12 @@ html, body {
 .retro-form { display: flex; flex-direction: column; gap: 4px; }
 .retro-form label { font-size: 10px; letter-spacing: 1px; color: var(--supporting); display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
 .form-error { color: var(--red); font-weight: 600; min-height: 16px; font-size: 12px; }
+
+.photo-field-row { display: flex; align-items: center; gap: 10px; }
+.photo-preview { width: 48px; height: 48px; object-fit: cover; border: 1px solid var(--secondary); border-radius: 4px; }
+.photo-preview-round { border-radius: 50%; }
+.asset-row-photo { width: 28px; height: 28px; object-fit: cover; border: 1px solid var(--secondary); border-radius: 3px; display: block; }
+.assigned-row-photo { width: 22px; height: 22px; object-fit: cover; border: 1px solid var(--secondary); border-radius: 50%; vertical-align: middle; margin-right: 6px; }
 
 /* ---------------- Login ---------------- */
 .screen-login { justify-content: center; align-items: center; min-height: 80vh; }
@@ -299,7 +331,24 @@ html, body {
   background: #0c1230; /* visible while tiles are still loading/uncached */
 }
 .map-caption { text-align: center; font-size: 10px; color: var(--text-dim); margin-top: 10px; }
-.map-lower { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+.map-lower { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 16px; }
+
+/* Cluster Map's own two-column layout: a side rail (PROFILE preview +
+   RECENTLY ADDED) next to the map itself. */
+.map-top-row { display: flex; gap: 14px; }
+.map-side-rail {
+  width: 210px; flex-shrink: 0;
+  display: flex; flex-direction: column;
+  border: var(--border-thin); border-radius: var(--panel-radius);
+  padding: 14px 12px;
+  background: rgba(75, 86, 148, 0.08);
+}
+.map-main { flex: 1; min-width: 0; }
+.map-profile-block { display: flex; flex-direction: column; align-items: center; text-align: center; padding-bottom: 12px; }
+.map-profile-name { font-size: 12px; font-weight: 700; color: var(--text-on-dark); margin-top: 8px; }
+.map-profile-caption { font-size: 10px; color: var(--text-dim); letter-spacing: 1px; margin-top: 2px; }
+.map-side-divider { border-top: var(--border-thin); margin: 4px 0 12px; }
+.map-recent-list { max-height: 280px; overflow-y: auto; }
 
 .mono-row-place { display: flex; align-items: center; justify-content: space-between; }
 
@@ -310,16 +359,61 @@ html, body {
 .tier-text-partial { color: var(--yellow); }
 .tier-text-low { color: var(--red); }
 
-/* Marker hover tooltip content — the tooltip chrome itself (bubble, arrow)
-   comes from Leaflet's own CSS; this just styles what's inside it. */
-.map-tooltip { font-family: var(--font-mono); font-size: 11px; max-width: 220px; }
+/* Marker click popup content — nothing shows until the pin is clicked
+   (bindPopup in ui-map.js, not bindTooltip); the popup chrome itself
+   (bubble, arrow) comes from Leaflet's own CSS, this just styles what's
+   inside it. */
+.map-tooltip { font-family: var(--font-mono); font-size: 11px; max-width: 240px; }
 .map-tip-title { font-weight: 700; font-size: 12px; margin-bottom: 2px; }
 .map-tip-count { color: #666; margin-bottom: 4px; }
-.map-tip-asset { padding: 2px 0; border-top: 1px solid #ddd; }
+.map-tip-asset { padding: 4px 0; border-top: 1px solid #ddd; display: flex; align-items: flex-start; gap: 6px; }
 .map-tip-asset:first-of-type { border-top: none; }
+.map-tip-asset-info { flex: 1; }
 .map-tip-tag { font-weight: 700; }
 .map-tip-user { color: #555; font-style: italic; }
 .map-tip-empty { color: #888; font-style: italic; }
+.map-tip-photo { width: 32px; height: 32px; object-fit: cover; border: 1px solid #ccc; flex-shrink: 0; }
+
+.room-detail-asset { display: flex; align-items: center; gap: 6px; }
+.room-detail-asset .map-tip-photo { width: 24px; height: 24px; }
+
+/* Per-asset popup (ui-map.js's assetPopupHtml) and its avatar — one marker
+   per asset now, so this replaces the old grouped building/room breakdown. */
+.map-tooltip-asset { display: flex; align-items: flex-start; gap: 8px; max-width: none; }
+.map-avatar {
+  flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%;
+  background: var(--secondary); color: var(--text-on-dark);
+  display: flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 11px; font-family: var(--font-mono);
+}
+.map-avatar-empty { background: #999; }
+.map-avatar-photo { object-fit: cover; background: none; }
+.map-avatar-lg { width: 44px; height: 44px; font-size: 14px; }
+.map-avatar-xl { width: 60px; height: 60px; font-size: 18px; }
+.room-detail-photo { width: 100%; max-width: 160px; height: auto; margin-top: 8px; }
+
+/* PROFILE DETAILS panel — two columns: avatar + assigned-to/standing on the
+   left, the rest of the asset's info on the right (ui-map.js's
+   selectAsset). */
+.profile-details-grid { display: flex; gap: 18px; font-size: 12px; }
+.profile-details-empty { color: var(--text-dim); line-height: 1.8; }
+.profile-details-left {
+  flex-shrink: 0; width: 130px;
+  display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px;
+}
+.profile-details-right { flex: 1; min-width: 0; border-left: var(--border-thin); padding-left: 16px; }
+.panel-subtitle { font-weight: 700; font-size: 12px; color: var(--text-on-dark); margin-bottom: 8px; }
+.profile-field { display: flex; flex-direction: column; gap: 3px; width: 100%; }
+.profile-field-label { font-size: 9px; letter-spacing: 1px; color: var(--text-dim); }
+.profile-field-value { font-size: 12px; font-weight: 700; color: var(--text-on-dark); word-break: break-word; }
+.profile-detail-row { color: var(--supporting); padding: 3px 0; line-height: 1.6; }
+.profile-detail-row strong { color: var(--text-on-dark); }
+
+/* RECENTLY ADDED list (side rail) — clicking a row locates that asset's
+   marker on the map (clusterGroup.zoomToShowLayer in ui-map.js). */
+.recent-asset-row { cursor: pointer; }
+.recent-asset-row:hover { color: var(--text-on-dark); }
+.recent-asset-user { font-size: 11px; color: var(--text-dim); }
 
 
 /* ---------------- Inventory Sync ---------------- */
@@ -412,4 +506,8 @@ html, body {
   #sidebar { display: none; }
   .stat-card-row, .report-params-grid, .report-preview-grid { grid-template-columns: repeat(2, 1fr); }
   .qr-layout, .map-lower, .analytics-layout { grid-template-columns: 1fr; }
+  .map-top-row { flex-direction: column; }
+  .map-side-rail { width: 100%; }
+  .profile-details-grid { flex-direction: column; }
+  .profile-details-right { border-left: none; padding-left: 0; border-top: var(--border-thin); padding-top: 12px; }
 }

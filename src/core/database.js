@@ -22,6 +22,9 @@ async function initDatabase(userDataPath) {
   // their CREATE TABLE IF NOT EXISTS statements against the shared db.
   require('../features/auth/models').init(db);
   require('../features/assets/models').init(db);
+  // Must run after assets/models (rooms table must already exist — this
+  // adds buildings + rooms.building_id and backfills from legacy data).
+  require('../features/mapping/models').init(db);
   require('../features/inventory/models').init(db);
   require('../features/system/models').init(db);
 

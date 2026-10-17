@@ -81,7 +81,7 @@ export function renderAssetScan() {
     refreshList();
 
     const reason = !result.ok && result.offline ? 'offline' : 'not_found';
-    editEl = renderAssetEditPanel(asset, code, reason, {
+    editEl = await renderAssetEditPanel(asset, code, reason, {
       onDone: () => {
         editEl?.remove();
         editEl = null;

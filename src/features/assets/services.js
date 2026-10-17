@@ -6,10 +6,11 @@ const { getDb } = require('../../core/database');
 function listAssets({ roomId, search } = {}) {
   const db = getDb();
   let sql = `
-    SELECT a.*, r.name AS room_name,
+    SELECT a.*, r.name AS room_name, p.photo AS assigned_photo,
       (SELECT t.uid FROM nfc_tags t WHERE t.asset_id = a.id ORDER BY t.id LIMIT 1) AS nfc_uid
     FROM assets a
     LEFT JOIN rooms r ON r.id = a.room_id
+    LEFT JOIN people p ON p.name = a.assigned_to COLLATE NOCASE
     WHERE 1=1
   `;
   const params = [];
@@ -21,7 +22,20 @@ function listAssets({ roomId, search } = {}) {
 
 function getAsset(id) {
   const db = getDb();
-  return db.prepare('SELECT * FROM assets WHERE id = ?').get(id);
+  // Joins room_name for consistency with listAssets()/getAssetDetail() —
+  // this is what createAsset()/updateAsset() return, and now that Rooms
+  // are picked from a managed dropdown (mapping/ui-locations.js) rather
+  // than free-typed, callers reasonably expect the resolved name back
+  // alongside room_id. assigned_photo comes from the `people` table (see
+  // models.js) keyed by the assigned_to name, not stored on the asset
+  // itself — listed after a.* so it overrides that now-unused column.
+  return db.prepare(`
+    SELECT a.*, r.name AS room_name, p.photo AS assigned_photo
+    FROM assets a
+    LEFT JOIN rooms r ON r.id = a.room_id
+    LEFT JOIN people p ON p.name = a.assigned_to COLLATE NOCASE
+    WHERE a.id = ?
+  `).get(id);
 }
 
 // Full detail view used by the mobile "Asset Info" screen: joins room name,
@@ -29,8 +43,10 @@ function getAsset(id) {
 function getAssetDetail(id) {
   const db = getDb();
   const asset = db.prepare(`
-    SELECT a.*, r.name AS room_name
-    FROM assets a LEFT JOIN rooms r ON r.id = a.room_id
+    SELECT a.*, r.name AS room_name, p.photo AS assigned_photo
+    FROM assets a
+    LEFT JOIN rooms r ON r.id = a.room_id
+    LEFT JOIN people p ON p.name = a.assigned_to COLLATE NOCASE
     WHERE a.id = ?
   `).get(id);
   if (!asset) return null;
@@ -57,12 +73,25 @@ function resolveRoomId(db, roomName) {
   return info.lastInsertRowid;
 }
 
+// Saves a photo against the PERSON's name (people table), not the asset —
+// so attaching it once from any asset they're assigned to makes it show up
+// for every other asset assigned to that same name, on the Cluster Map and
+// anywhere else assigned_photo is read. Case-insensitive dedupe comes from
+// people.name's COLLATE NOCASE unique constraint (see models.js).
+function upsertPersonPhoto(db, name, photo) {
+  if (!name || !photo) return;
+  db.prepare(`
+    INSERT INTO people (name, photo, updated_at) VALUES (?, ?, datetime('now'))
+    ON CONFLICT(name) DO UPDATE SET photo = excluded.photo, updated_at = excluded.updated_at
+  `).run(name, photo);
+}
+
 function createAsset(data) {
   const db = getDb();
   const roomId = data.room_id || resolveRoomId(db, data.room_name);
   const info = db.prepare(`
-    INSERT INTO assets (asset_tag, name, category, description, condition, status, acquired_date, value_php, room_id, assigned_to)
-    VALUES (@asset_tag, @name, @category, @description, @condition, @status, @acquired_date, @value_php, @room_id, @assigned_to)
+    INSERT INTO assets (asset_tag, name, category, description, condition, status, acquired_date, value_php, room_id, assigned_to, photo)
+    VALUES (@asset_tag, @name, @category, @description, @condition, @status, @acquired_date, @value_php, @room_id, @assigned_to, @photo)
   `).run({
     asset_tag: data.asset_tag,
     name: data.name,
@@ -73,8 +102,14 @@ function createAsset(data) {
     acquired_date: data.acquired_date || null,
     value_php: data.value_php || null,
     room_id: roomId,
-    assigned_to: data.assigned_to || null
+    assigned_to: data.assigned_to || null,
+    photo: data.photo || null
   });
+
+  // `assigned_photo` here is whatever the Asset Registry modal's "ASSIGNED
+  // USER PHOTO" field just picked — remembered against the person's name
+  // (people table) rather than this asset row.
+  if (data.assigned_photo) upsertPersonPhoto(db, data.assigned_to, data.assigned_photo);
 
   if (data.nfc_uid) {
     db.prepare('INSERT OR IGNORE INTO nfc_tags (uid, asset_id) VALUES (?, ?)').run(data.nfc_uid, info.lastInsertRowid);
@@ -93,8 +128,12 @@ function updateAsset(id, data) {
   db.prepare(`
     UPDATE assets SET asset_tag=@asset_tag, name=@name, category=@category,
       description=@description, condition=@condition, status=@status, acquired_date=@acquired_date,
-      value_php=@value_php, room_id=@room_id, assigned_to=@assigned_to WHERE id=@id
+      value_php=@value_php, room_id=@room_id, assigned_to=@assigned_to, photo=@photo WHERE id=@id
   `).run(merged);
+
+  // Save against whichever name the asset ends up assigned to after this
+  // update (merged.assigned_to), same as createAsset() above.
+  if (data.assigned_photo) upsertPersonPhoto(db, merged.assigned_to, data.assigned_photo);
 
   if (data.nfc_uid) {
     db.prepare('INSERT OR IGNORE INTO nfc_tags (uid, asset_id) VALUES (?, ?)').run(data.nfc_uid, id);
@@ -147,42 +186,95 @@ function reportIssue(assetId, note, reportedBy) {
   return { id: info.lastInsertRowid, asset_id: Number(assetId), note, reported_by: reportedBy };
 }
 
-// Bulk import: reads an uploaded .xlsx buffer (columns: asset_tag, name,
-// category, description, condition, room) and inserts/updates rows.
+// Bulk import: reads an uploaded .xlsx/.csv buffer and inserts/updates rows.
+// Column headers are matched flexibly (case/spacing/punctuation-insensitive)
+// against several accepted names per field, so both a human-friendly export
+// like "Asset ID / Name / Assigned To / Room / Status" and the original
+// snake_case format ("asset_tag" / "room" / "condition") both work.
+const IMPORT_FIELD_ALIASES = {
+  asset_tag: ['asset_tag', 'asset id', 'assetid', 'asset tag', 'tag', 'id'],
+  name: ['name', 'asset name'],
+  category: ['category'],
+  description: ['description', 'notes'],
+  condition: ['condition'],
+  room: ['room', 'location'],
+  assigned_to: ['assigned_to', 'assigned to', 'assignee', 'assigned'],
+  status: ['status']
+};
+const VALID_STATUSES = new Set(['active', 'pending', 'maintenance', 'offline']);
+
+// Collapses a header like "Asset ID", "asset_tag" or "Asset-Id" down to
+// "assetid" so all three match the same alias regardless of how the sheet
+// author formatted it.
+function normalizeHeader(key) {
+  return String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
+}
+
+// Builds a { assetTag, name, ... } object for one raw sheet row by matching
+// its actual (arbitrarily-cased) column headers against IMPORT_FIELD_ALIASES.
+function mapRow(row) {
+  const normalized = {};
+  for (const [rawKey, value] of Object.entries(row)) {
+    normalized[normalizeHeader(rawKey)] = value;
+  }
+  const mapped = {};
+  for (const [field, aliases] of Object.entries(IMPORT_FIELD_ALIASES)) {
+    for (const alias of aliases) {
+      const value = normalized[normalizeHeader(alias)];
+      if (value !== undefined && String(value).trim() !== '') {
+        mapped[field] = String(value).trim();
+        break;
+      }
+    }
+  }
+  return mapped;
+}
+
 function importFromExcelBuffer(buffer) {
   const workbook = XLSX.read(buffer, { type: 'buffer' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet);
 
   const db = getDb();
-  const findRoom = db.prepare('SELECT id FROM rooms WHERE name = ?');
+  const findRoom = db.prepare('SELECT id FROM rooms WHERE name = ? COLLATE NOCASE');
   const insertRoom = db.prepare('INSERT INTO rooms (name) VALUES (?)');
   const upsertAsset = db.prepare(`
-    INSERT INTO assets (asset_tag, name, category, description, condition, room_id)
-    VALUES (@asset_tag, @name, @category, @description, @condition, @room_id)
+    INSERT INTO assets (asset_tag, name, category, description, condition, room_id, assigned_to, status)
+    VALUES (@asset_tag, @name, @category, @description, @condition, @room_id, @assigned_to, @status)
     ON CONFLICT(asset_tag) DO UPDATE SET
       name=excluded.name, category=excluded.category,
       description=excluded.description, condition=excluded.condition,
-      room_id=excluded.room_id
+      room_id=excluded.room_id, assigned_to=excluded.assigned_to, status=excluded.status
   `);
 
   let imported = 0;
   const tx = db.transaction((records) => {
-    for (const row of records) {
+    for (const raw of records) {
+      const row = mapRow(raw);
       if (!row.asset_tag || !row.name) continue;
+
       let roomId = null;
       if (row.room) {
         let r = findRoom.get(row.room);
         if (!r) { const info = insertRoom.run(row.room); roomId = info.lastInsertRowid; }
         else roomId = r.id;
       }
+
+      const assignedTo = (row.assigned_to && row.assigned_to.toLowerCase() !== 'unassigned')
+        ? row.assigned_to : null;
+
+      const statusLower = row.status ? row.status.toLowerCase() : '';
+      const status = VALID_STATUSES.has(statusLower) ? statusLower : 'active';
+
       upsertAsset.run({
-        asset_tag: String(row.asset_tag),
-        name: String(row.name),
-        category: row.category ? String(row.category) : null,
-        description: row.description ? String(row.description) : null,
-        condition: row.condition ? String(row.condition) : 'good',
-        room_id: roomId
+        asset_tag: row.asset_tag,
+        name: row.name,
+        category: row.category || null,
+        description: row.description || null,
+        condition: row.condition || 'good',
+        room_id: roomId,
+        assigned_to: assignedTo,
+        status
       });
       imported++;
     }

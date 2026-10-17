@@ -5,8 +5,8 @@
   --secondary: #4B5694;
   --supporting: #7288AE;
   --background: #EAE0CF;
-  --font-display: 'VT323', monospace;
-  --font-mono: 'IBM Plex Mono', 'Courier New', monospace;
+  --font-display: 'Open Sans', sans-serif;
+  --font-mono: 'Open Sans', sans-serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -138,3 +138,7 @@ html, body {
 }
 
 .m-asset-edit { margin-bottom: 16px; }
+.m-label-optional { text-transform: none; letter-spacing: 0; color: var(--supporting); font-size: 11px; }
+.m-photo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+.m-photo-preview { width: 56px; height: 56px; object-fit: cover; border: 3px solid var(--secondary); flex-shrink: 0; }
+.m-photo-pick { display: inline-flex; align-items: center; justify-content: center; width: auto; flex: 1; cursor: pointer; text-align: center; }
