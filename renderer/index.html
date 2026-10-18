@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'" />
+  <title>AssetTrack — Mainframe</title>
+  <link rel="stylesheet" href="styles/retro-theme.css" />
+  <link rel="stylesheet" href="styles/scanlines.css" />
+  <link rel="stylesheet" href="styles/fonts.css" />
+  <link rel="stylesheet" href="styles/app-brutal.css" />
+  <link rel="stylesheet" href="styles/login-brutal.css" />
+  <!-- Boot guard: the markup below ships the full app chrome (header with the
+       "Dashboard" page title). Keep it hidden until router.js has decided
+       whether this is the login screen or the app, so neither flashes first. -->
+  <style>
+    #shell:not(.ready) { visibility: hidden; }
+    /* Invisible strip you can drag the window by (the native title bar is hidden). */
+    #titlebar-drag { position: fixed; top: 0; left: 0; right: 0; height: 32px; z-index: 1; -webkit-app-region: drag; }
+  </style>
+  <!-- Leaflet + Leaflet.markercluster, vendored locally (not a CDN) so the
+       Cluster Map keeps working with zero internet access — see
+       src/features/mapping/ui-map.js. Loaded here per Leaflet's own
+       "Using a Downloaded Version" instructions rather than injected by
+       ui-map.js, so it's available before that screen's code ever runs. -->
+  <link rel="stylesheet" href="vendor/leaflet/leaflet.css" />
+  <script src="vendor/leaflet/leaflet.js"></script>
+  <link rel="stylesheet" href="vendor/leaflet.markercluster/MarkerCluster.css" />
+  <link rel="stylesheet" href="vendor/leaflet.markercluster/MarkerCluster.Default.css" />
+  <script src="vendor/leaflet.markercluster/leaflet.markercluster.js"></script>
+</head>
+<body>
+  <div id="titlebar-drag"></div>
+  <div id="shell">
+    <!-- Header (all screens except login): NBSC logo, product name + current page,
+         live time and date, menu icon. Follows the dashboard wireframe. -->
+    <header id="app-header">
+      <!-- Logo slot: swap the text for <img src="assets/logo/nbsc.png" alt="NBSC"> once the file exists. -->
+      <div class="hd-logo" aria-label="NBSC">NBSC</div>
+      <div class="hd-title">
+        <h1 class="hd-brand">ASSETTRACK</h1>
+        <p class="hd-page" id="page-title">Dashboard</p>
+      </div>
+      <div class="hd-clock" aria-live="off">
+        <span class="hd-time" id="top-time"></span>
+        <span class="hd-date" id="top-date"></span>
+      </div>
+      <button type="button" id="btn-menu" class="hd-menu" aria-label="Open menu" aria-expanded="false" aria-controls="menu-drawer">
+        <span></span><span></span><span></span>
+      </button>
+    </header>
+
+    <main id="main-content">
+      <div id="app"></div>
+    </main>
+  </div>
+
+  <div id="menu-scrim" hidden></div>
+  <aside id="menu-drawer" aria-label="Main menu" hidden>
+    <div class="dr-bar">
+      <span class="dr-code">menu</span>
+      <button type="button" id="btn-menu-close" class="dr-x" aria-label="Close menu">&times;</button>
+    </div>
+
+    <nav id="nav-links">
+      <a href="#/dashboard" data-nav="dashboard"><span class="nav-icon">◈</span><span class="nav-label">Dashboard</span></a>
+      <a href="#/assets" data-nav="assets"><span class="nav-icon">▤</span><span class="nav-label">Asset registry</span></a>
+      <a href="#/map" data-nav="map"><span class="nav-icon">▦</span><span class="nav-label">Cluster map</span></a>
+      <a href="#/locations" data-nav="locations" id="nav-locations"><span class="nav-icon">⌂</span><span class="nav-label">Locations</span></a>
+      <a href="#/inventory" data-nav="inventory"><span class="nav-icon">⟳</span><span class="nav-label">Inventory sync</span></a>
+      <a href="#/reports" data-nav="reports"><span class="nav-icon">▥</span><span class="nav-label">Reports</span></a>
+      <a href="#/mobile" data-nav="mobile"><span class="nav-icon">▧</span><span class="nav-label">QR distribution</span></a>
+      <a href="#/users" data-nav="users" id="nav-users"><span class="nav-icon">☺</span><span class="nav-label">Manage users</span></a>
+    </nav>
+
+    <div class="dr-foot">
+      <div class="user-card">
+        <span class="user-avatar" id="sidebar-avatar">AD</span>
+        <div class="user-meta">
+          <span class="user-name" id="sidebar-username">ADMIN</span>
+          <span class="user-role" id="sidebar-role">SUPERUSER</span>
+        </div>
+      </div>
+      <div class="dr-status">
+        <span><span class="status-dot status-complete"></span>Database online</span>
+        <span id="top-ip" class="dr-ip"></span>
+      </div>
+      <button id="btn-logout" class="btn-retro full-width">Log out</button>
+    </div>
+  </aside>
+
+  <script type="module" src="js/router.js"></script>
+</body>
+</html>

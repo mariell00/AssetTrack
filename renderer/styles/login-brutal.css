@@ -1,0 +1,206 @@
+/* login-brutal.css — cyber-brutalist login panel.
+   Layout: NBSC wordmark top-left, "supply office" top-right, photo left with
+   the sign-in column right, short description centred under the photo.
+   Look: grainy charcoal slab, thin accent frame, registration marks, hard
+   offset shadows, zero radius, instant hover inversion.
+   Accent is swappable: <div class="screen-login" data-accent="blue"> switches
+   the red accent to the school's Electric Cobalt / Warning Yellow pairing. */
+
+/* Full-bleed dark stage while the login route is showing. */
+body:has(#shell.auth-mode) { background: #121212; }
+body:has(#shell.auth-mode) #device-bezel { display: none; }
+#shell.auth-mode { padding: 0; gap: 0; min-height: 100vh; }
+#shell.auth-mode #main-content { gap: 0; }
+#shell.auth-mode #app { gap: 0; }
+
+.screen-login {
+  --lg-stage: #121212;
+  --lg-card: #232323;
+  --lg-field: #181818;
+  --lg-ink: #E6E3DE;
+  --lg-dim: #9A968F;
+  --lg-line: #E6E3DE;
+  --lg-danger: #FF3B3B;
+
+  --lg-acc: #D8443F;        /* fills + frames */
+  --lg-acc-text: #F0625B;   /* accent used as text/thin lines on charcoal */
+  --lg-on-acc: #FFFFFF;     /* text sitting on an accent fill */
+
+  position: relative;
+  min-height: 100vh;
+  padding: clamp(12px, 2.4vw, 32px);
+  padding-top: calc(32px + clamp(12px, 2.4vw, 32px)); /* room for the window buttons (custom title bar) */
+  display: flex; align-items: center; justify-content: center;
+  overflow: hidden;
+  background: var(--lg-stage);
+  color: var(--lg-ink);
+  font-family: var(--font-body);
+  font-size: 14px;
+}
+.screen-login[data-accent="blue"] {
+  /* Palette: Electric Cobalt #0033FF · Midnight Navy #0A1A3F · Hard White #FFFFFF
+             · Static Mist #E8ECF5 · Void #000000 — and nothing else (bar the error red). */
+  --lg-stage: #060F26;      /* dark navy behind the card (a shade deeper than Midnight Navy) */
+  --lg-card: #0A1A3F;       /* Midnight Navy: panels */
+  --lg-field: #07122E;      /* dark navy input wells */
+  --lg-ink: #FFFFFF;        /* Hard White: text, outlines, highlights */
+  --lg-dim: #E8ECF5;        /* Static Mist: secondary text, disabled states */
+  --lg-line: #FFFFFF;
+  --lg-acc: #0033FF;        /* Electric Cobalt: fills, buttons, borders */
+  --lg-acc-text: #FFFFFF;   /* cobalt is too dark to read as text / thin lines on navy or black, so those are white; cobalt stays on fills + borders */
+  --lg-on-acc: #FFFFFF;
+  --lg-ghost: rgba(232, 236, 245, .10);
+}
+
+/* Ghost text + faint registration lines on the stage, like the poster's backdrop. */
+.lg-ghost {
+  position: absolute; inset: auto -2% -2% auto; width: 62%;
+  font-family: var(--font-data); font-size: clamp(22px, 3vw, 44px); line-height: 1.25;
+  color: var(--lg-ghost, rgba(230, 227, 222, .10)); text-transform: uppercase;
+  pointer-events: none; user-select: none; word-break: break-all;
+}
+.screen-login::before, .screen-login::after {
+  content: ""; position: absolute; pointer-events: none; background: rgba(216, 68, 63, .55);
+}
+.screen-login::before { left: 0; right: 0; top: 17%; height: 1px; }
+.screen-login::after  { top: 0; bottom: 0; left: 9%; width: 1px; }
+.screen-login[data-accent="blue"]::before, .screen-login[data-accent="blue"]::after { background: rgba(0, 51, 255, .75); }
+
+/* The slab. */
+.lg-card {
+  position: relative; z-index: 1;
+  width: min(1240px, 100%);
+  background: var(--lg-card);
+  border: 3px solid var(--lg-line);
+  box-shadow: 12px 12px 0 var(--lg-acc);
+  padding: clamp(18px, 2.6vw, 36px);
+  display: grid; gap: clamp(14px, 2vw, 26px);
+}
+/* Film grain over everything inside the card, including type. */
+.lg-card::after {
+  content: ""; position: absolute; inset: 0; z-index: 5; pointer-events: none; opacity: .11;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='240'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .8 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- header ---- */
+/* baseline-aligned: "supply office" sits on the same baseline as NBSC */
+.lg-head { display: flex; justify-content: space-between; align-items: baseline; gap: 24px; }
+.lg-nbsc {
+  /* negative left margin = N's side bearing, so the ink edge lines up with the college name below */
+  margin: 0 0 0 -.066em; font-family: var(--font-head); font-weight: 700;
+  font-size: clamp(52px, min(10vw, 15vh), 150px);
+  line-height: .8; letter-spacing: -.055em; color: var(--lg-ink);
+}
+.lg-college { margin: 14px 0 0 -.0879em; font-family: var(--font-body); font-size: clamp(14px, 1.45vw, 19px); letter-spacing: .01em; color: var(--lg-dim); }
+.lg-office {
+  margin: 0; font-family: var(--font-head); font-weight: 700; text-align: right;
+  font-size: clamp(22px, min(3.8vw, 6.4vh), 60px); line-height: .9; letter-spacing: -.04em;
+  color: var(--lg-acc-text);
+}
+
+/* ---- ornament strip ---- */
+.lg-marks { display: flex; align-items: center; gap: 14px; margin-top: -4px; color: var(--lg-acc-text); }
+.lg-marks svg { flex: none; }
+.lg-bar { flex: none; width: 88px; height: 12px; border: 2px solid var(--lg-acc-text); border-radius: 0; position: relative; }
+.lg-bar::after { content: ""; position: absolute; inset: 2px 14px 2px 2px; background: var(--lg-acc-text); }
+.lg-dots { flex: 1; height: 8px; min-width: 0;
+  background: radial-gradient(circle, var(--lg-acc-text) 1.8px, transparent 2.2px) 0 50% / 14px 8px repeat-x; opacity: .6; }
+.lg-code { font-family: var(--font-data); font-weight: 700; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-dim); white-space: nowrap; }
+
+/* ---- body: photo + form ---- */
+.lg-body { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(290px, 1fr); gap: clamp(18px, 2.6vw, 36px); align-items: stretch; }
+.lg-figure { position: relative; margin: 0; border: 3px solid var(--lg-acc); background: #000; min-height: clamp(220px, 40vh, 440px); }
+.lg-figure img { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; filter: grayscale(1) contrast(1.15); }
+.lg-figcap {
+  position: absolute; left: 0; bottom: 0; padding: 4px 10px;
+  font-family: var(--font-data); font-size: 12px; background: var(--lg-acc); color: var(--lg-on-acc);
+}
+
+.lg-form { display: flex; flex-direction: column; gap: 18px; }
+.lg-field { display: flex; flex-direction: column; gap: 6px; }
+.lg-field label { font-family: var(--font-data); font-weight: 700; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-dim); }
+/* label row: "user name" on the left, red "incorrect"/"required" flag on the right */
+.lg-field-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; min-height: 16px; }
+.lg-flag { font-family: var(--font-data); font-weight: 700; font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--lg-danger); }
+.lg-field[data-invalid="true"] label { color: var(--lg-danger); }
+.lg-field[data-invalid="true"] input { border-color: var(--lg-danger); background: rgba(255, 59, 59, .14); }
+.lg-field[data-invalid="true"] input:focus-visible { outline-color: var(--lg-danger); }
+.lg-field input {
+  width: 100%; margin: 0; padding: 13px 14px; border-radius: 0;
+  background: var(--lg-field); color: var(--lg-ink);
+  border: 3px solid var(--lg-line);
+  font-family: var(--font-data); font-size: 15px;
+}
+.lg-field input:focus-visible { outline: 3px solid var(--lg-acc-text); outline-offset: 2px; background: #000; }
+
+.lg-submit {
+  align-self: center; width: 72%; padding: 15px 12px; margin-top: 4px; border-radius: 0; cursor: pointer;
+  background: var(--lg-acc); color: var(--lg-on-acc);
+  border: 3px solid var(--lg-line); box-shadow: 5px 5px 0 var(--lg-line);
+  font-family: var(--font-btn); font-size: 24px; letter-spacing: .1em; text-transform: uppercase;
+}
+.lg-submit:hover, .lg-submit:focus-visible { background: var(--lg-ink); color: #000; }
+.lg-submit:active { transform: translate(5px, 5px); box-shadow: none; }
+.lg-submit:focus-visible { outline: 3px solid var(--lg-acc-text); outline-offset: 4px; }
+.lg-submit:disabled { background: var(--lg-dim); color: #000; opacity: .55; box-shadow: none; cursor: progress; }
+
+.lg-status {
+  margin: 0; padding: 8px 12px; border-left: 4px solid var(--lg-danger);
+  font-family: var(--font-data); font-size: 13px; line-height: 1.45; color: var(--lg-ink); background: rgba(255, 59, 59, .14);
+}
+.lg-status:empty { display: none; }
+.lg-status[data-kind="info"] { border-left-color: var(--lg-acc-text); background: rgba(255, 255, 255, .06); }
+
+.lg-forgot {
+  margin-top: auto; align-self: stretch; padding: 12px; border-radius: 0; cursor: pointer; text-align: center;
+  background: transparent; color: var(--lg-ink); border: 2px dashed var(--lg-dim);
+  font-family: var(--font-data); font-size: 14px;
+}
+.lg-forgot:hover, .lg-forgot:focus-visible { background: var(--lg-ink); color: #000; border-style: solid; border-color: var(--lg-ink); }
+.lg-forgot:focus-visible { outline: 3px solid var(--lg-acc-text); outline-offset: 2px; }
+
+/* ---- forgot-password pop-up (native <dialog>, sits above the card) ---- */
+.lg-modal {
+  padding: 0; border: 3px solid var(--lg-line); border-radius: 0; background: var(--lg-card); color: var(--lg-ink);
+  width: min(460px, 92vw); max-width: none; box-shadow: 10px 10px 0 var(--lg-acc);
+}
+.lg-modal::backdrop { background: rgba(0, 0, 0, .78); }
+.lg-modal[open] { animation: lg-pop .14s ease-out; }
+@keyframes lg-pop { from { transform: translateY(8px) scale(.98); opacity: 0; } to { transform: none; opacity: 1; } }
+.lg-modal-bar { display: flex; align-items: center; justify-content: space-between; padding: 8px 8px 8px 16px; background: var(--lg-acc); color: var(--lg-on-acc); }
+.lg-modal-code { font-family: var(--font-data); font-weight: 700; font-size: 13px; letter-spacing: .14em; text-transform: uppercase; }
+.lg-modal-x { width: 34px; height: 34px; padding: 0; border-radius: 0; cursor: pointer; background: transparent; color: var(--lg-on-acc); border: 2px solid var(--lg-on-acc); font-family: var(--font-data); font-size: 22px; line-height: 1; }
+.lg-modal-x:hover, .lg-modal-x:focus-visible { background: var(--lg-ink); color: #000; outline: none; }
+.lg-modal-body { display: flex; flex-direction: column; gap: 14px; padding: 24px 22px 26px; }
+.lg-modal-title { margin: 0; font-family: var(--font-head); font-weight: 700; font-size: 30px; line-height: .95; letter-spacing: -.02em; color: var(--lg-acc-text); }
+.lg-modal-text { margin: 0; font-family: var(--font-body); font-size: 15px; line-height: 1.55; }
+.lg-modal-ok { width: 100%; margin-top: 6px; align-self: stretch; font-size: 20px; }
+/* recovery steps inside the pop-up */
+.lg-modal { width: min(480px, 92vw); max-height: calc(100vh - 24px); overflow-y: auto; }
+.lg-step { display: flex; flex-direction: column; gap: 14px; }
+.lg-step[hidden] { display: none; }
+.lg-modal .lg-status { margin: 0; }
+.lg-modal-links { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+.lg-linkbtn { padding: 4px 0; border: 0; border-radius: 0; background: none; cursor: pointer; font-family: var(--font-data); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; color: var(--lg-acc-text); text-decoration: underline; text-underline-offset: 3px; }
+.lg-linkbtn:hover:not(:disabled), .lg-linkbtn:focus-visible { color: var(--lg-ink); outline: none; }
+.lg-linkbtn:disabled { color: var(--lg-dim); opacity: .55; text-decoration: none; cursor: default; }
+.lg-code-input { font-weight: 700; letter-spacing: .24em; text-transform: uppercase; }
+
+/* ---- foot: description under the photo, checker strip under the form ---- */
+.lg-foot { display: grid; grid-template-columns: minmax(0, 1.75fr) minmax(290px, 1fr); gap: clamp(18px, 2.6vw, 36px); align-items: end; }
+.lg-desc-wrap { display: flex; align-items: center; justify-content: center; gap: 22px; }
+.lg-globe { flex: none; color: var(--lg-acc-text); }
+.lg-desc { margin: 0; max-width: 38ch; font-size: 15px; line-height: 1.55; color: var(--lg-dim); }
+.lg-checker { height: 24px; background: repeating-conic-gradient(var(--lg-acc) 0 25%, transparent 0 50%) 0 0 / 8px 8px; }
+
+/* ---- narrow windows: stack like a phone poster ---- */
+@media (max-width: 860px) {
+  .lg-head { flex-direction: column; align-items: flex-start; }
+  .lg-office { text-align: left; }
+  .lg-body, .lg-foot { grid-template-columns: 1fr; }
+  .lg-figure { min-height: 220px; }
+  .lg-forgot { margin-top: 0; }
+  .lg-checker { order: 2; }
+  .lg-code { display: none; }
+}
+@media (prefers-reduced-motion: reduce) { .lg-submit:active { transform: none; } }

@@ -2,7 +2,7 @@
 
 A sustainable, portable, offline-first asset management system. Retro-computing
 themed Admin Hub (Electron desktop app) paired with a companion mobile PWA for
-QR-based room verification.
+NFC-based room verification.
 
 ## Architecture at a glance
 
@@ -13,7 +13,7 @@ AssetTrack_Desktop/
 ├── src/features/<name>/        one folder per feature: models, services, routes, ui
 ├── src/renderer/                the Admin Hub UI (retro theme, router, api-client)
 ├── src/static/mobile/          built copy of /mobile, hosted for QR distribution
-└── mobile/                     the mobile PWA source (QR scanning, offline sync)
+└── mobile/                     the mobile PWA source (NFC scanning, offline sync)
 ```
 
 Each feature module (`auth`, `assets`, `inventory`, `mapping`, `reports`,
@@ -83,10 +83,10 @@ changes, aside from re-scanning the QR code if the local IP changes.
 
 ## How data flows
 
-1. Admin registers assets in the **Assets** screen (or bulk
+1. Admin registers assets and NFC tags in the **Assets** screen (or bulk
    imports an `.xlsx` sheet with columns `asset_tag, name, category,
    description, condition, room`).
-2. Staff walk rooms with the mobile app, scanning each asset's QR label. Scans are saved
+2. Staff walk rooms with the mobile app, tapping NFC tags. Scans are saved
    to IndexedDB immediately — no Wi-Fi required.
 3. Staff hit **SYNC** when back in Wi-Fi range; scans POST to
    `/api/v1/inventory/sync` and clear from the local queue on success.

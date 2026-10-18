@@ -5,6 +5,7 @@ const path = require('path');
 const express = require('express');
 const fs = require('fs');
 const https = require('https');
+const crypto = require('crypto');
 
 const { loadConfig, discoverLocalIp } = require('./src/core/config');
 const { initDatabase, startAutoBackup } = require('./src/core/database');
@@ -298,7 +299,7 @@ async function setupNamedTunnel(expressApp, config, lanUrl, logEvent) {
 const TITLEBAR_HEIGHT = 32; // keep in sync with #titlebar-drag in index.html and .screen-login padding
 const TITLEBAR_THEMES = {
   login: { color: '#060F26', symbolColor: '#FFFFFF' }, // navy login stage
-  app:   { color: '#EAE0CF', symbolColor: '#111844' }  // cream app background
+  app:   { color: '#060F26', symbolColor: '#FFFFFF' }  // navy app stage (matches the login)
 };
 
 function createWindow(config) {
@@ -309,7 +310,7 @@ function createWindow(config) {
     center: true,
     minWidth: 960,
     minHeight: 640,
-    backgroundColor: '#111844',
+    backgroundColor: '#060F26',
     title: 'AssetTrack — Admin Hub',
     ...(customTitleBar && {
       titleBarStyle: 'hidden',
@@ -338,7 +339,13 @@ function createWindow(config) {
   // express.static() line in startServer) — NOT loadFile()/file://. This is
   // what makes every relative fetch('/api/v1/...') in the UI actually reach
   // the Express server instead of silently failing against the filesystem.
-  mainWindow.loadURL(`http://127.0.0.1:${config.port}/`);
+  //
+  // The ?boot=<id> is new for every window we create. router.js compares it with
+  // the id saved next to the login token and drops the token when they differ, so
+  // quitting the app (or closing its window) always means the next launch opens
+  // on the login screen.
+  const bootId = crypto.randomBytes(8).toString('hex');
+  mainWindow.loadURL(`http://127.0.0.1:${config.port}/?boot=${bootId}`);
 
   // Open external links (e.g. help docs) in the OS browser, not Electron.
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
