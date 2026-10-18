@@ -1,7 +1,11 @@
-// features/analytics/routes.js — GET /api/v1/analytics/summary
+// features/analytics/routes.js — GET /api/v1/analytics/summary, GET /api/v1/analytics/dashboard
 const express = require('express');
 const router = express.Router();
 const svc = require('./services');
+
+router.get('/dashboard', (req, res) => {
+  res.json({ ok: true, ...svc.dashboardSummary() });
+});
 
 router.get('/summary', (req, res) => {
   res.json({

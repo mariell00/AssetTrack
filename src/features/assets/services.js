@@ -42,9 +42,10 @@ function getAsset(id) {
 function getAssetDetail(id) {
   const db = getDb();
   const asset = db.prepare(`
-    SELECT a.*, r.name AS room_name, p.photo AS assigned_photo
+    SELECT a.*, r.name AS room_name, COALESCE(b.name, r.building) AS building_name, p.photo AS assigned_photo
     FROM assets a
     LEFT JOIN rooms r ON r.id = a.room_id
+    LEFT JOIN buildings b ON b.id = r.building_id
     LEFT JOIN people p ON p.name = a.assigned_to COLLATE NOCASE
     WHERE a.id = ?
   `).get(id);
@@ -58,7 +59,28 @@ function getAssetDetail(id) {
     SELECT COUNT(*) AS c FROM asset_issues WHERE asset_id = ? AND resolved = 0
   `).get(id).c;
 
-  return { ...asset, room_name: asset.room_name, last_scanned: lastScanned, open_issues: openIssues };
+  // Shown in the Asset Registry's detail pop-up (the mobile app ignores the extras).
+  const recentScans = db.prepare(`
+    SELECT l.scanned_at, l.status, l.scanned_by, r.name AS room_name
+    FROM inventory_logs l
+    LEFT JOIN rooms r ON r.id = l.room_id
+    WHERE l.asset_id = ?
+    ORDER BY l.id DESC
+    LIMIT 5
+  `).all(id);
+
+  const issues = db.prepare(`
+    SELECT id, reported_by, note, resolved, created_at
+    FROM asset_issues
+    WHERE asset_id = ?
+    ORDER BY resolved ASC, id DESC
+    LIMIT 5
+  `).all(id);
+
+  return {
+    ...asset, room_name: asset.room_name, last_scanned: lastScanned, open_issues: openIssues,
+    recent_scans: recentScans, issues
+  };
 }
 
 // Resolves a free-typed room name to a room_id, creating the room row if
@@ -85,14 +107,29 @@ function upsertPersonPhoto(db, name, photo) {
   `).run(name, photo);
 }
 
+// System-generated Asset ID: AST-0001, AST-0002, ... Numbered from the table's
+// own auto-increment counter (sqlite_sequence), so a number is never handed out
+// twice even after assets are deleted — an old QR label can't end up pointing
+// at a different item. Skips ahead if a tag (e.g. from a CSV import) is taken.
+function generateAssetTag(db) {
+  const row = db.prepare(`SELECT seq FROM sqlite_sequence WHERE name = 'assets'`).get();
+  const taken = db.prepare('SELECT 1 AS x FROM assets WHERE asset_tag = ?');
+  let n = (row ? Number(row.seq) : 0) + 1;
+  let tag;
+  do { tag = `AST-${String(n).padStart(4, '0')}`; n += 1; } while (taken.get(tag));
+  return tag;
+}
+
 function createAsset(data) {
   const db = getDb();
+  // The desktop form no longer sends an asset_tag; the mobile app still does.
+  const assetTag = (data.asset_tag && String(data.asset_tag).trim()) || generateAssetTag(db);
   const roomId = data.room_id || resolveRoomId(db, data.room_name);
   const info = db.prepare(`
     INSERT INTO assets (asset_tag, name, category, description, condition, status, acquired_date, value_php, room_id, assigned_to, photo)
     VALUES (@asset_tag, @name, @category, @description, @condition, @status, @acquired_date, @value_php, @room_id, @assigned_to, @photo)
   `).run({
-    asset_tag: data.asset_tag,
+    asset_tag: assetTag,
     name: data.name,
     category: data.category || null,
     description: data.description || null,
@@ -110,7 +147,7 @@ function createAsset(data) {
   // (people table) rather than this asset row.
   if (data.assigned_photo) upsertPersonPhoto(db, data.assigned_to, data.assigned_photo);
 
-  require('../system/services').logEvent('IMPORT', `Asset ${data.asset_tag} registered: ${data.name}`, 'success');
+  require('../system/services').logEvent('IMPORT', `Asset ${assetTag} registered: ${data.name}`, 'success');
   return getAsset(info.lastInsertRowid);
 }
 

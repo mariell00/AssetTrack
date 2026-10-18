@@ -73,4 +73,75 @@ function activityHeatmap() {
   return { buildings, rows: [{ label: 'This week', values: thisWeek }, { label: 'Last week', values: lastWeek }] };
 }
 
-module.exports = { summaryStats, scansByBuilding, activityHeatmap };
+// ---- Dashboard (header screen) ----------------------------------------
+// Everything the redesigned Dashboard needs in one round trip:
+//   monthly - distinct assets verified per calendar month, last 12 months
+//             (months with no scans are returned as 0 so the chart has no gaps)
+//   status  - asset counts for the progress bars. pendingSync uses the same
+//             definition as assets/services.js dashboardStats(): assets not
+//             verified yet today. active/maintenance/offline are the asset's
+//             own status field.
+//   logs    - latest scans as spreadsheet rows (where, which asset, result,
+//             who it is assigned to, who scanned it)
+const MONTH_LABELS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+function monthlyVerified(months = 12) {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT strftime('%Y-%m', scanned_at) AS ym, COUNT(DISTINCT asset_id) AS verified
+    FROM inventory_logs
+    WHERE status = 'verified' AND scanned_at >= datetime('now', 'start of month', ?)
+    GROUP BY ym
+  `).all(`-${months - 1} months`);
+  const byMonth = new Map(rows.map((r) => [r.ym, r.verified]));
+
+  const out = [];
+  const now = new Date();
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    const ym = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+    out.push({ month: ym, label: MONTH_LABELS[d.getUTCMonth()], year: d.getUTCFullYear(), verified: byMonth.get(ym) || 0 });
+  }
+  return out;
+}
+
+function statusBreakdown() {
+  const db = getDb();
+  const total = db.prepare('SELECT COUNT(*) AS c FROM assets').get().c;
+  const verifiedToday = db.prepare(`
+    SELECT COUNT(DISTINCT asset_id) AS c FROM inventory_logs
+    WHERE status = 'verified' AND date(scanned_at) = date('now')
+  `).get().c;
+  const counts = Object.fromEntries(
+    db.prepare('SELECT status, COUNT(*) AS c FROM assets GROUP BY status').all().map((r) => [r.status, r.c])
+  );
+  return {
+    total,
+    verifiedToday,
+    pendingSync: Math.max(0, total - verifiedToday),
+    active: counts.active || 0,
+    maintenance: counts.maintenance || 0,
+    offline: counts.offline || 0
+  };
+}
+
+function recentScanRows(limit = 100) {
+  const db = getDb();
+  return db.prepare(`
+    SELECT l.id, l.scanned_at, l.status AS scan_status, l.scanned_by,
+           a.asset_tag, a.name AS asset_name, a.status AS asset_status, a.assigned_to,
+           COALESCE(b.name, r.building) AS building, r.name AS room
+    FROM inventory_logs l
+    JOIN assets a ON a.id = l.asset_id
+    LEFT JOIN rooms r ON r.id = COALESCE(l.room_id, a.room_id)
+    LEFT JOIN buildings b ON b.id = r.building_id
+    ORDER BY l.id DESC
+    LIMIT ?
+  `).all(limit);
+}
+
+function dashboardSummary() {
+  return { monthly: monthlyVerified(12), status: statusBreakdown(), logs: recentScanRows(100) };
+}
+
+module.exports = { summaryStats, scansByBuilding, activityHeatmap, dashboardSummary };

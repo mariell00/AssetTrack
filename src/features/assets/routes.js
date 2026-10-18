@@ -19,8 +19,9 @@ router.get('/:id', (req, res) => {
 });
 
 router.post('/', (req, res) => {
-  if (!req.body.asset_tag || !req.body.name) {
-    return res.status(400).json({ ok: false, error: 'asset_tag and name are required.' });
+  // asset_tag is optional: when it's missing the server generates the Asset ID.
+  if (!req.body.name) {
+    return res.status(400).json({ ok: false, error: 'name is required.' });
   }
   res.status(201).json({ ok: true, asset: svc.createAsset(req.body) });
 });

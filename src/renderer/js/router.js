@@ -1,6 +1,6 @@
 // js/router.js — client-side hash-based routing. Each feature's ui.js
 // exports render(); this router just swaps what's mounted into #app, and
-// keeps the top bar (breadcrumb / IP / clock / DB status) in sync.
+// keeps the header (page title / clock) and the menu drawer in sync.
 import { render as renderLogin, renderUserManagement } from '../../features/auth/ui.js';
 import { render as renderAssets } from '../../features/assets/ui.js';
 import { render as renderMap } from '../../features/mapping/ui-map.js';
@@ -9,100 +9,25 @@ import { render as renderReports } from '../../features/reports/ui.js';
 import { render as renderQr } from '../../features/qr-distribution/ui.js';
 import { render as renderInventory } from '../../features/inventory/ui.js';
 import { render as renderAnalytics } from '../../features/analytics/ui.js';
+import { render as renderDashboard } from '../../features/analytics/ui-dashboard.js';
 import { apiGet } from './api-client.js';
 
 const app = document.getElementById('app');
 const shell = document.getElementById('shell');
 const navLinks = document.getElementById('nav-links');
-const breadcrumb = document.getElementById('breadcrumb');
+const pageTitle = document.getElementById('page-title');
 
 const ROUTE_TITLES = {
-  '/dashboard': 'DASHBOARD',
-  '/assets': 'ASSET REGISTRY',
-  '/map': 'CLUSTER MAP',
-  '/locations': 'LOCATIONS',
-  '/inventory': 'INVENTORY SYNC',
-  '/reports': 'REPORTS',
-  '/mobile': 'QR DISTRIBUTION',
-  '/users': 'MANAGE USER ACCOUNTS',
-  '/analytics': 'SPATIAL ANALYTICS'
+  '/dashboard': 'Dashboard',
+  '/assets': 'Asset registry',
+  '/map': 'Cluster map',
+  '/locations': 'Locations',
+  '/inventory': 'Inventory sync',
+  '/reports': 'Reports',
+  '/mobile': 'QR distribution',
+  '/users': 'Manage user accounts',
+  '/analytics': 'Spatial analytics'
 };
-
-const CATEGORY_CLASS = {
-  SYNC: 'log-sync', IMPORT: 'log-import', ALERT: 'log-alert', UPDATE: 'log-update',
-  CONN: 'log-conn', EXPORT: 'log-export', AUTH: 'log-auth', INIT: 'log-init'
-};
-
-function renderDashboard() {
-  const el = document.createElement('div');
-  el.className = 'screen screen-dashboard';
-  el.innerHTML = `
-    <div class="stat-card-row" id="dashboard-stats">Loading…</div>
-    <div class="crt-panel activity-panel">
-      <div class="crt-header">
-        ACTIVITY LOG // TERMINAL
-        <span class="live-feed">● LIVE FEED</span>
-      </div>
-      <div id="activity-log" class="activity-log">Loading…</div>
-    </div>
-  `;
-
-  async function loadStats() {
-    const result = await apiGet('/api/v1/assets/dashboard-stats');
-    const box = el.querySelector('#dashboard-stats');
-    if (!result.ok) { box.textContent = 'Unable to load stats.'; return; }
-    const s = result.stats;
-    box.innerHTML = `
-      <div class="stat-card">
-        <div class="stat-card-top"><span class="stat-value">${s.totalAssets.toLocaleString()}</span><span class="stat-dot dot-green"></span></div>
-        <div class="stat-label">TOTAL ASSETS</div>
-        <div class="stat-sub">ALL LOCATIONS</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-top"><span class="stat-value">${s.verifiedToday.toLocaleString()}</span><span class="stat-dot dot-green"></span></div>
-        <div class="stat-label">VERIFIED TODAY</div>
-        <div class="stat-sub">SINCE 00:00</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-top"><span class="stat-value">${s.pendingSync.toLocaleString()}</span><span class="stat-dot dot-yellow"></span></div>
-        <div class="stat-label">PENDING SYNC</div>
-        <div class="stat-sub">AWAITING CHECK-IN</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-card-top"><span class="stat-value">${s.maintenanceDue.toLocaleString()}</span><span class="stat-dot dot-red"></span></div>
-        <div class="stat-label">MAINTENANCE DUE</div>
-        <div class="stat-sub">FLAGGED ASSETS</div>
-      </div>
-    `;
-  }
-
-  async function loadActivity() {
-    const result = await apiGet('/api/v1/system/activity?limit=30');
-    const box = el.querySelector('#activity-log');
-    if (!result.ok || result.events.length === 0) {
-      box.innerHTML = '<p class="empty-hint">No activity yet.</p>';
-      return;
-    }
-    box.innerHTML = result.events.map((ev) => `
-      <div class="log-line">
-        <span class="log-time">[${ev.created_at.replace('T', ' ').slice(11, 19)}]</span>
-        <span class="log-tag ${CATEGORY_CLASS[ev.category] || ''}">${ev.category}</span>
-        <span class="log-sep">·</span>
-        <span class="log-msg log-level-${ev.level}">${ev.message}</span>
-      </div>
-    `).join('');
-  }
-
-  loadStats();
-  loadActivity();
-  const poll = setInterval(loadActivity, 6000);
-  const observer = new MutationObserver(() => {
-    if (!document.body.contains(el)) { clearInterval(poll); observer.disconnect(); }
-  });
-  observer.observe(document.body, { childList: true, subtree: true });
-
-  return el;
-}
 
 const routes = {
   '/login': renderLogin,
@@ -116,6 +41,21 @@ const routes = {
   '/users': renderUserManagement,
   '/analytics': renderAnalytics
 };
+
+// Signing in does not survive closing the app: main.js loads this page with a
+// ?boot=<random id> that changes every time the window is created. A session
+// saved by an earlier launch carries a different id, so it is dropped here,
+// before the first route runs, and the app opens on the login screen. Reloading
+// the page keeps the same id, so a reload does not sign you out.
+(function enforceFreshLaunchLogin() {
+  const bootId = new URLSearchParams(window.location.search).get('boot');
+  if (!bootId) return; // not opened by the desktop app (e.g. a plain browser): leave the session alone
+  if (localStorage.getItem('assettrack_boot') !== bootId) {
+    localStorage.removeItem('assettrack_token');
+    localStorage.removeItem('assettrack_user');
+    localStorage.setItem('assettrack_boot', bootId);
+  }
+})();
 
 function isAuthed() {
   const token = localStorage.getItem('assettrack_token');
@@ -178,40 +118,86 @@ function navigate() {
   setActiveNav(path);
 
   shell.classList.toggle('auth-mode', path === '/login');
-  breadcrumb.textContent = `› ${ROUTE_TITLES[path] || 'DASHBOARD'}`;
+  const title = ROUTE_TITLES[path] || 'Dashboard';
+  pageTitle.textContent = title;
+  document.title = `AssetTrack — ${title}`;
+  closeMenu();
   if (path !== '/login') updateSidebarUser();
   shell.classList.add('ready'); // un-hide the shell (see boot guard in index.html)
 }
 
-document.getElementById('btn-logout').addEventListener('click', () => {
+function logout() {
   localStorage.removeItem('assettrack_token');
   localStorage.removeItem('assettrack_user');
   window.location.hash = '#/login';
-});
-
-// Collapsible menu bar: clicking the ☰ toggles the sidebar between full
-// width (icons + labels) and a minimized icon-only rail (see the
-// #sidebar.collapsed / #shell.sidebar-collapsed rules in retro-theme.css).
-// Preference persists across restarts via localStorage.
-const sidebarToggleBtn = document.getElementById('btn-sidebar-toggle');
-const sidebarEl = document.getElementById('sidebar');
-function applySidebarCollapsed(collapsed) {
-  sidebarEl.classList.toggle('collapsed', collapsed);
-  shell.classList.toggle('sidebar-collapsed', collapsed);
 }
-applySidebarCollapsed(localStorage.getItem('assettrack_sidebar_collapsed') === '1');
-sidebarToggleBtn.addEventListener('click', () => {
-  const collapsed = !sidebarEl.classList.contains('collapsed');
-  applySidebarCollapsed(collapsed);
-  localStorage.setItem('assettrack_sidebar_collapsed', collapsed ? '1' : '0');
+
+// Log out asks first. A native <dialog> gives focus trapping and Esc-to-cancel
+// for free; Cancel gets the initial focus so Enter never logs you out by accident.
+const logoutDialog = document.createElement('dialog');
+logoutDialog.className = 'confirm-dialog';
+logoutDialog.setAttribute('aria-labelledby', 'logout-confirm-title');
+logoutDialog.innerHTML = `
+  <div class="confirm-bar">
+    <span class="confirm-code">confirm</span>
+    <button type="button" class="confirm-x" id="logout-x" aria-label="Close">&times;</button>
+  </div>
+  <div class="confirm-body">
+    <h2 class="confirm-title" id="logout-confirm-title">Log out?</h2>
+    <p class="confirm-text">Are you sure you want to log out? You will be returned to the login screen.</p>
+    <div class="confirm-actions">
+      <button type="button" class="btn-retro outline" id="logout-cancel" autofocus>Cancel</button>
+      <button type="button" class="btn-retro" id="logout-confirm">Log out</button>
+    </div>
+  </div>
+`;
+document.body.appendChild(logoutDialog);
+
+document.getElementById('btn-logout').addEventListener('click', () => logoutDialog.showModal());
+logoutDialog.querySelector('#logout-cancel').addEventListener('click', () => logoutDialog.close());
+logoutDialog.querySelector('#logout-x').addEventListener('click', () => logoutDialog.close());
+logoutDialog.querySelector('#logout-confirm').addEventListener('click', () => { logoutDialog.close(); logout(); });
+// A click on the dimmed backdrop (the dialog element itself) cancels too.
+logoutDialog.addEventListener('click', (e) => { if (e.target === logoutDialog) logoutDialog.close(); });
+
+// Menu: the icon at the top right of the header opens a drawer with the
+// navigation, the signed-in user and Log out. It closes on a link click, the
+// close button, the dimmed backdrop, or Escape.
+const menuBtn = document.getElementById('btn-menu');
+const menuClose = document.getElementById('btn-menu-close');
+const menuDrawer = document.getElementById('menu-drawer');
+const menuScrim = document.getElementById('menu-scrim');
+
+function openMenu(viaKeyboard) {
+  menuDrawer.hidden = false;
+  menuScrim.hidden = false;
+  menuBtn.setAttribute('aria-expanded', 'true');
+  // Move focus into the drawer only for keyboard users, so a mouse click doesn't leave a focus highlight on the page link.
+  if (!viaKeyboard) return;
+  const target = menuDrawer.querySelector('#nav-links a.active') || menuDrawer.querySelector('#nav-links a');
+  if (target) target.focus();
+}
+function closeMenu() {
+  if (menuDrawer.hidden) return;
+  menuDrawer.hidden = true;
+  menuScrim.hidden = true;
+  menuBtn.setAttribute('aria-expanded', 'false');
+}
+menuBtn.addEventListener('click', (e) => (menuDrawer.hidden ? openMenu(e.detail === 0) : closeMenu()));
+menuClose.addEventListener('click', () => { closeMenu(); menuBtn.focus(); });
+menuScrim.addEventListener('click', closeMenu);
+menuDrawer.addEventListener('click', (e) => { if (e.target.closest('#nav-links a')) closeMenu(); });
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && !menuDrawer.hidden && !logoutDialog.open) { closeMenu(); menuBtn.focus(); }
 });
 
-// Top bar: live clock + local IP, refreshed independently of route changes.
+// Header: live time and date, refreshed independently of route changes.
 function tickClock() {
   const now = new Date();
-  const pad = (n) => String(n).padStart(2, '0');
-  const stamp = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
-  document.getElementById('top-clock').textContent = stamp;
+  document.getElementById('top-time').textContent =
+    now.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit', second: '2-digit' });
+  document.getElementById('top-date').textContent =
+    now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
 async function loadTopIp() {
   const result = await apiGet('/api/v1/system/status');

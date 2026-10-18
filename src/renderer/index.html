@@ -7,9 +7,10 @@
   <link rel="stylesheet" href="styles/retro-theme.css" />
   <link rel="stylesheet" href="styles/scanlines.css" />
   <link rel="stylesheet" href="styles/fonts.css" />
+  <link rel="stylesheet" href="styles/app-brutal.css" />
   <link rel="stylesheet" href="styles/login-brutal.css" />
-  <!-- Boot guard: the markup below ships the full app chrome (sidebar, top bar,
-       "DASHBOARD" breadcrumb). Keep it hidden until router.js has decided
+  <!-- Boot guard: the markup below ships the full app chrome (header with the
+       "Dashboard" page title). Keep it hidden until router.js has decided
        whether this is the login screen or the app, so neither flashes first. -->
   <style>
     #shell:not(.ready) { visibility: hidden; }
@@ -29,54 +30,63 @@
 </head>
 <body>
   <div id="titlebar-drag"></div>
-  <div id="device-bezel"></div>
   <div id="shell">
-    <aside id="sidebar">
-      <button id="btn-sidebar-toggle" class="sidebar-toggle" aria-label="Toggle menu" title="Hide/minimize menu">☰</button>
-      <div class="brand">
-        <span class="brand-icon">◆</span>
-        <div class="brand-text">
-          <span class="brand-line">ASSET</span>
-          <span class="brand-line">TRACK</span>
-        </div>
+    <!-- Header (all screens except login): NBSC logo, product name + current page,
+         live time and date, menu icon. Follows the dashboard wireframe. -->
+    <header id="app-header">
+      <!-- Logo slot: swap the text for <img src="assets/logo/nbsc.png" alt="NBSC"> once the file exists. -->
+      <div class="hd-logo" aria-label="NBSC">NBSC</div>
+      <div class="hd-title">
+        <h1 class="hd-brand">ASSETTRACK</h1>
+        <p class="hd-page" id="page-title">Dashboard</p>
       </div>
-      <div class="brand-sub">v2.4.1 // MAINFRAME</div>
-
-      <nav id="nav-links">
-        <a href="#/dashboard" data-nav="dashboard"><span class="nav-icon">◈</span><span class="nav-label"> DASHBOARD</span></a>
-        <a href="#/assets" data-nav="assets"><span class="nav-icon">▤</span><span class="nav-label"> ASSET REGISTRY</span></a>
-        <a href="#/map" data-nav="map"><span class="nav-icon">▦</span><span class="nav-label"> CLUSTER MAP</span></a>
-        <a href="#/locations" data-nav="locations" id="nav-locations"><span class="nav-icon">⌂</span><span class="nav-label"> LOCATIONS</span></a>
-        <a href="#/inventory" data-nav="inventory"><span class="nav-icon">⟳</span><span class="nav-label"> INVENTORY SYNC</span></a>
-        <a href="#/reports" data-nav="reports"><span class="nav-icon">▥</span><span class="nav-label"> REPORTS</span></a>
-        <a href="#/mobile" data-nav="mobile"><span class="nav-icon">▧</span><span class="nav-label"> QR DISTRIBUTION</span></a>
-        <a href="#/users" data-nav="users" id="nav-users"><span class="nav-icon">☺</span><span class="nav-label"> MANAGE USERS</span></a>
-      </nav>
-
-      <div class="sidebar-footer">
-        <div class="user-card">
-          <span class="user-avatar" id="sidebar-avatar">AD</span>
-          <div class="user-meta">
-            <span class="user-name" id="sidebar-username">ADMIN</span>
-            <span class="user-role" id="sidebar-role">SUPERUSER</span>
-          </div>
-        </div>
-        <button id="btn-logout" class="btn-retro small full-width"><span class="nav-icon">⏻</span><span class="nav-label"> LOGOUT</span></button>
+      <div class="hd-clock" aria-live="off">
+        <span class="hd-time" id="top-time"></span>
+        <span class="hd-date" id="top-date"></span>
       </div>
-    </aside>
+      <button type="button" id="btn-menu" class="hd-menu" aria-label="Open menu" aria-expanded="false" aria-controls="menu-drawer">
+        <span></span><span></span><span></span>
+      </button>
+    </header>
 
     <main id="main-content">
-      <div id="top-bar">
-        <span id="breadcrumb">› DASHBOARD</span>
-        <div class="top-bar-right">
-          <span id="top-ip" class="status-green"></span>
-          <span id="top-clock"></span>
-          <span class="top-db-status"><span class="status-dot status-complete"></span> DATABASE: ONLINE</span>
-        </div>
-      </div>
       <div id="app"></div>
     </main>
   </div>
+
+  <div id="menu-scrim" hidden></div>
+  <aside id="menu-drawer" aria-label="Main menu" hidden>
+    <div class="dr-bar">
+      <span class="dr-code">menu</span>
+      <button type="button" id="btn-menu-close" class="dr-x" aria-label="Close menu">&times;</button>
+    </div>
+
+    <nav id="nav-links">
+      <a href="#/dashboard" data-nav="dashboard"><span class="nav-icon">◈</span><span class="nav-label">Dashboard</span></a>
+      <a href="#/assets" data-nav="assets"><span class="nav-icon">▤</span><span class="nav-label">Asset registry</span></a>
+      <a href="#/map" data-nav="map"><span class="nav-icon">▦</span><span class="nav-label">Cluster map</span></a>
+      <a href="#/locations" data-nav="locations" id="nav-locations"><span class="nav-icon">⌂</span><span class="nav-label">Locations</span></a>
+      <a href="#/inventory" data-nav="inventory"><span class="nav-icon">⟳</span><span class="nav-label">Inventory sync</span></a>
+      <a href="#/reports" data-nav="reports"><span class="nav-icon">▥</span><span class="nav-label">Reports</span></a>
+      <a href="#/mobile" data-nav="mobile"><span class="nav-icon">▧</span><span class="nav-label">QR distribution</span></a>
+      <a href="#/users" data-nav="users" id="nav-users"><span class="nav-icon">☺</span><span class="nav-label">Manage users</span></a>
+    </nav>
+
+    <div class="dr-foot">
+      <div class="user-card">
+        <span class="user-avatar" id="sidebar-avatar">AD</span>
+        <div class="user-meta">
+          <span class="user-name" id="sidebar-username">ADMIN</span>
+          <span class="user-role" id="sidebar-role">SUPERUSER</span>
+        </div>
+      </div>
+      <div class="dr-status">
+        <span><span class="status-dot status-complete"></span>Database online</span>
+        <span id="top-ip" class="dr-ip"></span>
+      </div>
+      <button id="btn-logout" class="btn-retro full-width">Log out</button>
+    </div>
+  </aside>
 
   <script type="module" src="js/router.js"></script>
 </body>
