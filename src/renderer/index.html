@@ -69,17 +69,20 @@
       <a href="#/inventory" data-nav="inventory"><span class="nav-icon">⟳</span><span class="nav-label">Inventory sync</span></a>
       <a href="#/reports" data-nav="reports"><span class="nav-icon">▥</span><span class="nav-label">Reports</span></a>
       <a href="#/mobile" data-nav="mobile"><span class="nav-icon">▧</span><span class="nav-label">QR distribution</span></a>
-      <a href="#/users" data-nav="users" id="nav-users"><span class="nav-icon">☺</span><span class="nav-label">Manage users</span></a>
+      <a href="#/assignees" data-nav="assignees" id="nav-assignees"><span class="nav-icon">☺</span><span class="nav-label">Assignees</span></a>
     </nav>
 
     <div class="dr-foot">
-      <div class="user-card">
+      <!-- Profile card. For the superadmin it is a link to Manage Admins (router.js
+           turns it on); for anyone else it stays a plain, non-clickable card. -->
+      <a class="user-card" id="user-card" href="#/admins" aria-label="Your profile — manage admins">
         <span class="user-avatar" id="sidebar-avatar">AD</span>
         <div class="user-meta">
           <span class="user-name" id="sidebar-username">ADMIN</span>
-          <span class="user-role" id="sidebar-role">SUPERUSER</span>
+          <span class="user-role" id="sidebar-role">SUPER ADMIN</span>
         </div>
-      </div>
+        <span class="user-card-cue" id="user-card-cue" aria-hidden="true">MANAGE ADMINS ›</span>
+      </a>
       <div class="dr-status">
         <span><span class="status-dot status-complete"></span>Database online</span>
         <span id="top-ip" class="dr-ip"></span>

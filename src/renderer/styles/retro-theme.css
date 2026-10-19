@@ -290,7 +290,6 @@ html, body {
 .badge-asset-pending { background: rgba(242, 201, 76, 0.2); color: var(--yellow); }
 .badge-asset-offline, .badge-status-inactive { background: rgba(235, 87, 87, 0.2); color: var(--red); }
 .badge-role-admin { background: rgba(199, 125, 255, 0.2); color: var(--magenta); }
-.badge-role-staff { background: rgba(114, 136, 174, 0.25); color: var(--supporting); }
 .badge-source-mobile { background: rgba(94, 196, 242, 0.2); color: var(--cyan); }
 .badge-source-desktop { background: rgba(114, 136, 174, 0.25); color: var(--text-dim); }
 

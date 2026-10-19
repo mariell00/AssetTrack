@@ -29,7 +29,7 @@ export function render() {
 
         <div class="qr-download-banner">
           <div class="download-title">📲 GETTING THE APP ON A PHONE</div>
-          <div class="download-caption">Scanning the code opens a page that lets each staff member choose to INSTALL APP (adds a home-screen icon) or CONTINUE IN BROWSER — no separate download needed.</div>
+          <div class="download-caption">Scanning the code opens a page that lets each admin choose to INSTALL APP (adds a home-screen icon) or CONTINUE IN BROWSER — no separate download needed.</div>
         </div>
 
         <div class="crt-panel">

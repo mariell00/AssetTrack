@@ -1,6 +1,7 @@
 // features/auth/ui.js — login screen + user management panel.
 // Exports render() so the client router can inject this into #app.
 import { apiPost, apiGet, apiPatch } from '../../js/api-client.js';
+import { esc } from '../assets/ui.js';
 
 export function render() {
   const el = document.createElement('div');
@@ -379,7 +380,7 @@ function initials(name) {
 // Renders "when" plus a small badge showing which client the user last
 // logged in from — the specific device (📱 IPHONE, 🖥 WINDOWS PC, etc.,
 // from the User-Agent — see core/device.js) when it's recognizable, or a
-// generic MOBILE/DESKTOP tag otherwise — so admins can tell staff are
+// generic MOBILE/DESKTOP tag otherwise — so the superadmin can tell admins are
 // actually checking in from the field rather than guessing from the bare
 // timestamp alone.
 function lastLoginCell(u) {
@@ -398,40 +399,35 @@ function lastLoginCell(u) {
   `;
 }
 
-// Add-user modal — replaces the old prompt()/confirm() chain with a proper
-// form consistent with the rest of the app (see assets/ui.js's
-// openAssetModal for the same pattern).
+// Add-admin modal. Every account created here is an admin; admins sign in
+// from the mobile app. (The superadmin is the one account that uses this
+// desktop app, and it already exists.)
 function openAddUserModal(root, onCreated) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
     <div class="modal-box crt-panel">
       <div class="crt-header">
-        <span class="crt-dot"></span> ADD USER
-        <button class="modal-close" id="user-modal-close">✕</button>
+        <span class="crt-dot"></span> ADD ADMIN
+        <button class="modal-close" id="user-modal-close" type="button" aria-label="Close">✕</button>
       </div>
       <form id="user-form" class="retro-form modal-form">
         <label>USERNAME
-          <input type="text" id="u-username" class="retro-input" required />
+          <input type="text" id="u-username" class="retro-input" autocomplete="off" required />
         </label>
         <label>TEMPORARY PASSWORD
-          <input type="text" id="u-password" class="retro-input" required />
-        </label>
-        <label>ROLE
-          <select id="u-role" class="retro-input">
-            <option value="staff" selected>STAFF</option>
-            <option value="admin">ADMIN</option>
-          </select>
+          <input type="text" id="u-password" class="retro-input" autocomplete="off" required />
         </label>
         <label>ASSIGNED AREA
           <input type="text" id="u-area" class="retro-input" placeholder="e.g. Main Building" />
         </label>
         <button type="submit" class="btn-retro">▶ CREATE ACCOUNT</button>
-        <p id="user-modal-error" class="form-error"></p>
+        <p id="user-modal-error" class="form-error" role="alert"></p>
       </form>
     </div>
   `;
   root.appendChild(overlay);
+  overlay.querySelector('#u-username').focus();
 
   overlay.querySelector('#user-modal-close').addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
@@ -440,12 +436,11 @@ function openAddUserModal(root, onCreated) {
     e.preventDefault();
     const username = overlay.querySelector('#u-username').value.trim();
     const password = overlay.querySelector('#u-password').value;
-    const role = overlay.querySelector('#u-role').value;
     const assigned_area = overlay.querySelector('#u-area').value.trim() || null;
 
-    const result = await apiPost('/api/v1/auth/users', { username, password, role, assigned_area });
+    const result = await apiPost('/api/v1/auth/users', { username, password, role: 'admin', assigned_area });
     if (!result.ok) {
-      overlay.querySelector('#user-modal-error').textContent = result.error || 'Could not create user.';
+      overlay.querySelector('#user-modal-error').textContent = result.error || 'Could not create account.';
       return;
     }
     overlay.remove();
@@ -453,21 +448,32 @@ function openAddUserModal(root, onCreated) {
   });
 }
 
-// Full "Manage User Accounts" screen: search, add-user modal, sortable
-// table with role/status badges and per-row actions.
-export function renderUserManagement() {
+function roleBadge(u) {
+  if (u.is_superadmin) return '<span class="badge badge-role-super">SUPER ADMIN</span>';
+  return `<span class="badge badge-role-${u.role}">${u.role}</span>`;
+}
+
+function currentUserId() {
+  try { return JSON.parse(localStorage.getItem('assettrack_user') || '{}').id; } catch { return null; }
+}
+
+// "Manage Admins" — opened from the profile card at the bottom of the menu.
+// One list: the super admin (always first, protected) and the admins. The
+// super admin uses this desktop app; admins sign in from the mobile app.
+export function renderAdminManagement() {
   const el = document.createElement('div');
   el.className = 'screen screen-users';
   el.innerHTML = `
     <div class="crt-panel">
       <div class="crt-header">
-        <span class="crt-dot"></span> MANAGE USER ACCOUNTS
+        <span class="crt-dot"></span> MANAGE ADMINS
         <div class="header-actions">
-          <button id="btn-add-user" class="btn-retro small">+ ADD USER</button>
+          <button id="btn-add-user" class="btn-retro small" type="button">+ ADD ADMIN</button>
         </div>
       </div>
+      <p class="screen-lede">The super admin is the only account that signs in to this desktop app, and can’t be deactivated or deleted. Admins sign in from the mobile app only — they can’t open this app.</p>
       <div class="users-toolbar">
-        <input type="text" id="user-search" class="retro-input" placeholder="SEARCH USERNAME..." />
+        <input type="text" id="user-search" class="retro-input" placeholder="SEARCH USERNAME..." aria-label="Search accounts" />
       </div>
       <table class="retro-table">
         <thead>
@@ -478,42 +484,53 @@ export function renderUserManagement() {
     </div>
   `;
 
-  async function loadUsers(search = '') {
+  async function loadUsers() {
+    const search = el.querySelector('#user-search').value;
     const result = await apiGet(`/api/v1/auth/users?search=${encodeURIComponent(search)}`);
     const tbody = el.querySelector('#user-rows');
-    if (!result.ok) { tbody.innerHTML = `<tr><td colspan="6">${result.error || 'Unable to load users. Admin access required.'}</td></tr>`; return; }
-    if (result.users.length === 0) { tbody.innerHTML = `<tr><td colspan="6">No users found.</td></tr>`; return; }
+    if (!result.ok) { tbody.innerHTML = `<tr><td colspan="6">${esc(result.error || 'Unable to load accounts. Super admin access required.')}</td></tr>`; return; }
+    if (result.users.length === 0) {
+      tbody.innerHTML = `<tr><td colspan="6">${search ? 'No accounts match that search.' : 'No accounts found.'}</td></tr>`;
+      return;
+    }
 
-    tbody.innerHTML = result.users.map((u) => `
-      <tr data-id="${u.id}">
-        <td class="user-cell"><span class="avatar-circle">${initials(u.username)}</span> ${u.username}</td>
-        <td><span class="badge badge-role-${u.role}">${u.role}</span></td>
-        <td>${u.assigned_area || '—'}</td>
+    const me = currentUserId();
+    tbody.innerHTML = result.users.map((u) => {
+      const locked = u.is_superadmin || Number(u.id) === Number(me);
+      const lockTitle = u.is_superadmin ? 'The super admin account can’t be deactivated' : 'You can’t deactivate your own account';
+      const canToggle = u.status !== 'active' || !locked; // reactivating is always fine
+      return `
+      <tr data-id="${u.id}" class="${u.is_superadmin ? 'row-super' : ''}">
+        <td class="user-cell"><span class="avatar-circle">${esc(initials(u.username))}</span> <span>${esc(u.username)}${Number(u.id) === Number(me) ? ' <span class="mono-dim">(you)</span>' : ''}</span></td>
+        <td>${roleBadge(u)}</td>
+        <td>${esc(u.assigned_area) || '—'}</td>
         <td>${lastLoginCell(u)}</td>
         <td><span class="badge badge-status-${u.status}">${u.status}</span></td>
         <td class="row-actions">
-          <button class="btn-retro small btn-toggle-status" data-id="${u.id}" data-status="${u.status}">
+          <button class="btn-retro small btn-toggle-status" data-id="${u.id}" data-status="${u.status}" type="button"
+            ${canToggle ? '' : `disabled title="${lockTitle}"`}>
             ${u.status === 'active' ? 'DEACTIVATE' : 'ACTIVATE'}
           </button>
         </td>
-      </tr>
-    `).join('');
+      </tr>`;
+    }).join('');
 
     tbody.querySelectorAll('.btn-toggle-status').forEach((btn) => {
       btn.addEventListener('click', async () => {
         const newStatus = btn.dataset.status === 'active' ? 'inactive' : 'active';
-        await apiPatch(`/api/v1/auth/users/${btn.dataset.id}/status`, { status: newStatus });
-        loadUsers(el.querySelector('#user-search').value);
+        const res = await apiPatch(`/api/v1/auth/users/${btn.dataset.id}/status`, { status: newStatus });
+        if (!res.ok) alert(res.error || 'Could not update the account.');
+        loadUsers();
       });
     });
   }
 
-  el.querySelector('#user-search').addEventListener('input', (e) => loadUsers(e.target.value));
-
-  el.querySelector('#btn-add-user').addEventListener('click', () => {
-    openAddUserModal(el, () => loadUsers(el.querySelector('#user-search').value));
-  });
+  el.querySelector('#user-search').addEventListener('input', loadUsers);
+  el.querySelector('#btn-add-user').addEventListener('click', () => openAddUserModal(el, loadUsers));
 
   loadUsers();
   return el;
 }
+
+// Old name, kept so nothing importing it breaks.
+export const renderUserManagement = renderAdminManagement;

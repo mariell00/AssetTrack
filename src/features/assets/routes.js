@@ -2,10 +2,25 @@
 const express = require('express');
 const router = express.Router();
 const svc = require('./services');
+const { requireRole } = require('../../core/security');
+
+// A taken Asset Tag is a user mistake, not a server fault — answer with a
+// readable 409 instead of letting the UNIQUE error become an HTML 500.
+function duplicateTag(err, res, tag) {
+  if (/UNIQUE/i.test(err && err.message)) {
+    res.status(409).json({ ok: false, error: `The asset tag “${tag}” is already registered.` });
+    return true;
+  }
+  return false;
+}
 
 router.get('/', (req, res) => {
-  const { roomId, search } = req.query;
-  res.json({ ok: true, assets: svc.listAssets({ roomId, search }) });
+  const { roomId, search, lite } = req.query;
+  let assets = svc.listAssets({ roomId, search });
+  // ?lite=1 (the mobile Asset Registry list) leaves out the base64 photos,
+  // which make up nearly all of this payload and aren't shown in a list.
+  if (lite) assets = assets.map(({ photo, assigned_photo, ...rest }) => rest);
+  res.json({ ok: true, assets });
 });
 
 router.get('/dashboard-stats', (req, res) => {
@@ -23,20 +38,32 @@ router.post('/', (req, res) => {
   if (!req.body.name) {
     return res.status(400).json({ ok: false, error: 'name is required.' });
   }
-  res.status(201).json({ ok: true, asset: svc.createAsset(req.body) });
+  try {
+    res.status(201).json({ ok: true, asset: svc.createAsset(req.body) });
+  } catch (err) {
+    if (!duplicateTag(err, res, req.body.asset_tag)) throw err;
+  }
 });
 
 router.put('/:id', (req, res) => {
-  const updated = svc.updateAsset(req.params.id, req.body);
+  let updated;
+  try {
+    updated = svc.updateAsset(req.params.id, req.body);
+  } catch (err) {
+    if (duplicateTag(err, res, req.body.asset_tag)) return;
+    throw err;
+  }
   if (!updated) return res.status(404).json({ ok: false, error: 'Asset not found.' });
   res.json({ ok: true, asset: updated });
 });
 
-router.delete('/:id', (req, res) => {
+// Deleting assets and bulk import are desktop (superadmin) actions; admins on
+// the mobile app can register and edit assets but not remove them.
+router.delete('/:id', requireRole('superadmin'), (req, res) => {
   res.json(svc.deleteAsset(req.params.id));
 });
 
-// Looked up by the mobile Scan screen right after a QR read, so staff can
+// Looked up by the mobile Scan screen right after a QR read, so admins can
 // pull up and edit the asset's details on the spot — QR labels encode the
 // Asset Tag (see generateAssetQrDataUrl below), not the numeric id.
 router.get('/by-tag/:tag', (req, res) => {
@@ -72,7 +99,7 @@ router.post('/:id/report-issue', (req, res) => {
 
 // Bulk import: expects raw .xlsx bytes as the request body
 // (Content-Type: application/octet-stream).
-router.post('/import', express.raw({ type: '*/*', limit: '20mb' }), (req, res) => {
+router.post('/import', requireRole('superadmin'), express.raw({ type: '*/*', limit: '20mb' }), (req, res) => {
   try {
     const result = svc.importFromExcelBuffer(req.body);
     res.json(result);

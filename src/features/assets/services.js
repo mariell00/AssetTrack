@@ -142,6 +142,9 @@ function createAsset(data) {
     photo: data.photo || null
   });
 
+  // Keeps every assigned name on the Assignees list (mobile lets admins type one freely).
+  require('../assignees/services').ensurePerson(db, data.assigned_to);
+
   // `assigned_photo` here is whatever the Asset Registry modal's "ASSIGNED
   // USER PHOTO" field just picked — remembered against the person's name
   // (people table) rather than this asset row.
@@ -162,6 +165,8 @@ function updateAsset(id, data) {
       description=@description, condition=@condition, status=@status, acquired_date=@acquired_date,
       value_php=@value_php, room_id=@room_id, assigned_to=@assigned_to, photo=@photo WHERE id=@id
   `).run(merged);
+
+  require('../assignees/services').ensurePerson(db, merged.assigned_to);
 
   // Save against whichever name the asset ends up assigned to after this
   // update (merged.assigned_to), same as createAsset() above.
@@ -278,6 +283,8 @@ function importFromExcelBuffer(buffer) {
 
       const statusLower = row.status ? row.status.toLowerCase() : '';
       const status = VALID_STATUSES.has(statusLower) ? statusLower : 'active';
+
+      require('../assignees/services').ensurePerson(db, assignedTo);
 
       upsertAsset.run({
         asset_tag: row.asset_tag,

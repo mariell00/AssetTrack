@@ -16,7 +16,9 @@ router.post('/login', (req, res) => {
   // clients apart for the activity log and the Manage Users screen.
   const source = (req.headers['x-client-type'] || '').toLowerCase() === 'mobile' ? 'mobile' : 'desktop';
   const device = simplifyUserAgent(req.headers['user-agent']);
-  const result = login(username, password, { source, ip: req.ip, device });
+  // The superadmin may only sign in from the Admin Hub window on this computer.
+  const isLocalDesktop = source === 'desktop' && recovery.isDesktopRequest(req);
+  const result = login(username, password, { source, ip: req.ip, device, isLocalDesktop });
   if (!result.ok) return res.status(401).json(result);
   res.json(result);
 });
@@ -55,29 +57,40 @@ router.post('/recovery/reset', desktopOnly, (req, res) => {
   }
 });
 
-router.get('/users', requireRole('admin'), (req, res) => {
-  res.json({ ok: true, users: listUsers({ search: req.query.search }) });
+// Account management belongs to the superadmin (desktop app) alone.
+router.get('/users', requireRole('superadmin'), (req, res) => {
+  res.json({ ok: true, users: listUsers({ search: req.query.search, role: req.query.role }) });
 });
 
-router.post('/users', requireRole('admin'), (req, res) => {
+router.post('/users', requireRole('superadmin'), (req, res) => {
   const { username, password, role, assigned_area } = req.body || {};
   if (!username || !password) {
     return res.status(400).json({ ok: false, error: 'username and password are required.' });
   }
-  const user = createUser(username, password, role || 'staff', assigned_area || null);
-  res.status(201).json({ ok: true, user });
+  if (role && role !== 'admin') {
+    return res.status(400).json({ ok: false, error: "Only 'admin' accounts can be created." });
+  }
+  try {
+    const user = createUser(String(username).trim(), password, 'admin', assigned_area || null);
+    res.status(201).json({ ok: true, user });
+  } catch (err) {
+    if (/UNIQUE/i.test(err.message)) return res.status(409).json({ ok: false, error: `The user name “${username}” is already taken.` });
+    throw err;
+  }
 });
 
-router.patch('/users/:id/status', requireRole('admin'), (req, res) => {
+router.patch('/users/:id/status', requireRole('superadmin'), (req, res) => {
   const { status } = req.body || {};
   if (!['active', 'inactive'].includes(status)) {
     return res.status(400).json({ ok: false, error: "status must be 'active' or 'inactive'." });
   }
-  res.json(setUserStatus(req.params.id, status));
+  const result = setUserStatus(req.params.id, status, req.user.id);
+  res.status(result.ok ? 200 : (result.status || 400)).json(result);
 });
 
-router.delete('/users/:id', requireRole('admin'), (req, res) => {
-  res.json(deleteUser(req.params.id));
+router.delete('/users/:id', requireRole('superadmin'), (req, res) => {
+  const result = deleteUser(req.params.id, req.user.id);
+  res.status(result.ok ? 200 : (result.status || 400)).json(result);
 });
 
 module.exports = router;

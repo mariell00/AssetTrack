@@ -84,7 +84,7 @@ export function render() {
     const total = monthly.reduce((sum, m) => sum + m.verified, 0);
     chartMeta.textContent = `Last 12 months`;
     if (total === 0) {
-      chartBox.innerHTML = '<p class="bk-empty">No verified assets yet. Bars appear after staff sync their first room check.</p>';
+      chartBox.innerHTML = '<p class="bk-empty">No verified assets yet. Bars appear after admins sync their first room check.</p>';
       return;
     }
     chartBox.innerHTML = `
@@ -142,7 +142,7 @@ export function render() {
   function drawLogs() {
     sheetCount.textContent = logs.length ? `Showing latest ${logs.length} scans` : '';
     if (logs.length === 0) {
-      sheetView.innerHTML = '<p class="bk-empty">No scans recorded yet. Rows appear here after staff sync from the mobile app.</p>';
+      sheetView.innerHTML = '<p class="bk-empty">No scans recorded yet. Rows appear here after admins sync from the mobile app.</p>';
       return;
     }
     sheetView.innerHTML = `

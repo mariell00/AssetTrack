@@ -81,12 +81,12 @@ function assetPopupHtml(asset) {
   `;
 }
 
-// Placing/editing a building's pin is admin-only server-side (matches
-// Locations screen management) — hide those controls for staff rather than
-// showing buttons that will just come back "Forbidden."
+// Placing/editing a building's pin is superadmin-only server-side (matches
+// Locations screen management) — hide those controls for anyone else rather
+// than showing buttons that will just come back "Forbidden."
 function isAdmin() {
   const raw = localStorage.getItem('assettrack_user');
-  return !!raw && JSON.parse(raw).role === 'admin';
+  return !!raw && JSON.parse(raw).role === 'superadmin';
 }
 
 export function render() {

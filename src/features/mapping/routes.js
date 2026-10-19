@@ -1,8 +1,9 @@
 // features/mapping/routes.js — Buildings + Rooms management (Locations
 // screen) and the building-grouped data for the real Leaflet-based
-// Cluster Map. Any authenticated user can read this (staff need the room
-// list for scanning/registering assets); creating/editing/deleting
-// buildings or rooms is admin-only, same pattern as Manage Users.
+// Cluster Map. Any authenticated user can read this (admins on the mobile app
+// need the room list for scanning/registering assets); creating/editing/
+// deleting buildings or rooms is superadmin-only (desktop app), same pattern
+// as Manage Admins.
 const express = require('express');
 const router = express.Router();
 const svc = require('./services');
@@ -14,16 +15,16 @@ router.get('/buildings', (req, res) => {
   res.json({ ok: true, buildings: svc.listBuildings() });
 });
 
-router.post('/buildings', requireRole('admin'), (req, res) => {
+router.post('/buildings', requireRole('superadmin'), (req, res) => {
   const result = svc.createBuilding(req.body || {});
   res.status(result.ok ? 201 : 400).json(result);
 });
 
-router.put('/buildings/:id', requireRole('admin'), (req, res) => {
+router.put('/buildings/:id', requireRole('superadmin'), (req, res) => {
   res.json(svc.updateBuilding(req.params.id, req.body || {}));
 });
 
-router.put('/buildings/:id/location', requireRole('admin'), (req, res) => {
+router.put('/buildings/:id/location', requireRole('superadmin'), (req, res) => {
   const { latitude, longitude } = req.body || {};
   if (typeof latitude !== 'number' || typeof longitude !== 'number') {
     return res.status(400).json({ ok: false, error: 'latitude and longitude (numbers) are required.' });
@@ -31,7 +32,7 @@ router.put('/buildings/:id/location', requireRole('admin'), (req, res) => {
   res.json(svc.setBuildingLocation(req.params.id, latitude, longitude));
 });
 
-router.delete('/buildings/:id', requireRole('admin'), (req, res) => {
+router.delete('/buildings/:id', requireRole('superadmin'), (req, res) => {
   res.json(svc.deleteBuilding(req.params.id));
 });
 
@@ -43,16 +44,16 @@ router.get('/rooms/list', (req, res) => {
   res.json({ ok: true, rooms: svc.listRooms() });
 });
 
-router.post('/rooms', requireRole('admin'), (req, res) => {
+router.post('/rooms', requireRole('superadmin'), (req, res) => {
   const result = svc.createRoom(req.body || {});
   res.status(result.ok ? 201 : 400).json(result);
 });
 
-router.put('/rooms/:id', requireRole('admin'), (req, res) => {
+router.put('/rooms/:id', requireRole('superadmin'), (req, res) => {
   res.json(svc.updateRoom(req.params.id, req.body || {}));
 });
 
-router.delete('/rooms/:id', requireRole('admin'), (req, res) => {
+router.delete('/rooms/:id', requireRole('superadmin'), (req, res) => {
   res.json(svc.deleteRoom(req.params.id));
 });
 

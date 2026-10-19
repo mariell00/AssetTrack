@@ -14,7 +14,7 @@ function statusBadge(status) {
 // Themed replacement for window.confirm(): a native <dialog> in the app's
 // style (same look as the Log out pop-up). Resolves true on confirm, false on
 // Cancel / Esc / the X / a click on the backdrop. Cancel has the initial focus.
-function confirmDialog({ title, messageHtml, confirmLabel = 'Confirm', danger = false }) {
+export function confirmDialog({ title, messageHtml, confirmLabel = 'Confirm', danger = false }) {
   return new Promise((resolve) => {
     const dlg = document.createElement('dialog');
     dlg.className = 'confirm-dialog';
@@ -143,19 +143,32 @@ function categoryOptionsHtml(selected) {
     + [...CATEGORY_OPTIONS, ...extra].map((c) => `<option value="${esc(c)}" ${c === selected ? 'selected' : ''}>${esc(c)}</option>`).join('');
 }
 
-// PLACEHOLDER: the assignee list will come from a separate board that isn't
-// built yet. Until then the dropdown offers Unassigned, plus whoever is already
-// assigned (so editing an asset never wipes its current assignee).
-function assigneeOptionsHtml(current) {
+// The ASSIGNED TO dropdown is fed by the Manage Assignees screen
+// (features/assignees). Only active assignees are offered, but whoever the
+// asset is already assigned to is always kept as an option — even if they've
+// since been deactivated — so editing an asset never wipes its current assignee.
+function assigneeOptionsHtml(assignees, current) {
+  const active = assignees.filter((p) => p.status === 'active');
+  const has = (name) => active.some((p) => p.name.toLowerCase() === String(name).toLowerCase());
+  const options = [...active.map((p) => p.name)];
+  if (current && !has(current)) options.unshift(current);
+  const isCurrent = (name) => current && name.toLowerCase() === String(current).toLowerCase();
   return `<option value="">— Unassigned —</option>`
-    + (current ? `<option value="${esc(current)}" selected>${esc(current)}</option>` : '')
-    + `<option disabled>Assignee list coming soon</option>`;
+    + options.map((n) => `<option value="${esc(n)}" ${isCurrent(n) ? 'selected' : ''}>${esc(n)}</option>`).join('')
+    + (active.length === 0 ? `<option disabled>No assignees yet — add some in Manage Assignees</option>` : '');
 }
 
 async function openAssetModal(root, { asset } = {}) {
   const isEdit = !!asset;
-  const roomsResult = await apiGet('/api/v1/map/rooms/list');
+  const [roomsResult, assigneesResult] = await Promise.all([
+    apiGet('/api/v1/map/rooms/list'),
+    apiGet('/api/v1/assignees')
+  ]);
   const rooms = roomsResult.ok ? roomsResult.rooms : [];
+  const assignees = assigneesResult.ok ? assigneesResult.assignees : [];
+  // Name → saved photo, so picking someone previews their picture without
+  // stuffing every base64 image into the <option> attributes.
+  const assigneePhotos = new Map(assignees.map((p) => [p.name.toLowerCase(), p.photo]));
 
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
@@ -179,7 +192,8 @@ async function openAssetModal(root, { asset } = {}) {
           <select id="f-room" class="retro-input">${roomOptionsHtml(rooms, asset ? asset.room_id : '')}</select>
         </label>
         <label>ASSIGNED TO (ASSET USER)
-          <select id="f-assigned" class="retro-input">${assigneeOptionsHtml(asset ? asset.assigned_to : '')}</select>
+          <select id="f-assigned" class="retro-input">${assigneeOptionsHtml(assignees, asset ? asset.assigned_to : '')}</select>
+          <span class="mono-dim asg-manage-hint">Not listed? Add them under <a href="#/assignees" id="f-assigned-manage">Manage Assignees</a>.</span>
         </label>
         <label id="f-assigned-photo-field">ASSIGNED USER PHOTO <span class="mono-dim">(optional${isEdit ? ' — leave as-is to keep the current one' : ''})</span>
           <div class="photo-field-row">
@@ -215,6 +229,7 @@ async function openAssetModal(root, { asset } = {}) {
 
   overlay.querySelector('#modal-close').addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  overlay.querySelector('#f-assigned-manage').addEventListener('click', () => overlay.remove());
 
   let newPhotoDataUrl = null; // stays null unless a new photo is picked, so saving without touching it keeps the existing one on edit
   const photoInput = overlay.querySelector('#f-photo');
@@ -240,7 +255,16 @@ async function openAssetModal(root, { asset } = {}) {
   const assignedSelect = overlay.querySelector('#f-assigned');
   const assignedPhotoField = overlay.querySelector('#f-assigned-photo-field');
   const syncAssignedPhotoField = () => { assignedPhotoField.style.display = assignedSelect.value ? '' : 'none'; };
-  assignedSelect.addEventListener('change', syncAssignedPhotoField);
+  assignedSelect.addEventListener('change', () => {
+    syncAssignedPhotoField();
+    // Switching person: show THEIR saved photo (a photo attached a moment ago
+    // belongs to the previous pick, so it's dropped).
+    newAssignedPhotoDataUrl = null;
+    const saved = assigneePhotos.get(assignedSelect.value.toLowerCase());
+    assignedPhotoPreview.src = saved || '';
+    assignedPhotoPreview.style.display = saved ? 'block' : 'none';
+    assignedPhotoLabel.textContent = saved ? 'CHANGE PHOTO' : 'ATTACH PHOTO';
+  });
   syncAssignedPhotoField();
 
   // Same pattern as the item photo above, but for the assigned user's
@@ -307,7 +331,7 @@ async function openAssetModal(root, { asset } = {}) {
   });
 }
 
-function esc(value) {
+export function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => (
     { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
   ));

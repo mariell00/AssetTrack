@@ -1,10 +1,11 @@
 // js/router.js — client-side hash-based routing. Each feature's ui.js
 // exports render(); this router just swaps what's mounted into #app, and
 // keeps the header (page title / clock) and the menu drawer in sync.
-import { render as renderLogin, renderUserManagement } from '../../features/auth/ui.js';
+import { render as renderLogin, renderAdminManagement } from '../../features/auth/ui.js';
 import { render as renderAssets } from '../../features/assets/ui.js';
 import { render as renderMap } from '../../features/mapping/ui-map.js';
 import { render as renderLocations } from '../../features/mapping/ui-locations.js';
+import { render as renderAssignees } from '../../features/assignees/ui.js';
 import { render as renderReports } from '../../features/reports/ui.js';
 import { render as renderQr } from '../../features/qr-distribution/ui.js';
 import { render as renderInventory } from '../../features/inventory/ui.js';
@@ -25,7 +26,8 @@ const ROUTE_TITLES = {
   '/inventory': 'Inventory sync',
   '/reports': 'Reports',
   '/mobile': 'QR distribution',
-  '/users': 'Manage user accounts',
+  '/admins': 'Manage admins',
+  '/assignees': 'Manage assignees',
   '/analytics': 'Spatial analytics'
 };
 
@@ -38,7 +40,8 @@ const routes = {
   '/reports': renderReports,
   '/mobile': renderQr,
   '/dashboard': renderDashboard,
-  '/users': renderUserManagement,
+  '/admins': renderAdminManagement,
+  '/assignees': renderAssignees,
   '/analytics': renderAnalytics
 };
 
@@ -78,38 +81,61 @@ function setActiveNav(path) {
   [...navLinks.querySelectorAll('a')].forEach((a) => {
     a.classList.toggle('active', a.getAttribute('href') === `#${path}`);
   });
+  // Manage Admins has no menu row of its own — it lives behind the profile card.
+  document.getElementById('user-card').classList.toggle('active', path === '/admins');
 }
 
 function updateSidebarUser() {
   const raw = localStorage.getItem('assettrack_user');
   if (!raw) return;
   const user = JSON.parse(raw);
+  // The desktop app is for the superadmin only (the server refuses any other
+  // role here), so this is the one check every desktop-only control keys off.
+  const isSuper = user.role === 'superadmin';
   document.getElementById('sidebar-avatar').textContent = user.username.slice(0, 2).toUpperCase();
   document.getElementById('sidebar-username').textContent = user.username.toUpperCase();
-  document.getElementById('sidebar-role').textContent = user.role === 'admin' ? 'SUPERUSER' : 'STAFF';
-  // Manage Users is admin-only server-side (requireRole('admin') on every
-  // /api/v1/auth/users route) — hide the link entirely for staff accounts
-  // rather than showing a screen that will just error on load.
-  document.getElementById('nav-users').style.display = user.role === 'admin' ? '' : 'none';
-  // Managing Buildings/Rooms is an admin-level configuration task (like
-  // Manage Users) — staff still see the resulting rooms everywhere they
-  // need them (Cluster Map, Asset Registry's ROOM dropdown, mobile scan),
-  // they just don't edit the list itself.
-  document.getElementById('nav-locations').style.display = user.role === 'admin' ? '' : 'none';
+  document.getElementById('sidebar-role').textContent = isSuper ? 'SUPER ADMIN' : 'ADMIN';
+
+  // The profile card is the way into Manage Admins. That screen is
+  // superadmin-only server-side (requireRole('superadmin') on every
+  // /api/v1/auth/users route), so for anyone else the card stays a plain,
+  // non-clickable block rather than a link to a screen that would just error.
+  const card = document.getElementById('user-card');
+  const cue = document.getElementById('user-card-cue');
+  card.classList.toggle('is-link', isSuper);
+  if (isSuper) {
+    card.setAttribute('href', '#/admins');
+    card.removeAttribute('tabindex');
+    card.setAttribute('aria-label', `Your profile (${user.username}) — manage admins`);
+  } else {
+    card.removeAttribute('href');
+    card.setAttribute('tabindex', '-1');
+    card.setAttribute('aria-label', `Signed in as ${user.username}`);
+  }
+  cue.hidden = !isSuper;
+
+  // Managing Buildings/Rooms and Assignees are superadmin configuration tasks
+  // — mobile admins still see the results where they need them (rooms in the
+  // mobile scan, assignees in ASSIGNED TO), they just don't edit the lists.
+  document.getElementById('nav-locations').style.display = isSuper ? '' : 'none';
+  document.getElementById('nav-assignees').style.display = isSuper ? '' : 'none';
 }
 
 function navigate() {
   let path = window.location.hash.replace('#', '') || '/dashboard';
   if (!isAuthed() && path !== '/login') path = '/login';
 
-  // Manage Users is admin-only — the nav link is hidden for staff, but the
-  // route itself needs its own guard too since the hash can be typed
-  // directly. The API would reject it anyway (requireRole('admin')), this
-  // just avoids showing a broken "Unable to load users" screen first.
-  if (path === '/users' || path === '/locations') {
+  // The old Manage Users address now lives at #/admins — keep bookmarks working.
+  if (path === '/users') { path = '/admins'; history.replaceState(null, '', '#/admins'); }
+
+  // Manage Admins, Assignees and Locations are superadmin-only — the links are
+  // hidden for anyone else, but the routes need their own guard too since the
+  // hash can be typed directly. The API would reject them anyway, this just
+  // avoids showing a broken screen first.
+  if (path === '/admins' || path === '/assignees' || path === '/locations') {
     const raw = localStorage.getItem('assettrack_user');
     const role = raw ? JSON.parse(raw).role : null;
-    if (role !== 'admin') path = '/dashboard';
+    if (role !== 'superadmin') path = '/dashboard';
   }
 
   const renderFn = routes[path] || renderDashboard;
@@ -186,7 +212,7 @@ function closeMenu() {
 menuBtn.addEventListener('click', (e) => (menuDrawer.hidden ? openMenu(e.detail === 0) : closeMenu()));
 menuClose.addEventListener('click', () => { closeMenu(); menuBtn.focus(); });
 menuScrim.addEventListener('click', closeMenu);
-menuDrawer.addEventListener('click', (e) => { if (e.target.closest('#nav-links a')) closeMenu(); });
+menuDrawer.addEventListener('click', (e) => { if (e.target.closest('#nav-links a, #user-card.is-link')) closeMenu(); });
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' && !menuDrawer.hidden && !logoutDialog.open) { closeMenu(); menuBtn.focus(); }
 });

@@ -80,7 +80,7 @@ function requireAuth(req, res, next) {
   const { getDb } = require('./database');
   let user;
   try {
-    user = getDb().prepare('SELECT status, tokens_valid_after FROM users WHERE id = ?').get(payload.id);
+    user = getDb().prepare('SELECT status, role, tokens_valid_after FROM users WHERE id = ?').get(payload.id);
   } catch {
     // Database not initialized yet (shouldn't happen once the server is
     // actually up) — fail closed rather than letting the request through.
@@ -96,16 +96,25 @@ function requireAuth(req, res, next) {
     return res.status(401).json({ ok: false, error: 'Your session has ended. Please log in again.' });
   }
 
-  req.user = payload;
+  // The role is read from the database, not trusted from the token, so a role
+  // change takes effect on the very next request. Each role also belongs to
+  // exactly one app: a session whose app doesn't match its role (e.g. one
+  // issued before roles were split) is ended rather than honoured.
+  const appForRole = { superadmin: 'desktop', admin: 'mobile' };
+  if (appForRole[user.role] !== payload.source) {
+    return res.status(401).json({ ok: false, error: 'Your session has ended. Please log in again.' });
+  }
+
+  req.user = { ...payload, role: user.role };
   next();
 }
 
-// Same as requireAuth, but additionally requires a specific role (admins
-// always pass, matching the original behavior in auth/services.js).
-function requireRole(role) {
+// Same as requireAuth, but additionally requires one of the given roles.
+// Exact match — there is no role that silently passes every check.
+function requireRole(...roles) {
   return (req, res, next) => {
     requireAuth(req, res, () => {
-      if (role && req.user.role !== role && req.user.role !== 'admin') {
+      if (roles.length && !roles.includes(req.user.role)) {
         return res.status(403).json({ ok: false, error: 'Forbidden.' });
       }
       next();

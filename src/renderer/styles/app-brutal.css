@@ -101,9 +101,9 @@ html, body {
 .hd-menu:active { transform: translate(5px, 5px); box-shadow: none; }
 
 /* ---------------- 3. Menu drawer ---------------- */
-#menu-scrim { position: fixed; inset: 0; z-index: 55; background: rgba(0, 0, 0, .72); }
+#menu-scrim { position: fixed; inset: 0; z-index: 1900; background: rgba(0, 0, 0, .72); }
 #menu-drawer {
-  position: fixed; top: 0; right: 0; bottom: 0; z-index: 60;
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 2000;
   width: min(380px, 92vw);
   display: flex; flex-direction: column;
   padding-top: 32px;                               /* clears the window buttons */
@@ -349,11 +349,72 @@ body:has(#shell.auth-mode) #menu-drawer { display: none; }
 .ad-actions { flex: none; display: flex; gap: 12px; justify-content: flex-end; margin-top: 16px; padding-top: 16px; border-top: 3px solid var(--bk-line); }
 .ad-actions .danger { margin-right: auto; }
 
+/* ---- Profile card → Manage Admins (menu drawer footer) ---- */
+a.user-card { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; padding: 10px; border: 3px solid transparent; color: var(--bk-ink); text-decoration: none; }
+a.user-card:not(.is-link) { cursor: default; }
+a.user-card.is-link { border-color: var(--bk-line); background: var(--bk-field); cursor: pointer; box-shadow: 4px 4px 0 var(--bk-acc); }
+a.user-card.is-link:hover, a.user-card.is-link:focus-visible { background: var(--bk-ink); color: #000; outline-offset: 3px; }
+a.user-card.is-link:hover .user-role, a.user-card.is-link:focus-visible .user-role { color: #000; }
+a.user-card.is-link:hover .user-avatar, a.user-card.is-link:focus-visible .user-avatar { color: var(--bk-ink); }
+a.user-card.is-link:active { transform: translate(4px, 4px); box-shadow: none; }
+a.user-card.active { background: var(--bk-acc); }
+a.user-card.active:hover, a.user-card.active:focus-visible { background: var(--bk-ink); }
+.user-card-cue { flex-basis: 100%; padding-top: 8px; border-top: 1px solid rgba(232, 236, 245, .28); font-family: var(--font-data); font-weight: 700; font-size: 11px; letter-spacing: .14em; }
+.user-card-cue[hidden] { display: none; }
+
+/* ---- Manage Admins / Manage Assignees ---- */
+.screen-lede { margin: 0 0 14px; max-width: 70ch; font-size: 14px; line-height: 1.55; color: var(--bk-dim); }
+.screen-lede a { color: var(--bk-ink); text-underline-offset: 3px; }
+.screen-lede a:hover, .screen-lede a:focus-visible { background: var(--bk-ink); color: #000; }
+.crt-panel > .bk-tabs { margin: 0 0 14px; border: 3px solid var(--bk-line); background: var(--bk-field); width: fit-content; max-width: 100%; }
+.crt-panel > .bk-tabs .bk-tab:last-child { border-right: 0; }
+.tab-count { margin-left: 6px; padding: 1px 6px; background: rgba(255, 255, 255, .16); font-size: 11px; }
+.tab-count:empty { display: none; }
+.bk-tab.is-active .tab-count { background: rgba(0, 0, 0, .14); }
+.row-actions { white-space: nowrap; }
+.row-actions .btn-retro + .btn-retro { margin-left: 8px; }
+.row-inactive td:not(.row-actions) { opacity: .55; }
+.row-super td { background: rgba(0, 51, 255, .14); }
+.badge-role-super { background: var(--bk-ink); color: #000; }
+.badge-role-admin { background: var(--bk-acc); color: var(--bk-ink); }
+.btn-retro:disabled[title] { cursor: not-allowed; }
+
+.asg-avatar { flex: none; width: 30px; height: 30px; margin-right: 10px; object-fit: cover; border: 2px solid var(--bk-line); background: var(--bk-field); border-radius: 50%; }
+.asg-avatar-initials { display: inline-flex; align-items: center; justify-content: center; background: var(--bk-acc); color: var(--bk-ink); font-family: var(--font-data); font-weight: 700; font-size: 11px; }
+.asg-name { font-weight: 700; }
+.screen-assignees .mono-strong { color: var(--bk-ink); font-family: var(--font-data); }
+.asg-note { margin: 0; font-size: 13px; line-height: 1.5; color: var(--bk-dim); }
+.asg-manage-hint { display: block; margin-top: 6px; font-family: var(--font-body); font-size: 12px; letter-spacing: 0; text-transform: none; font-weight: 400; }
+.asg-manage-hint a { color: var(--bk-ink); text-underline-offset: 3px; }
+.asg-manage-hint a:hover, .asg-manage-hint a:focus-visible { background: var(--bk-ink); color: #000; }
+
+/* ---- Fixes ---- */
+/* Table cells must stay table cells. retro-theme.css made the user cell and the
+   actions cell display:flex, which pulled them out of the row, so their bottom
+   borders landed at different heights and the row lines looked jagged.
+   Lay out their contents with inline elements instead. */
+.retro-table td { vertical-align: middle; }
+.retro-table td.user-cell, .retro-table td.row-actions { display: table-cell; }
+.user-cell .avatar-circle { display: inline-flex; align-items: center; justify-content: center; margin-right: 10px; vertical-align: middle; }
+.user-cell > span:not(.avatar-circle) { vertical-align: middle; }
+.row-actions .btn-retro { vertical-align: middle; }
+
+/* Panel headers: title sits next to the square; actions / close button go to the right edge. */
+.crt-header { justify-content: flex-start; gap: 10px; }
+.crt-header .header-actions, .crt-header .modal-close { margin-left: auto; }
+
+/* The map draws its panes and controls at z-index 400-1000. Give it its own
+   stacking context so none of that escapes and paints over the menu drawer or
+   pop-ups, and keep the drawer and pop-ups above everything regardless. */
+.leaflet-container, .leaflet-map-container { isolation: isolate; }
+.modal-overlay { z-index: 1500; }
+
 /* ---------------- 6. Responsive ---------------- */
 @media (max-width: 1000px) {
   .bk-row { grid-template-columns: 1fr; }
 }
 @media (max-width: 760px) {
+  .screen-users .retro-table, .screen-assignees .retro-table { display: block; overflow-x: auto; }
   .ad-top { grid-template-columns: 1fr; }
   .ad-grid { grid-template-columns: 1fr; }
   .ad-field:nth-child(odd) { border-right: 0; }

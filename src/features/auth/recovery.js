@@ -110,9 +110,9 @@ function generateCode() {
 const formatCode = (c) => `${c.slice(0, 4)}-${c.slice(4)}`;
 const normalizeCode = (raw) => String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-// The superadmin = the primary admin account: the lowest-id user with role 'admin'.
+// The superadmin = the one account with role 'superadmin'.
 function primaryAdmin() {
-  return getDb().prepare("SELECT id, username FROM users WHERE role = 'admin' ORDER BY id LIMIT 1").get();
+  return getDb().prepare("SELECT id, username FROM users WHERE role = 'superadmin' LIMIT 1").get();
 }
 
 function fail(status, code, error, extra = {}) {

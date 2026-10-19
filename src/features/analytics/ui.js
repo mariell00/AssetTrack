@@ -62,7 +62,7 @@ export function render() {
           </div>
         `).join('')}
       </div>
-    ` : '<p class="empty-hint">No scan activity yet — data will appear once staff start syncing.</p>';
+    ` : '<p class="empty-hint">No scan activity yet — data will appear once admins start syncing.</p>';
 
     // Heatmap
     const hm = result.heatmap;
