@@ -1,58 +1,33 @@
-// mobile/features/register/ui-register.js — "Register Asset" screen: a
-// short form for a brand-new item that just arrived, submitted straight
-// to the Desktop host. On success, shows the freshly generated QR code so
-// staff can screenshot it or print it later from the Admin Hub.
-import { registerAsset, fetchRoomsList } from './services.js';
+// mobile/features/register/ui-register.js — "Register asset" form: a short
+// form for a brand-new item that just arrived, submitted straight to the
+// Desktop host. On success, shows the freshly generated QR code so it can be
+// screenshotted or printed later from the desktop's Asset Registry.
+// Opened from the Asset Registry screen (or straight from the Scanner when a
+// scanned tag isn't registered yet — then `prefillTag` is that tag).
+import { registerAsset, fetchRoomsList, fetchAssignees } from './services.js';
 import { compressImageFile } from '../../core/photo.js';
+import {
+  roomOptionsHtml, categoryOptionsHtml, assigneeOptionsHtml, pairOptionsHtml, STATUS_OPTIONS, esc
+} from '../../core/lookups.js';
 
-const STATUS_OPTIONS = [
-  ['active', 'ACTIVE'],
-  ['pending', 'PENDING'],
-  ['maintenance', 'MAINT.'],
-  ['offline', 'OFFLINE']
-];
-
-// Grouped by building, same as the desktop Asset Registry modal and the
-// mobile Asset Info edit panel — picking a room from this list (rather
-// than typing one) is what links the asset to a building the Cluster Map
-// already knows about, so it shows up there right away.
-function roomOptionsHtml(rooms) {
-  const grouped = new Map();
-  for (const r of rooms) {
-    const key = r.building_name || null;
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(r);
-  }
-  const optionHtml = (r) => `<option value="${r.id}">${r.name}</option>`;
-
-  let html = `<option value="">— Unassigned —</option>`;
-  for (const [buildingName, roomsInBuilding] of grouped) {
-    html += buildingName
-      ? `<optgroup label="${buildingName}">${roomsInBuilding.map(optionHtml).join('')}</optgroup>`
-      : roomsInBuilding.map(optionHtml).join('');
-  }
-  return html;
-}
-
-function renderForm(el, rooms) {
+function renderForm(el, { rooms, people, prefillTag, onBack }) {
   el.innerHTML = `
     <div class="m-panel">
+      ${onBack ? '<button class="m-btn m-btn-secondary m-back" id="m-register-back" type="button">‹ BACK TO REGISTRY</button>' : ''}
       <div class="m-header">REGISTER ASSET</div>
       <form id="m-register-form">
-        <label>ASSET ID / TAG</label>
-        <input id="m-r-tag" required />
+        <label>ASSET ID / TAG <span class="m-label-optional">(optional — leave blank to generate one, e.g. AST-0001)</span></label>
+        <input id="m-r-tag" placeholder="auto-generated" value="${esc(prefillTag)}" autocapitalize="characters" />
         <label>NAME</label>
         <input id="m-r-name" required />
         <label>CATEGORY</label>
-        <input id="m-r-category" placeholder="optional" />
+        <select id="m-r-category">${categoryOptionsHtml('')}</select>
         <label>ROOM</label>
-        <select id="m-r-room">${roomOptionsHtml(rooms)}</select>
-        <label>ASSIGN TO <span class="m-label-optional">(person or name, optional)</span></label>
-        <input id="m-r-assigned" placeholder="e.g. Juan Dela Cruz" />
+        <select id="m-r-room">${roomOptionsHtml(rooms, '')}</select>
+        <label>ASSIGNED TO <span class="m-label-optional">(asset user, optional)</span></label>
+        <select id="m-r-assigned">${assigneeOptionsHtml(people, '')}</select>
         <label>STATUS</label>
-        <select id="m-r-status">
-          ${STATUS_OPTIONS.map(([val, label]) => `<option value="${val}" ${val === 'active' ? 'selected' : ''}>${label}</option>`).join('')}
-        </select>
+        <select id="m-r-status">${pairOptionsHtml(STATUS_OPTIONS, 'active')}</select>
         <label>PHOTO <span class="m-label-optional">(optional)</span></label>
         <div class="m-photo-row">
           <img id="m-r-photo-preview" class="m-photo-preview" style="display:none;" alt="" />
@@ -66,6 +41,8 @@ function renderForm(el, rooms) {
       </form>
     </div>
   `;
+
+  el.querySelector('#m-register-back')?.addEventListener('click', () => onBack());
 
   let photoDataUrl = null;
   const photoInput = el.querySelector('#m-r-photo');
@@ -91,53 +68,61 @@ function renderForm(el, rooms) {
     e.preventDefault();
     const submitBtn = el.querySelector('button[type="submit"]');
     const errorEl = el.querySelector('#m-register-error');
-    const assetTag = el.querySelector('#m-r-tag').value.trim();
-    const name = el.querySelector('#m-r-name').value.trim();
-    const category = el.querySelector('#m-r-category').value.trim();
-    const roomId = el.querySelector('#m-r-room').value;
-    const assignedTo = el.querySelector('#m-r-assigned').value.trim();
-    const status = el.querySelector('#m-r-status').value;
-
     submitBtn.disabled = true;
     errorEl.textContent = '';
 
-    const result = await registerAsset({ assetTag, name, category, roomId, assignedTo, status, photo: photoDataUrl });
+    const result = await registerAsset({
+      assetTag: el.querySelector('#m-r-tag').value.trim(),
+      name: el.querySelector('#m-r-name').value.trim(),
+      category: el.querySelector('#m-r-category').value,
+      roomId: el.querySelector('#m-r-room').value,
+      assignedTo: el.querySelector('#m-r-assigned').value,
+      status: el.querySelector('#m-r-status').value,
+      photo: photoDataUrl
+    });
     submitBtn.disabled = false;
 
     if (!result.ok) {
-      errorEl.textContent = result.error || 'Registration requires a connection to the desktop host.';
+      errorEl.textContent = result.offline
+        ? 'Registering needs a connection to the desktop host.'
+        : (result.error || 'Could not register this asset.');
       return;
     }
-    renderResult(el, result);
+    renderResult(el, result, { onBack, prefillTag });
   });
 }
 
-function renderResult(el, { asset, qr }) {
+function renderResult(el, { asset, qr }, ctx) {
   el.innerHTML = `
     <div class="m-panel m-scanner-panel">
       <div class="m-header">ASSET REGISTERED</div>
-      ${qr ? `<img src="${qr.dataUrl}" alt="QR code for ${asset.asset_tag}" class="m-qr-video" />` : ''}
-      <p class="m-status">${asset.asset_tag} — ${asset.name}</p>
-      ${qr ? '' : '<p class="m-error">Saved, but the QR label couldn\'t be generated — reprint it from the Admin Hub\'s Asset Registry.</p>'}
-      <button class="m-btn" id="m-register-another">▶ REGISTER ANOTHER</button>
+      ${qr ? `<img src="${esc(qr.dataUrl)}" alt="QR code for ${esc(asset.asset_tag)}" class="m-qr-video" />` : ''}
+      <p class="m-status">${esc(asset.asset_tag)} — ${esc(asset.name)}</p>
+      ${qr ? '' : '<p class="m-error">Saved, but the QR label couldn\'t be generated — reprint it from the desktop Asset Registry.</p>'}
+      <button class="m-btn" id="m-register-another" type="button">▶ REGISTER ANOTHER</button>
+      ${ctx.onBack ? '<button class="m-btn m-btn-secondary" id="m-register-done" type="button">BACK TO REGISTRY</button>' : ''}
     </div>
   `;
-  el.querySelector('#m-register-another').addEventListener('click', () => renderAndLoad(el));
+  el.querySelector('#m-register-another').addEventListener('click', () => load(el, { ...ctx, prefillTag: '' }));
+  el.querySelector('#m-register-done')?.addEventListener('click', () => ctx.onBack());
 }
 
-async function renderAndLoad(el) {
-  el.innerHTML = `<div class="m-panel"><div class="m-header">REGISTER ASSET</div><p class="m-status">Loading rooms…</p></div>`;
-  const roomsResult = await fetchRoomsList();
-  // If the desktop host isn't reachable, fall back to just "— Unassigned —"
-  // rather than blocking registration entirely — the ROOM select still
-  // works, it just won't have a building-grouped list to offer.
-  const rooms = roomsResult.ok ? roomsResult.rooms : [];
-  renderForm(el, rooms);
+async function load(el, ctx) {
+  el.innerHTML = `<div class="m-panel"><div class="m-header">REGISTER ASSET</div><p class="m-status">Loading…</p></div>`;
+  const [roomsResult, peopleResult] = await Promise.all([fetchRoomsList(), fetchAssignees()]);
+  // If the lists can't be fetched, the selects fall back to "— Unassigned —"
+  // rather than blocking registration entirely.
+  renderForm(el, {
+    rooms: roomsResult.ok ? roomsResult.rooms : [],
+    people: peopleResult.ok ? peopleResult.assignees : [],
+    prefillTag: ctx.prefillTag || '',
+    onBack: ctx.onBack
+  });
 }
 
-export function renderRegister() {
+export function renderRegister({ prefillTag = '', onBack = null } = {}) {
   const el = document.createElement('div');
   el.className = 'm-screen m-register';
-  renderAndLoad(el);
+  load(el, { prefillTag, onBack });
   return el;
 }

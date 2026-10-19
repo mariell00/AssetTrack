@@ -1,14 +1,21 @@
 // sw.js — Service Worker. Caches the PWA shell for offline use and serves
 // cached assets when the phone has no Wi-Fi connection to the desktop host.
-const CACHE_NAME = 'assettrack-mobile-v2';
+const CACHE_NAME = 'assettrack-mobile-v5';
 const APP_SHELL = [
   './index.html',
   './manifest.json',
-  './icons/icon.svg',
+  './icon/icon.svg',
   './styles/mobile-retro.css',
+  './assets/fonts/space-grotesk-latin-700-normal.woff2',
+  './assets/fonts/inter-latin-400-normal.woff2',
+  './assets/fonts/jetbrains-mono-latin-400-normal.woff2',
+  './assets/fonts/jetbrains-mono-latin-700-normal.woff2',
+  './assets/fonts/archivo-black-latin-400-normal.woff2',
   './src/app.js',
   './src/core/api-client.js',
   './src/core/indexed-db.js',
+  './src/core/photo.js',
+  './src/core/lookups.js',
   './src/features/auth/services.js',
   './src/features/auth/ui-login.js',
   './src/features/install-prompt/ui-install.js',
@@ -16,11 +23,13 @@ const APP_SHELL = [
   './src/features/qr-reader/ui-scanner.js',
   './src/features/register/services.js',
   './src/features/register/ui-register.js',
+  './src/features/registry/ui-registry.js',
   './src/features/asset-scan/services.js',
   './src/features/asset-scan/ui-scan.js',
   './src/features/asset-scan/ui-asset-edit.js',
   './src/features/sync/services.js',
-  './src/features/sync/ui-sync.js'
+  './src/features/sync/ui-sync.js',
+  './vendor/jsQR.js'
 ];
 
 self.addEventListener('install', (event) => {

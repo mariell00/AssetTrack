@@ -28,6 +28,7 @@ function registerFeatureRoutes(expressApp) {
   // architecture stays pluggable. Adding a feature = adding one require + use().
   expressApp.use('/api/v1/auth', require('./src/features/auth/routes'));
   expressApp.use('/api/v1/assets', require('./src/features/assets/routes'));
+  expressApp.use('/api/v1/assignees', require('./src/features/assignees/routes'));
   expressApp.use('/api/v1/inventory', require('./src/features/inventory/routes'));
   expressApp.use('/api/v1/map', require('./src/features/mapping/routes'));
   expressApp.use('/api/v1/qr', require('./src/features/qr-distribution/routes'));

@@ -1,10 +1,24 @@
 // mobile/features/qr-reader/services.js — reads asset QR codes using the
 // phone's rear camera. Uses the native BarcodeDetector API where the browser
-// supports it (fast, no download); falls back to the jsQR decoder (loaded
-// on demand from esm.sh) on browsers that don't implement BarcodeDetector
-// yet, e.g. iOS Safari. Unlike Web NFC, this works in any modern mobile
-// browser and needs no special hardware, so staff aren't locked to Chrome
-// on Android.
+// supports it (fast, no download); falls back to the bundled jsQR decoder
+// (vendor/jsQR.js — shipped with the app and cached by the service worker)
+// on browsers that don't implement BarcodeDetector yet, e.g. iOS Safari.
+// The decoder used to be fetched from esm.sh, which meant phones on the
+// desktop's LAN-only Wi-Fi (no internet) couldn't scan at all on iOS.
+// Unlike Web NFC, this works in any modern mobile browser and needs no
+// special hardware.
+
+// Classic <script> load: jsQR's UMD build sets window.jsQR.
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve(window.jsQR);
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = new URL('../../../vendor/jsQR.js', import.meta.url).href;
+    script.onload = () => (window.jsQR ? resolve(window.jsQR) : reject(new Error('decoder file is empty')));
+    script.onerror = () => reject(new Error('decoder file not found'));
+    document.head.appendChild(script);
+  });
+}
 
 async function getDetector() {
   if ('BarcodeDetector' in window) {
@@ -18,7 +32,7 @@ async function getDetector() {
     }
   }
 
-  const { default: jsQR } = await import('https://esm.sh/jsqr@1.4.0');
+  const jsQR = await loadJsQR();
   return {
     async detect(canvas) {
       const ctx = canvas.getContext('2d');

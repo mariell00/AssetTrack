@@ -1,5 +1,6 @@
 // mobile/features/auth/services.js — login API call to the Desktop host.
 import { apiPost, setBaseUrl } from '../../core/api-client.js';
+import { clearLookupCache } from '../../core/lookups.js';
 
 async function login(desktopUrl, username, password) {
   setBaseUrl(desktopUrl);
@@ -19,6 +20,8 @@ function currentUser() {
 function logout() {
   localStorage.removeItem('assettrack_mobile_token');
   localStorage.removeItem('assettrack_mobile_user');
+  // Cached rooms/assignees belong to the desktop host this account used.
+  clearLookupCache();
 }
 
 export { login, currentUser, logout };

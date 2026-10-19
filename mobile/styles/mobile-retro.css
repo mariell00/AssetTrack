@@ -1,144 +1,330 @@
-/* mobile-retro.css — mobile-optimized retro theme, same token palette as
-   the desktop app (primary #111844) but tuned for touch + small screens. */
+/* mobile-retro.css — mobile build of the AssetTrack desktop theme.
+   Same palette, fonts and hard-edged look as the desktop app (app-brutal.css),
+   tuned for touch: 16px form text (no iOS zoom-on-focus), big tap targets,
+   press-down feedback instead of hover. Fonts are bundled in /assets/fonts so
+   the app looks right with no internet (the phone only talks to the desktop). */
+
+@font-face { font-family: 'Space Grotesk'; font-weight: 700; font-style: normal; font-display: swap; src: url('../assets/fonts/space-grotesk-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Inter'; font-weight: 400; font-style: normal; font-display: swap; src: url('../assets/fonts/inter-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 400; font-style: normal; font-display: swap; src: url('../assets/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'JetBrains Mono'; font-weight: 700; font-style: normal; font-display: swap; src: url('../assets/fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Archivo Black'; font-weight: 400; font-style: normal; font-display: swap; src: url('../assets/fonts/archivo-black-latin-400-normal.woff2') format('woff2'); }
+
 :root {
-  --primary: #111844;
-  --secondary: #4B5694;
-  --supporting: #7288AE;
-  --background: #EAE0CF;
-  --font-display: 'Open Sans', sans-serif;
-  --font-mono: 'Open Sans', sans-serif;
+  --stage: #060F26;   /* page background (a shade under Midnight Navy) */
+  --card: #0A1A3F;    /* Midnight Navy — panels */
+  --field: #07122E;   /* input wells */
+  --acc: #0033FF;     /* Electric Cobalt — accents, buttons */
+  --ink: #FFFFFF;     /* Hard White — text, outlines */
+  --dim: #E8ECF5;     /* Static Mist — secondary text */
+  --danger: #FF3B3B;
+  --green: #5FD68C;   /* status colours, same as the desktop badges */
+  --yellow: #F2C94C;
+  --red: #EB5757;
+  --cyan: #56CCF2;
+  --font-head: 'Space Grotesk', 'Inter', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-data: 'JetBrains Mono', ui-monospace, 'SF Mono', Consolas, monospace;
+  --font-btn: 'Archivo Black', 'Arial Black', 'Inter', sans-serif;
+  color-scheme: dark;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
 
 html, body {
   margin: 0;
   height: 100%;
-  background: var(--primary);
-  color: var(--background);
-  font-family: var(--font-mono);
-}
-
-.m-shell { display: flex; flex-direction: column; height: 100vh; }
-
-.m-userbar {
-  background: var(--secondary);
-  color: var(--background);
-  font-size: 11px;
-  letter-spacing: 1px;
-  padding: 6px 10px;
-}
-
-.m-tabs {
-  display: flex;
-  border-bottom: 4px solid var(--secondary);
-}
-.m-tab {
-  flex: 1;
-  background: var(--primary);
-  color: var(--supporting);
-  border: none;
-  border-right: 2px solid var(--secondary);
-  padding: 14px 2px;
-  font-family: var(--font-mono);
-  font-weight: 600;
-  font-size: 11px;
-}
-.m-tab.active { color: var(--background); background: var(--secondary); }
-
-.m-content { flex: 1; overflow-y: auto; padding: 16px; }
-
-.m-panel {
-  border: 4px solid var(--secondary);
-  padding: 16px;
-  background: var(--primary);
-}
-.m-header {
-  font-family: var(--font-display);
-  font-size: 24px;
-  letter-spacing: 2px;
-  border-bottom: 3px solid var(--secondary);
-  padding-bottom: 8px;
-  margin-bottom: 12px;
-}
-
-.m-login input, .m-sync input, .m-register input, .m-register select,
-.m-asset-edit input, .m-asset-edit select, .m-asset-edit textarea {
-  width: 100%;
-  font-family: var(--font-mono);
-  background: var(--background);
-  color: var(--primary);
-  border: 3px solid var(--secondary);
-  padding: 10px;
-  margin-bottom: 12px;
-}
-.m-asset-edit textarea { resize: vertical; }
-.m-login label, .m-sync label, .m-register label, .m-asset-edit label { font-size: 12px; color: var(--supporting); }
-
-.m-btn {
-  width: 100%;
-  font-family: var(--font-mono);
-  font-weight: 700;
-  background: var(--secondary);
-  color: var(--background);
-  border: 3px solid var(--background);
-  padding: 14px;
+  background: var(--stage);
+  color: var(--ink);
+  font-family: var(--font-body);
   font-size: 15px;
 }
-.m-btn-big { font-size: 20px; padding: 20px; }
-.m-btn-secondary {
-  background: transparent;
-  color: var(--background);
-  border: 3px solid var(--secondary);
-  margin-top: 10px;
-}
 
-.m-error { color: #E8888C; font-weight: 600; }
-.m-status { color: var(--supporting); font-size: 13px; }
+:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; }
 
-.m-room-picker {
-  background: var(--primary);
-  padding: 10px 14px;
-  border-bottom: 3px solid var(--secondary);
-}
-.m-room-picker label {
+/* ---- app shell: header, clock, menu drawer, content ---- */
+.m-shell { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+/* The ASSETTRACK wordmark on the screens outside the shell (install choice, login). */
+#mobile-app > .m-screen::before {
+  content: 'ASSETTRACK';
   display: block;
-  font-size: 11px;
-  color: var(--supporting);
-  letter-spacing: 1px;
-  margin-bottom: 4px;
+  flex: none;
+  font-family: var(--font-head);
+  font-weight: 700;
+  line-height: .9;
+  letter-spacing: -.045em;
+  color: var(--ink);
 }
+
+/* Header: the desktop header, scaled down. NBSC tile, ASSETTRACK with the
+   current page in a cobalt chip underneath, menu button at the right. */
+.m-head {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px;
+}
+/* Logo slot: swap the text for an <img> once the NBSC logo file exists. */
+.m-logo {
+  flex: none; width: 52px; height: 52px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--ink); color: var(--stage);
+  border: 3px solid var(--ink); box-shadow: 3px 3px 0 var(--acc);
+  font-family: var(--font-head); font-weight: 700; font-size: 15px; letter-spacing: -.05em;
+}
+.m-title { flex: 1; min-width: 0; }
+.m-brand {
+  margin: 0 0 0 -.03em;
+  font-family: var(--font-head); font-weight: 700;
+  font-size: clamp(26px, 8.4vw, 34px); line-height: .85; letter-spacing: -.055em; white-space: nowrap;
+}
+.m-page {
+  display: inline-block; margin: 7px 0 0; padding: 2px 8px;
+  background: var(--acc);
+  font-family: var(--font-data); font-weight: 700; font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+}
+.m-menu-btn {
+  flex: none; width: 48px; height: 48px; padding: 0;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 5px;
+  background: var(--acc); border: 3px solid var(--ink); border-radius: 0; box-shadow: 3px 3px 0 var(--ink); cursor: pointer;
+}
+.m-menu-btn span { display: block; width: 22px; height: 3px; background: var(--ink); }
+.m-menu-btn:active { transform: translate(3px, 3px); box-shadow: none; background: var(--ink); }
+.m-menu-btn:active span { background: #000; }
+
+/* Time and date under the header, closed off by the same white rule as the desktop. */
+.m-clockbar {
+  flex: none;
+  display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  margin: 0 16px; padding: 4px 0 10px;
+  border-bottom: 3px solid var(--ink);
+}
+.m-time { font-family: var(--font-data); font-weight: 700; font-size: 17px; letter-spacing: -.02em; }
+.m-date { font-size: 12px; color: var(--dim); text-align: right; }
+
+/* ---- menu drawer (same look as the desktop menu) ---- */
+.m-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(0, 0, 0, .72); }
+.m-drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; z-index: 50;
+  width: min(86vw, 330px);
+  display: flex; flex-direction: column;
+  background: var(--card);
+  border-left: 3px solid var(--ink);
+  box-shadow: -8px 0 0 var(--acc);
+  padding-top: env(safe-area-inset-top, 0px);
+}
+.m-drawer-bar {
+  flex: none; display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 8px 8px 16px;
+  background: var(--acc);
+  border-bottom: 3px solid var(--ink);
+  font-family: var(--font-data); font-size: 12px; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
+}
+.m-drawer-x { width: 40px; height: 40px; padding: 0; background: transparent; color: var(--ink); border: 2px solid var(--ink); border-radius: 0; font-size: 24px; line-height: 1; cursor: pointer; }
+.m-drawer-x:active { background: var(--ink); color: #000; }
+.m-nav { flex: 1; min-height: 0; overflow-y: auto; }
+.m-nav-item {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 16px 18px;
+  background: transparent; color: var(--ink);
+  border: 0; border-left: 6px solid transparent; border-bottom: 1px solid rgba(232, 236, 245, .18); border-radius: 0;
+  font-family: var(--font-head); font-weight: 700; font-size: 20px; letter-spacing: -.01em; text-align: left; cursor: pointer;
+}
+.m-nav-icon { width: 24px; font-size: 18px; text-align: center; color: var(--dim); }
+.m-nav-label { flex: 1; }
+.m-nav-item:active:not(.active) { background: var(--ink); color: #000; }
+.m-nav-item:active:not(.active) .m-nav-icon { color: #000; }
+.m-nav-item.active { background: var(--acc); border-left-color: var(--ink); }
+.m-nav-badge {
+  min-width: 26px; padding: 2px 8px; background: var(--danger); color: #fff; border: 2px solid var(--ink);
+  font-family: var(--font-data); font-size: 12px; font-weight: 700; text-align: center;
+}
+.m-drawer-foot { flex: none; padding: 16px 18px calc(env(safe-area-inset-bottom, 0px) + 18px); border-top: 3px solid var(--ink); }
+.m-usercard { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.m-avatar { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--acc); border: 2px solid var(--ink); font-family: var(--font-data); font-weight: 700; font-size: 13px; }
+.m-usermeta { display: flex; flex-direction: column; min-width: 0; }
+.m-username { font-family: var(--font-data); font-weight: 700; font-size: 13px; overflow-wrap: anywhere; }
+.m-userrole { font-family: var(--font-data); font-size: 11px; letter-spacing: .12em; color: var(--dim); }
+.m-logout { margin-top: 14px; }
+.m-confirm-title { margin: 0 0 6px; font-family: var(--font-head); font-weight: 700; font-size: 22px; }
+.m-confirm-actions { display: flex; gap: 10px; }
+.m-confirm-actions .m-btn { margin-top: 0; }
+
+.m-content {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 18px 16px calc(env(safe-area-inset-bottom, 0px) + 28px);
+}
+
+/* Screens that sit outside the shell (install choice, login): centred card under a big wordmark. */
+#mobile-app > .m-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px);
+}
+#mobile-app > .m-screen::before { font-size: 44px; margin-bottom: 22px; }
+
+/* ---- panels ---- */
+.m-panel {
+  background: var(--card);
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  box-shadow: 6px 6px 0 var(--acc);
+  padding: 16px;
+}
+/* Panel title: the desktop's cobalt title bar — small white square, mono caps. */
+.m-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: -16px -16px 16px;
+  padding: 11px 16px;
+  background: var(--acc);
+  border-bottom: 3px solid var(--ink);
+  font-family: var(--font-data);
+  font-weight: 700;
+  font-size: 12px;
+  line-height: 1.35;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+.m-header::before { content: ''; flex: none; width: 9px; height: 9px; background: var(--ink); }
+
+/* ---- forms ---- */
+.m-login input, .m-sync input, .m-register input, .m-register select, .m-registry input[type="search"],
+.m-asset-edit input, .m-asset-edit select, .m-asset-edit textarea,
 .m-room-picker select {
   width: 100%;
-  font-family: var(--font-mono);
-  background: var(--background);
-  color: var(--primary);
-  border: 3px solid var(--secondary);
-  padding: 8px;
+  margin-bottom: 14px;
+  padding: 12px;
+  background: var(--field);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  font-family: var(--font-data);
+  font-size: 16px;
+}
+.m-room-picker select { margin-bottom: 0; }
+.m-asset-edit textarea { resize: vertical; }
+input::placeholder, textarea::placeholder { color: rgba(232, 236, 245, .5); }
+.m-login input:focus-visible, .m-sync input:focus-visible, .m-register input:focus-visible, .m-register select:focus-visible, .m-registry input[type="search"]:focus-visible,
+.m-asset-edit input:focus-visible, .m-asset-edit select:focus-visible, .m-asset-edit textarea:focus-visible,
+.m-room-picker select:focus-visible { outline: 3px solid var(--ink); outline-offset: 2px; background: #000; }
+
+.m-login label:not(.m-btn), .m-sync label:not(.m-btn), .m-register label:not(.m-btn), .m-asset-edit label:not(.m-btn), .m-registry label:not(.m-btn),
+.m-room-picker label {
+  display: block;
+  margin-bottom: 6px;
+  font-family: var(--font-data);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+.m-label-optional { font-size: 10px; font-weight: 400; letter-spacing: 0; text-transform: none; color: rgba(232, 236, 245, .7); }
+
+/* ---- buttons ---- */
+.m-btn {
+  display: block;
+  width: 100%;
+  padding: 14px;
+  background: var(--acc);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  border-radius: 0;
+  box-shadow: 4px 4px 0 var(--ink);
+  font-family: var(--font-btn);
+  font-weight: 400;
+  font-size: 15px;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  text-align: center;
+  cursor: pointer;
+}
+.m-btn:active { transform: translate(4px, 4px); box-shadow: none; }
+.m-btn:disabled { opacity: .5; box-shadow: none; }
+@media (hover: hover) {
+  .m-btn:hover { background: var(--ink); color: #000; box-shadow: 4px 4px 0 var(--acc); }
+}
+.m-btn-big { font-size: 20px; padding: 20px; }
+.m-btn-secondary { margin-top: 14px; background: transparent; box-shadow: none; }
+.m-btn-secondary:active { transform: none; background: var(--ink); color: #000; }
+@media (hover: hover) {
+  .m-btn-secondary:hover { box-shadow: none; }
+}
+
+.m-error { margin: 12px 0 0; color: var(--danger); font-weight: 700; line-height: 1.45; }
+.m-error:empty { display: none; }
+.m-status { color: var(--dim); font-size: 13px; line-height: 1.55; }
+
+/* ---- scan screen ---- */
+.m-room-picker {
+  margin-bottom: 18px;
+  padding: 12px 14px 14px;
+  background: var(--card);
+  border: 3px solid var(--ink);
+  box-shadow: 6px 6px 0 var(--acc);
 }
 
 .m-scanner-panel { text-align: center; }
+.m-scanner-panel .m-status { margin: 0 0 14px; }
 .m-qr-video {
+  display: block;
   width: 100%;
   max-width: 320px;
   aspect-ratio: 1 / 1;
   object-fit: cover;
-  border: 3px solid var(--background);
   margin: 16px auto;
-  display: block;
   background: #000;
+  border: 3px solid var(--ink);
 }
 
-.m-scanned-list { margin-top: 16px; }
+.m-scanned-list { margin-top: 20px; }
 .m-row {
-  padding: 10px;
-  border-bottom: 1px dashed var(--secondary);
+  padding: 11px 2px;
+  border-bottom: 1px solid rgba(232, 236, 245, .18);
+  font-family: var(--font-data);
   font-size: 13px;
-  color: var(--background);
+  color: var(--ink);
+  overflow-wrap: anywhere;
 }
 
-.m-asset-edit { margin-bottom: 16px; }
-.m-label-optional { text-transform: none; letter-spacing: 0; color: var(--supporting); font-size: 11px; }
-.m-photo-row { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
-.m-photo-preview { width: 56px; height: 56px; object-fit: cover; border: 3px solid var(--secondary); flex-shrink: 0; }
-.m-photo-pick { display: inline-flex; align-items: center; justify-content: center; width: auto; flex: 1; cursor: pointer; text-align: center; }
+/* ---- asset edit + photo picker ---- */
+.m-asset-edit { margin-bottom: 18px; }
+.m-photo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.m-photo-preview { flex: none; width: 56px; height: 56px; object-fit: cover; border: 3px solid var(--ink); }
+.m-photo-pick { display: inline-flex; align-items: center; justify-content: center; width: auto; flex: 1; margin-top: 0; text-align: center; }
+
+@media (prefers-reduced-motion: reduce) {
+  .m-btn:active { transform: none; }
+}
+
+/* ---- hints, sync count, registry list ---- */
+.m-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: var(--dim); }
+.m-sync-pending { margin: 0 0 16px; font-family: var(--font-data); font-size: 14px; }
+.m-back { margin: 0 0 14px; }
+.m-reg-search-label { margin-top: 16px; }
+.m-registry input[type="search"] { margin-bottom: 8px; }
+.m-asset-list { margin-top: 6px; }
+.m-asset-row {
+  display: block; width: 100%; padding: 12px 4px; text-align: left;
+  background: transparent; color: var(--ink); border: 0; border-bottom: 1px solid rgba(232, 236, 245, .25); border-radius: 0; cursor: pointer;
+}
+.m-asset-row:active { background: rgba(0, 51, 255, .38); }
+.m-asset-row-main strong { color: var(--cyan); }
+.m-asset-row-main { display: block; font-family: var(--font-data); font-size: 14px; overflow-wrap: anywhere; }
+.m-asset-row-sub { display: block; margin-top: 4px; font-size: 12px; color: var(--dim); }
+.m-pill { padding: 2px 7px; border: 2px solid currentColor; font-family: var(--font-data); font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+.m-pill-active { background: rgba(95, 214, 140, .2); color: var(--green); }
+.m-pill-maintenance, .m-pill-pending { background: rgba(242, 201, 76, .2); color: var(--yellow); }
+.m-pill-offline { background: rgba(235, 87, 87, .2); color: var(--red); }

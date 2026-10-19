@@ -4,10 +4,16 @@
   "description": "Offline-first QR asset verification companion for AssetTrack",
   "start_url": "./index.html",
   "display": "standalone",
-  "background_color": "#111844",
-  "theme_color": "#111844",
+  "background_color": "#060F26",
+  "theme_color": "#060F26",
   "orientation": "portrait",
   "icons": [
-    { "src": "./icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
-  ]
+    {
+      "src": "./icon/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "scope": "./"
 }

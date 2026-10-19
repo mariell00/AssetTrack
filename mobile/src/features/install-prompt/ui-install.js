@@ -43,7 +43,7 @@ function renderInstallChoice(getDeferredPrompt, onContinue) {
         both work identically, this only changes how you launch it next time.
       </p>
       <button class="m-btn" id="m-install-btn">⬇ INSTALL APP</button>
-      <button class="m-btn m-btn-secondary" id="m-continue-btn">🌐 CONTINUE IN BROWSER</button>
+      <button class="m-btn m-btn-secondary" id="m-continue-btn">CONTINUE IN BROWSER</button>
       <p id="m-install-note" class="m-status" style="display:none; margin-top: 12px;"></p>
     </div>
   `;
