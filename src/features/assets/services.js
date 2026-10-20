@@ -122,12 +122,13 @@ function generateAssetTag(db) {
 
 function createAsset(data) {
   const db = getDb();
-  // The desktop form no longer sends an asset_tag; the mobile app still does.
+  // The Asset ID is generated here. Only an import (or an older client) supplies
+  // one; a phone's registration never does (see inventory/services.js).
   const assetTag = (data.asset_tag && String(data.asset_tag).trim()) || generateAssetTag(db);
   const roomId = data.room_id || resolveRoomId(db, data.room_name);
   const info = db.prepare(`
-    INSERT INTO assets (asset_tag, name, category, description, condition, status, acquired_date, value_php, room_id, assigned_to, photo)
-    VALUES (@asset_tag, @name, @category, @description, @condition, @status, @acquired_date, @value_php, @room_id, @assigned_to, @photo)
+    INSERT INTO assets (asset_tag, name, category, description, condition, status, acquired_date, value_php, room_id, assigned_to, photo, client_uuid)
+    VALUES (@asset_tag, @name, @category, @description, @condition, @status, @acquired_date, @value_php, @room_id, @assigned_to, @photo, @client_uuid)
   `).run({
     asset_tag: assetTag,
     name: data.name,
@@ -139,7 +140,8 @@ function createAsset(data) {
     value_php: data.value_php || null,
     room_id: roomId,
     assigned_to: data.assigned_to || null,
-    photo: data.photo || null
+    photo: data.photo || null,
+    client_uuid: data.client_uuid || null // the phone's internal reference, when verified from a registration
   });
 
   // Keeps every assigned name on the Assignees list (mobile lets admins type one freely).

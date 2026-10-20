@@ -14,6 +14,11 @@ function duplicateTag(err, res, tag) {
   return false;
 }
 
+function mobileMeta(req) {
+  const { simplifyUserAgent } = require('../../core/device');
+  return { scannedBy: req.user?.username, source: 'mobile', ip: req.ip, deviceName: simplifyUserAgent(req.headers['user-agent']) };
+}
+
 router.get('/', (req, res) => {
   const { roomId, search, lite } = req.query;
   let assets = svc.listAssets({ roomId, search });
@@ -38,14 +43,40 @@ router.post('/', (req, res) => {
   if (!req.body.name) {
     return res.status(400).json({ ok: false, error: 'name is required.' });
   }
-  try {
-    res.status(201).json({ ok: true, asset: svc.createAsset(req.body) });
-  } catch (err) {
-    if (!duplicateTag(err, res, req.body.asset_tag)) throw err;
+  // From the mobile app a registration is never added directly: it waits in the
+  // Inventory Sync review queue until the super admin verifies it.
+  if (req.user?.source === 'mobile') {
+    const queued = require('../inventory/services').queueMobileRegistration(req.body, mobileMeta(req));
+    return res.status(queued.ok ? 202 : queued.status || 400).json(queued.ok ? queued : { ok: false, error: queued.error });
   }
+  let asset;
+  try {
+    asset = svc.createAsset(req.body);
+  } catch (err) {
+    if (duplicateTag(err, res, req.body.asset_tag)) return;
+    throw err;
+  }
+  // Registered from the desktop app (the database itself) = verified on the
+  // spot: it gets a "verified" scan so it counts on the Dashboard right away.
+  // Assets registered from the mobile app are NOT auto-verified. Staff scan
+  // them and the super admin verifies that scan in Inventory Sync.
+  if (req.user?.source !== 'mobile') {
+    require('../inventory/services').markScanned(asset.id, {
+      scannedBy: req.user?.username || 'unknown',
+      source: 'desktop',
+      ip: req.ip,
+      deviceName: 'Admin Hub'
+    });
+  }
+  res.status(201).json({ ok: true, asset });
 });
 
 router.put('/:id', (req, res) => {
+  // Likewise a phone's edit is proposed, not applied: the super admin confirms it first.
+  if (req.user?.source === 'mobile') {
+    const queued = require('../inventory/services').queueMobileEdit(req.params.id, req.body, mobileMeta(req));
+    return res.status(queued.ok ? 202 : queued.status || 400).json(queued.ok ? queued : { ok: false, error: queued.error });
+  }
   let updated;
   try {
     updated = svc.updateAsset(req.params.id, req.body);

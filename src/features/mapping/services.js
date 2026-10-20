@@ -135,30 +135,87 @@ function deleteRoom(id) {
 }
 
 // ---- Cluster Map data --------------------------------------------------
-// One pin per Building; each pin's tooltip/detail breaks assets down by
-// the rooms inside that building (rather than one pin per room).
+// One pin per Building. Each entry carries two views of what's inside it:
+// `rooms` (what's in each room, and who holds it) and `people` (who has
+// assets in this building, and which ones) — the Cluster Map's popup and
+// BUILDING DETAILS panel show both.
 
 function buildingsForMap() {
   const db = getDb();
   const buildings = db.prepare('SELECT id, name, latitude, longitude FROM buildings ORDER BY name').all();
   const roomsForBuilding = db.prepare('SELECT id, name, floor FROM rooms WHERE building_id = ? ORDER BY name');
+  // Assigned names resolve against the Assignees list (case-insensitively, the
+  // same way the asset queries do) to pick up each person's photo/position.
+  // Asset photos are deliberately NOT sent — the map only lists assets by tag
+  // and name, and base64 images for every asset would bloat this payload.
   const assetsForRoom = db.prepare(`
-    SELECT asset_tag, name, status, assigned_to, photo FROM assets WHERE room_id = ? ORDER BY name
+    SELECT a.id, a.asset_tag, a.name, a.status, a.assigned_to,
+      p.name AS person_name, p.photo AS person_photo, p.position AS person_position, p.department AS person_department
+    FROM assets a
+    LEFT JOIN people p ON p.name = a.assigned_to COLLATE NOCASE
+    WHERE a.room_id = ?
+    ORDER BY a.name
   `);
 
+  const keyOf = (name) => String(name).trim().toLowerCase();
+
   return buildings.map((b) => {
+    const people = new Map(); // across the whole building, keyed by lower-cased name
+    let unassigned = [];
+
     const rooms = roomsForBuilding.all(b.id).map((r) => {
       const assets = assetsForRoom.all(r.id);
-      return { id: r.id, name: r.name, floor: r.floor, asset_count: assets.length, assets };
+      const inRoom = new Map();
+      let roomUnassigned = 0;
+
+      assets.forEach((a) => {
+        const label = a.assigned_to && a.assigned_to.trim();
+        const slim = { id: a.id, asset_tag: a.asset_tag, name: a.name, status: a.status };
+        if (!label) { roomUnassigned += 1; unassigned.push({ ...slim, room_name: r.name }); return; }
+
+        const k = keyOf(label);
+        inRoom.set(k, { name: a.person_name || label, asset_count: (inRoom.get(k)?.asset_count || 0) + 1 });
+
+        if (!people.has(k)) {
+          people.set(k, {
+            name: a.person_name || label,
+            photo: a.person_photo || null,
+            position: a.person_position || null,
+            department: a.person_department || null,
+            asset_count: 0, rooms: new Map(), assets: []
+          });
+        }
+        const person = people.get(k);
+        person.asset_count += 1;
+        person.rooms.set(r.id, { id: r.id, name: r.name });
+        person.assets.push({ ...slim, room_name: r.name });
+      });
+
+      return {
+        id: r.id, name: r.name, floor: r.floor,
+        asset_count: assets.length,
+        unassigned_count: roomUnassigned,
+        // name + count only — the person's photo lives once on building.people
+        people: [...inRoom.values()].sort((x, y) => x.name.localeCompare(y.name)),
+        assets: assets.map((a) => ({ id: a.id, asset_tag: a.asset_tag, name: a.name, status: a.status, assigned_to: a.assigned_to }))
+      };
     });
-    const asset_count = rooms.reduce((sum, r) => sum + r.asset_count, 0);
+
+    const peopleList = [...people.values()]
+      .map((p) => ({ ...p, rooms: [...p.rooms.values()] }))
+      .sort((x, y) => x.name.localeCompare(y.name));
+
     return {
       id: b.id,
       name: b.name,
       latitude: b.latitude,
       longitude: b.longitude,
       room_count: rooms.length,
-      asset_count,
+      asset_count: rooms.reduce((sum, r) => sum + r.asset_count, 0),
+      people_count: peopleList.length,
+      unassigned_count: unassigned.length,
+      unassigned_assets: unassigned,
+      people: peopleList,
       rooms
     };
   });

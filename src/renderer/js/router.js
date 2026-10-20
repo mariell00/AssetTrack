@@ -148,7 +148,7 @@ function navigate() {
   pageTitle.textContent = title;
   document.title = `AssetTrack — ${title}`;
   closeMenu();
-  if (path !== '/login') updateSidebarUser();
+  if (path !== '/login') { updateSidebarUser(); refreshReviewBadge(); }
   shell.classList.add('ready'); // un-hide the shell (see boot guard in index.html)
 }
 
@@ -225,6 +225,29 @@ function tickClock() {
   document.getElementById('top-date').textContent =
     now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
+// Scans synced from the mobile app wait for the super admin to verify them in
+// Inventory sync. Show how many are waiting: a count on the menu item and a red
+// square on the menu button, so it's noticed without opening the screen.
+async function refreshReviewBadge() {
+  if (shell.classList.contains('auth-mode') || !isAuthed()) return;
+  const link = document.querySelector('#nav-links a[data-nav="inventory"]');
+  if (!link) return;
+  const result = await apiGet('/api/v1/inventory/pending/count');
+  const n = result.ok ? result.count : 0;
+  let badge = link.querySelector('.nav-badge');
+  document.getElementById('btn-menu').classList.toggle('has-alert', n > 0);
+  if (n === 0) { if (badge) badge.remove(); return; }
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'nav-badge';
+    link.appendChild(badge);
+  }
+  badge.textContent = n > 99 ? '99+' : String(n);
+  badge.setAttribute('aria-label', `${n} scan${n === 1 ? '' : 's'} waiting for verification`);
+}
+document.addEventListener('assettrack:queue-changed', refreshReviewBadge);
+setInterval(refreshReviewBadge, 20000);
+
 async function loadTopIp() {
   const result = await apiGet('/api/v1/system/status');
   if (result.ok) document.getElementById('top-ip').textContent = result.status.localIp;

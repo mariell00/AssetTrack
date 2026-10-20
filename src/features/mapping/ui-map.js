@@ -1,42 +1,30 @@
-// features/mapping/ui-map.js — "Cluster Map": a real Leaflet map of campus,
-// with Leaflet.markercluster grouping nearby pins as you zoom out. Markers
-// are per-ASSET (each asset gets its own pin, positioned at its room's
-// building coordinates) rather than one grouped pin per building — so
-// registering a second asset in the same building shows up as its own
-// separate, individually-clickable marker instead of folding into a shared
-// popup list. Multiple assets in the same building necessarily share that
-// building's exact lat/lng (assets don't have their own coordinates), which
-// is exactly the case Leaflet.markercluster's built-in "spiderfy" handles:
-// zoom in and click the cluster and it fans the overlapping markers out in
-// a small spider pattern of individually-clickable points, rather than this
-// needing to fake separation with per-asset jitter.
+// features/mapping/ui-map.js — "Cluster Map": a real Leaflet map of campus
+// with ONE pin per building (the building is what actually has coordinates —
+// every room and asset inside it inherits that spot). Clicking a pin reveals
+// the building rather than a single asset: a small popup with the headline
+// numbers, and a BUILDING DETAILS panel below the map with two tabs —
 //
-// Layout: a side rail next to the map holds a quick PROFILE preview (the
-// currently-selected asset's avatar/name) and a RECENTLY ADDED list to
-// jump to any asset; below the map, BUILDINGS (placement, admin-only) sits
-// beside PROFILE DETAILS — the same selected asset expanded into the
-// two-column "avatar + assigned-to/standing" | "asset details" layout.
-// Building placement (PLACE ON MAP / MOVE PIN) still operates at the
-// building level since that's what gives every asset inside it a location
-// to inherit in the first place.
+//   ROOMS   what's in each room, and who holds it
+//   PEOPLE  who has assets in this building, and which ones
 //
-// Leaflet + Leaflet.markercluster are vendored locally (src/renderer/
-// vendor/) and loaded via plain <link>/<script> tags in index.html's
-// <head> — Leaflet's own "Using a Downloaded Version" instructions —
-// rather than from a CDN, so the map keeps working with zero internet
-// access, same offline philosophy as tile-cache.js's pre-downloaded tiles.
+// Rooms answer "where is it", people answer "who has it"; showing both
+// avoids guessing which one an admin wants. Assets are still reachable —
+// one click deeper, inside a room or person — instead of being the pin.
+//
+// Layout: a side rail holds the selected building's name and a BUILDINGS list
+// to jump to any pin; below the map, PIN PLACEMENT (admin-only) sits beside
+// BUILDING DETAILS. Placing/moving a pin (PLACE ON MAP / MOVE PIN, or the
+// handoff from the Locations screen) is unchanged.
+//
+// Leaflet + Leaflet.markercluster are vendored locally (src/renderer/vendor/)
+// and loaded via <link>/<script> tags in index.html's <head>, so the map keeps
+// working with zero internet access, same offline philosophy as tile-cache.js.
 import { apiGet, apiPut } from '../../js/api-client.js';
+import { esc } from '../assets/ui.js';
 
-// Those <head> tags are plain (non-module) scripts, so they run
-// synchronously as the page parses — well before this module (loaded via
-// <script type="module">, which is deferred by default) ever executes.
-// window.L should already exist by the time render() below runs; this is
-// just a safety check in case someone re-orders index.html later.
-//
-// Pins reveal nothing until clicked — no hover tooltip. bindPopup() below
-// opens only on click (Leaflet's default for popups, unlike tooltips which
-// default to hover), and Leaflet's default popup autoClose:true means
-// clicking a different pin swaps the reveal rather than stacking them.
+// Those <head> tags are plain (non-module) scripts, so they've already run by
+// the time this deferred module executes; this is just a safety check in case
+// someone re-orders index.html later.
 function ensureLeafletLoaded() {
   if (window.L && window.L.markerClusterGroup) return Promise.resolve();
   return Promise.reject(new Error(
@@ -46,37 +34,53 @@ function ensureLeafletLoaded() {
 }
 
 const STATUS_LABELS = { active: 'ACTIVE', pending: 'PENDING', maintenance: 'MAINT.', offline: 'OFFLINE' };
+const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
-// Small circular "who this belongs to" avatar — the assigned user's photo
-// (assets.assigned_photo, set from the Asset Registry modal) when one's
-// been attached, otherwise first letters of up to two words in the
-// assigned name, or a generic person glyph when unassigned.
 function initialsOf(name) {
   if (!name) return '—';
-  const words = name.trim().split(/\s+/).filter(Boolean);
+  const words = String(name).trim().split(/\s+/).filter(Boolean);
   return words.slice(0, 2).map((w) => w[0].toUpperCase()).join('');
 }
 
-function avatarHtml(assignedTo, sizeClass = '', photo = null) {
-  if (photo) {
-    return `<img src="${photo}" class="map-avatar map-avatar-photo${sizeClass ? ' ' + sizeClass : ''}" alt="" />`;
-  }
-  return `<div class="map-avatar${sizeClass ? ' ' + sizeClass : ''}${assignedTo ? '' : ' map-avatar-empty'}">${initialsOf(assignedTo)}</div>`;
+// Round "who" avatar: the person's photo from the Assignees list when they
+// have one, otherwise their initials (or a blank grey disc for unassigned).
+function avatarHtml(name, sizeClass = '', photo = null) {
+  const cls = `map-avatar${sizeClass ? ' ' + sizeClass : ''}`;
+  if (photo) return `<img src="${photo}" class="${cls} map-avatar-photo" alt="" />`;
+  return `<div class="${cls}${name ? '' : ' map-avatar-empty'}" aria-hidden="true">${esc(initialsOf(name))}</div>`;
 }
 
-// What a single asset's marker reveals on click — the point of a per-asset
-// pin is exactly this: who has it and where, without wading through every
-// other asset in the same building first.
-function assetPopupHtml(asset) {
+const statusBadge = (status) => `<span class="badge badge-asset-${esc(status)}">${esc(STATUS_LABELS[status] || status)}</span>`;
+const peopleCount = (n) => (n === 1 ? '1 person' : `${n} people`);
+const summaryLine = (b) => `${plural(b.room_count, 'room')} · ${peopleCount(b.people_count)} · ${plural(b.asset_count, 'asset')}`;
+
+// Square count badge used as the pin itself — the number is how many assets
+// the building holds, so busy buildings read at a glance.
+function pinIcon(b, selected) {
+  return window.L.divIcon({
+    className: 'bpin-wrap',
+    html: `<div class="bpin${selected ? ' is-selected' : ''}"><span>${b.asset_count}</span></div>`,
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+    popupAnchor: [0, -22]
+  });
+}
+
+// What the pin's popup reveals on click: the headline only — the full lists
+// live in BUILDING DETAILS so the popup stays small enough to read on a map.
+function popupHtml(b) {
+  const shown = b.people.slice(0, 5);
+  const more = b.people.length - shown.length;
   return `
-    <div class="map-tooltip map-tooltip-asset">
-      ${avatarHtml(asset.assigned_to, '', asset.assigned_photo)}
-      <div class="map-tip-asset-info">
-        <div class="map-tip-title">${asset.asset_tag} — ${asset.name}</div>
-        <div class="map-tip-user">${asset.assigned_to ? asset.assigned_to : 'Unassigned'}</div>
-        <div class="map-tip-count">${asset.building_name}${asset.room_name ? ' · ' + asset.room_name : ''}${asset.floor ? ' · ' + asset.floor : ''}</div>
-      </div>
-      ${asset.photo ? `<img src="${asset.photo}" class="map-tip-photo" alt="" />` : ''}
+    <div class="map-tooltip map-bpop">
+      <div class="map-tip-title">${esc(b.name)}</div>
+      <div class="map-tip-count">${esc(summaryLine(b))}</div>
+      ${b.people.length ? `
+        <div class="bpop-people" aria-label="People with assets here">
+          ${shown.map((p) => avatarHtml(p.name, 'map-avatar-sm', p.photo)).join('')}
+          ${more > 0 ? `<span class="bpop-more">+${more}</span>` : ''}
+        </div>` : ''}
+      <div class="map-tip-empty">${b.room_count ? 'Rooms &amp; people in the panel below ↓' : 'No rooms yet — add some in Locations'}</div>
     </div>
   `;
 }
@@ -97,31 +101,31 @@ export function render() {
       <div class="crt-header"><span class="crt-dot"></span> CLUSTER MAP</div>
       <div class="map-top-row">
         <div class="map-side-rail">
-          <div class="map-profile-block" id="rail-profile-block">
-            ${avatarHtml(null, 'map-avatar-lg')}
-            <div class="map-profile-name" id="rail-profile-name">No asset selected</div>
-            <div class="map-profile-caption">PROFILE</div>
+          <div class="map-profile-block" id="rail-building-block">
+            <div class="map-avatar map-avatar-lg map-avatar-building" aria-hidden="true">▦</div>
+            <div class="map-profile-name" id="rail-building-name">No building selected</div>
+            <div class="map-profile-caption">BUILDING</div>
           </div>
           <div class="map-side-divider"></div>
-          <div class="panel-title">RECENTLY ADDED</div>
-          <div id="recent-assets" class="mono-list map-recent-list">Loading…</div>
+          <div class="panel-title">BUILDINGS</div>
+          <div id="building-list" class="mono-list map-recent-list">Loading…</div>
         </div>
         <div class="map-main">
           <div id="leaflet-map" class="leaflet-map-container">Loading map…</div>
         </div>
       </div>
-      <p class="map-caption">ASSETTRACK v2.4.1 // NBSC CAMPUS MAP — click a pin to reveal that asset's profile; zoom in and click a cluster to spread out assets sharing a building</p>
+      <p class="map-caption">ASSETTRACK v2.4.1 // NBSC CAMPUS MAP — click a pin to open that building; its rooms and people appear below. Pin numbers are assets held.</p>
     </div>
     <div class="map-lower">
       <div class="crt-panel map-legend" id="unplaced-panel">
-        <div class="panel-title">BUILDINGS</div>
+        <div class="panel-title">PIN PLACEMENT</div>
         <div id="unplaced-buildings" class="mono-list">Loading…</div>
-        <p class="map-hint">Click a pin to reveal that asset's profile — nothing shows until you click it. Add or edit buildings and rooms from the LOCATIONS screen, or click PLACE ON MAP / MOVE PIN below, then click the map.</p>
+        <p class="map-hint">Add or edit buildings and rooms from the LOCATIONS screen, or click PLACE ON MAP / MOVE PIN here, then click the map.</p>
       </div>
       <div class="crt-panel map-selection">
-        <div class="panel-title">PROFILE DETAILS</div>
-        <div id="profile-details" class="profile-details-grid">
-          <div class="profile-details-empty">&gt; Click a pin or a recently added asset<br/>to view its profile_</div>
+        <div class="panel-title">BUILDING DETAILS</div>
+        <div id="building-details">
+          <div class="profile-details-empty">&gt; Click a pin or a building in the list<br/>to see its rooms and people_</div>
         </div>
       </div>
     </div>
@@ -129,138 +133,198 @@ export function render() {
 
   const mapEl = el.querySelector('#leaflet-map');
   const unplacedEl = el.querySelector('#unplaced-buildings');
-  const recentEl = el.querySelector('#recent-assets');
-  const railAvatarWrap = el.querySelector('#rail-profile-block');
-  const railNameEl = el.querySelector('#rail-profile-name');
-  const detailsEl = el.querySelector('#profile-details');
+  const listEl = el.querySelector('#building-list');
+  const railNameEl = el.querySelector('#rail-building-name');
+  const detailsEl = el.querySelector('#building-details');
 
   if (!isAdmin()) el.querySelector('#unplaced-panel').style.display = 'none';
 
   let map = null;
   let clusterGroup = null;
   let placingBuildingId = null; // set while waiting for the next map click to land a pin
-  const markersByAssetId = new Map(); // lets the RECENTLY ADDED list locate/open a specific asset's marker
+  let buildings = [];
+  let selectedId = null;
+  let activeTab = 'rooms';
+  const markersByBuildingId = new Map();
 
-  // Puts the map into "click to place/move this building" mode — used by
-  // both the PLACE ON MAP / MOVE PIN buttons below and by the handoff from
-  // the Locations screen (sessionStorage flag checked in loadBuildings).
+  // Puts the map into "click to place/move this building" mode — used by both
+  // the PLACE ON MAP / MOVE PIN buttons and the handoff from the Locations
+  // screen (sessionStorage flag checked in loadData).
   function startPlacing(id, name) {
     placingBuildingId = String(id);
     mapEl.style.cursor = 'crosshair';
-    detailsEl.innerHTML = `<div class="profile-details-empty">Click the map to place "${name}"</div>`;
+    detailsEl.innerHTML = `<div class="profile-details-empty">Click the map to place "${esc(name)}"</div>`;
   }
 
-  // Updates both the side rail's quick PROFILE preview and the below-map
-  // PROFILE DETAILS panel for whichever asset was just clicked (a marker
-  // or a RECENTLY ADDED row) — two views of the same selection.
-  function selectAsset(asset) {
-    railAvatarWrap.innerHTML = `
-      ${avatarHtml(asset.assigned_to, 'map-avatar-lg', asset.assigned_photo)}
-      <div class="map-profile-name" id="rail-profile-name">${asset.assigned_to ? asset.assigned_to : 'Unassigned'}</div>
-      <div class="map-profile-caption">PROFILE</div>
-    `;
+  // ---- BUILDING DETAILS -------------------------------------------------
 
+  function roomsTab(b) {
+    if (!b.rooms.length) return '<div class="profile-details-empty">No rooms in this building yet — add them from the LOCATIONS screen.</div>';
+    const photoOf = new Map(b.people.map((p) => [p.name.toLowerCase(), p.photo]));
+    return b.rooms.map((r) => {
+      const stack = r.people.slice(0, 4).map((p) => avatarHtml(p.name, 'map-avatar-sm', photoOf.get(p.name.toLowerCase()))).join('');
+      const more = r.people.length - 4;
+      const body = r.asset_count === 0
+        ? '<div class="bd-empty">No assets in this room yet.</div>'
+        : `
+          ${r.people.map((p) => `
+            <div class="bd-person">${avatarHtml(p.name, 'map-avatar-sm', photoOf.get(p.name.toLowerCase()))}
+              <span class="bd-person-name">${esc(p.name)}</span><span class="bd-count">${plural(p.asset_count, 'asset')}</span></div>`).join('')}
+          ${r.unassigned_count ? `<div class="bd-person">${avatarHtml(null, 'map-avatar-sm')}<span class="bd-person-name bd-dim">Unassigned</span><span class="bd-count">${plural(r.unassigned_count, 'asset')}</span></div>` : ''}
+          <div class="bd-assets">
+            ${r.assets.map((a) => `<div class="bd-asset"><strong>${esc(a.asset_tag)}</strong> — ${esc(a.name)} ${statusBadge(a.status)}</div>`).join('')}
+          </div>`;
+      return `
+        <details class="bd-item">
+          <summary>
+            <span class="bd-title">${esc(r.name)}${r.floor ? ` <span class="bd-dim">· ${esc(r.floor)}</span>` : ''}</span>
+            <span class="bd-meta"><span class="bd-stack">${stack}${more > 0 ? `<span class="bpop-more">+${more}</span>` : ''}</span>${plural(r.asset_count, 'asset')}</span>
+          </summary>
+          <div class="bd-body">${body}</div>
+        </details>`;
+    }).join('');
+  }
+
+  function peopleTab(b) {
+    if (!b.people.length && !b.unassigned_count) return '<div class="profile-details-empty">Nobody has assets in this building yet.</div>';
+    // `avatar` is passed in so the Unassigned row can show the blank grey disc
+    // instead of initials.
+    const row = (p, avatar) => `
+      <details class="bd-item">
+        <summary>
+          <span class="bd-title bd-title-person">${avatar}
+            <span>${esc(p.name)}${p.sub ? `<br/><span class="bd-sub">${esc(p.sub)}</span>` : ''}</span></span>
+          <span class="bd-meta">${plural(p.asset_count, 'asset')}${p.room_total ? ` · ${plural(p.room_total, 'room')}` : ''}</span>
+        </summary>
+        <div class="bd-body"><div class="bd-assets">
+          ${p.assets.map((a) => `<div class="bd-asset"><strong>${esc(a.asset_tag)}</strong> — ${esc(a.name)} <span class="bd-dim">· ${esc(a.room_name)}</span> ${statusBadge(a.status)}</div>`).join('')}
+        </div></div>
+      </details>`;
+    const people = b.people.map((p) => row(
+      { ...p, sub: [p.position, p.department].filter(Boolean).join(' · '), room_total: p.rooms.length },
+      avatarHtml(p.name, 'map-avatar-md', p.photo)
+    ));
+    if (b.unassigned_count) {
+      people.push(row(
+        { name: 'Unassigned', sub: 'Not held by anyone', asset_count: b.unassigned_count, room_total: 0, assets: b.unassigned_assets },
+        avatarHtml(null, 'map-avatar-md')
+      ));
+    }
+    return people.join('');
+  }
+
+  function renderDetails() {
+    const b = buildings.find((x) => x.id === selectedId);
+    if (!b) return;
+    railNameEl.textContent = b.name;
     detailsEl.innerHTML = `
-      <div class="profile-details-left">
-        ${avatarHtml(asset.assigned_to, 'map-avatar-xl', asset.assigned_photo)}
-        <div class="profile-field">
-          <span class="profile-field-label">ASSIGNED TO</span>
-          <span class="profile-field-value">${asset.assigned_to ? asset.assigned_to : 'Unassigned'}</span>
-        </div>
-        <div class="profile-field">
-          <span class="profile-field-label">STANDING</span>
-          <span class="profile-field-value"><span class="badge badge-asset-${asset.status}">${STATUS_LABELS[asset.status] || asset.status}</span></span>
-        </div>
+      <div class="bd-head">
+        <div class="bd-name">${esc(b.name)}</div>
+        <div class="bd-summary">${esc(summaryLine(b))}${b.latitude == null ? ' · <span class="bd-dim">not pinned on the map</span>' : ''}</div>
       </div>
-      <div class="profile-details-right">
-        <div class="panel-subtitle">Asset Details</div>
-        <div class="profile-detail-row"><strong>Tag:</strong> ${asset.asset_tag}</div>
-        <div class="profile-detail-row"><strong>Name:</strong> ${asset.name}</div>
-        <div class="profile-detail-row"><strong>Location:</strong> ${asset.building_name}${asset.room_name ? ' · ' + asset.room_name : ''}${asset.floor ? ' · ' + asset.floor : ''}</div>
-        ${asset.photo ? `<img src="${asset.photo}" class="map-tip-photo room-detail-photo" alt="" />` : ''}
+      <div class="bk-tabs bd-tabs" role="tablist" aria-label="Building details">
+        <button class="bk-tab${activeTab === 'rooms' ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === 'rooms'}" data-tab="rooms" type="button">ROOMS <span class="tab-count">${b.room_count}</span></button>
+        <button class="bk-tab${activeTab === 'people' ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === 'people'}" data-tab="people" type="button">PEOPLE <span class="tab-count">${b.people_count}</span></button>
       </div>
+      <div class="bd-list" role="tabpanel">${activeTab === 'rooms' ? roomsTab(b) : peopleTab(b)}</div>
     `;
+    detailsEl.querySelectorAll('.bk-tab').forEach((btn) => btn.addEventListener('click', () => {
+      activeTab = btn.dataset.tab;
+      renderDetails();
+    }));
   }
 
-  // Zooms/pans until the marker is out of any cluster it's currently
-  // folded into, then opens its popup — this is Leaflet.markercluster's
-  // own method for "reveal this specific marker even if it's clustered",
-  // which is exactly what clicking a RECENTLY ADDED row needs to do.
-  function locateAsset(asset) {
-    selectAsset(asset);
-    const marker = markersByAssetId.get(asset.id);
-    if (!marker) return;
-    clusterGroup.zoomToShowLayer(marker, () => marker.openPopup());
+  function selectBuilding(id) {
+    const restyle = (bid, selected) => {
+      const entry = markersByBuildingId.get(bid);
+      const b = buildings.find((x) => x.id === bid);
+      if (entry && b) entry.marker.setIcon(pinIcon(b, selected));
+    };
+    restyle(selectedId, false);
+    selectedId = id;
+    restyle(id, true);
+    listEl.querySelectorAll('.building-row').forEach((row) => row.classList.toggle('is-selected', Number(row.dataset.id) === id));
+    renderDetails();
   }
 
-  async function loadBuildings() {
+  // Zooms/pans until the pin is out of any cluster it's folded into, then opens
+  // its popup — what clicking a row in the BUILDINGS list does.
+  function locateBuilding(b) {
+    selectBuilding(b.id);
+    const entry = markersByBuildingId.get(b.id);
+    if (entry) clusterGroup.zoomToShowLayer(entry.marker, () => entry.marker.openPopup());
+  }
+
+  // ---- data ----------------------------------------------------------------
+
+  async function loadData() {
     const result = await apiGet('/api/v1/map/buildings-map');
-    if (!result.ok) { unplacedEl.textContent = result.error || 'Unable to load building data.'; return; }
+    if (!result.ok) {
+      const msg = esc(result.error || 'Unable to load building data.');
+      unplacedEl.innerHTML = msg; listEl.innerHTML = msg;
+      return;
+    }
+    buildings = result.buildings;
 
-    // Every building is listed here — placed ones get a MOVE PIN button
-    // (in case the pin needs adjusting), unplaced ones get PLACE ON MAP —
-    // this is the map-click alternative to typing exact coordinates in
-    // the Locations screen's Add/Edit Building form.
-    unplacedEl.innerHTML = result.buildings.length
-      ? result.buildings.map((b) => `
-          <div class="mono-row mono-row-place">
-            <span>${b.name} (${b.room_count} room${b.room_count === 1 ? '' : 's'})${b.latitude != null ? ' · pinned' : ''}</span>
-            <button class="btn-retro small outline btn-place" data-id="${b.id}" data-name="${b.name}">${b.latitude != null ? 'MOVE PIN' : 'PLACE ON MAP'}</button>
-          </div>
-        `).join('')
+    // Pins: only buildings that have been placed on the map.
+    clusterGroup.clearLayers();
+    markersByBuildingId.clear();
+    buildings.filter((b) => b.latitude != null && b.longitude != null).forEach((b) => {
+      const marker = window.L.marker([b.latitude, b.longitude], {
+        icon: pinIcon(b, b.id === selectedId),
+        title: b.name,
+        alt: `${b.name}: ${plural(b.asset_count, 'asset')}`
+      });
+      // bindPopup (not bindTooltip): nothing shows until the pin is clicked.
+      marker.bindPopup(popupHtml(b), { maxWidth: 260 });
+      marker.on('click', () => selectBuilding(b.id));
+      markersByBuildingId.set(b.id, { marker, buildingId: b.id });
+      clusterGroup.addLayer(marker);
+    });
+
+    // BUILDINGS list (everyone): jump to any pinned building.
+    listEl.innerHTML = buildings.length
+      ? buildings.map((b) => `
+          <div class="mono-row mono-row-place building-row${b.id === selectedId ? ' is-selected' : ''}${b.latitude == null ? ' is-unpinned' : ''}" data-id="${b.id}" tabindex="0" role="button">
+            <span><strong>${esc(b.name)}</strong><br/>
+              <span class="recent-asset-user">${b.latitude == null ? 'not pinned · ' : ''}${esc(plural(b.room_count, 'room'))} · ${esc(plural(b.asset_count, 'asset'))}</span></span>
+          </div>`).join('')
       : '<div class="mono-row">No buildings yet — add one from LOCATIONS.</div>';
+    const byId = new Map(buildings.map((b) => [b.id, b]));
+    listEl.querySelectorAll('.building-row').forEach((row) => {
+      const open = () => {
+        const b = byId.get(Number(row.dataset.id));
+        if (!b) return;
+        if (b.latitude == null) selectBuilding(b.id); else locateBuilding(b);
+      };
+      row.addEventListener('click', open);
+      row.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(); } });
+    });
 
+    // PIN PLACEMENT (superadmin): placed ones get MOVE PIN, unplaced PLACE ON MAP.
+    unplacedEl.innerHTML = buildings.length
+      ? buildings.map((b) => `
+          <div class="mono-row mono-row-place">
+            <span>${esc(b.name)}${b.latitude != null ? ' · pinned' : ''}</span>
+            <button class="btn-retro small outline btn-place" data-id="${b.id}" data-name="${esc(b.name)}">${b.latitude != null ? 'MOVE PIN' : 'PLACE ON MAP'}</button>
+          </div>`).join('')
+      : '<div class="mono-row">No buildings yet — add one from LOCATIONS.</div>';
     unplacedEl.querySelectorAll('.btn-place').forEach((btn) => {
       btn.addEventListener('click', () => startPlacing(btn.dataset.id, btn.dataset.name));
     });
 
-    // Handoff from the Locations screen's PLACE ON MAP / MOVE PIN button:
-    // jump straight into placement mode for that specific building rather
-    // than making the admin find it again in the list above.
+    // Keep whatever building was open (data may have just changed under it).
+    if (selectedId != null && byId.has(selectedId)) renderDetails();
+
+    // Handoff from the Locations screen's PLACE ON MAP / MOVE PIN button.
     const pending = sessionStorage.getItem('assettrack_place_building');
     if (pending) {
       sessionStorage.removeItem('assettrack_place_building');
       try {
         const { id, name } = JSON.parse(pending);
-        if (result.buildings.some((b) => b.id === id)) startPlacing(id, name);
+        if (buildings.some((b) => b.id === id)) startPlacing(id, name);
       } catch { /* malformed/stale flag — ignore */ }
     }
-  }
-
-  async function loadAssets() {
-    const result = await apiGet('/api/v1/map/assets-map');
-    if (!result.ok) { recentEl.textContent = result.error || 'Unable to load asset data.'; return; }
-
-    clusterGroup.clearLayers();
-    markersByAssetId.clear();
-    result.assets.forEach((asset) => {
-      const marker = window.L.marker([asset.latitude, asset.longitude]);
-      // bindPopup (not bindTooltip) so nothing shows until the pin is
-      // clicked — no hover reveal.
-      marker.bindPopup(assetPopupHtml(asset), { maxWidth: 240 });
-      marker.on('click', () => selectAsset(asset));
-      markersByAssetId.set(asset.id, marker);
-      clusterGroup.addLayer(marker);
-    });
-
-    recentEl.innerHTML = result.assets.length
-      ? result.assets.slice(0, 8).map((a) => `
-          <div class="mono-row mono-row-place recent-asset-row" data-id="${a.id}">
-            <span>
-              <strong>${a.asset_tag}</strong> — ${a.name}<br/>
-              <span class="recent-asset-user">${a.assigned_to ? a.assigned_to : 'Unassigned'} · ${a.building_name}</span>
-            </span>
-          </div>
-        `).join('')
-      : '<div class="mono-row">No assets placed on the map yet — assets appear here once their room\'s building has a pin.</div>';
-
-    const assetsById = new Map(result.assets.map((a) => [a.id, a]));
-    recentEl.querySelectorAll('.recent-asset-row').forEach((row) => {
-      row.addEventListener('click', () => {
-        const asset = assetsById.get(Number(row.dataset.id));
-        if (asset) locateAsset(asset);
-      });
-    });
   }
 
   async function initMap() {
@@ -268,23 +332,18 @@ export function render() {
     if (!mapEl.isConnected) return; // user navigated away while Leaflet was still loading
 
     mapEl.textContent = '';
-    // Centered on NBSC's actual campus coordinates (Manolo Fortich,
-    // Bukidnon). Exact per-building placement then happens via the
-    // PLACE ON MAP buttons below — a single campus-wide point can't tell
-    // which specific NBSC building is which.
+    // Centered on NBSC's actual campus coordinates (Manolo Fortich, Bukidnon).
     map = window.L.map(mapEl).setView([8.359999, 124.868103], 17);
 
     window.L.tileLayer('/static/map_tiles/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      // Whatever provider actually filled src/static/map_tiles/ via
-      // tiles:fetch (see settings.json's tileProvider) may need its own
-      // attribution alongside OSM's — e.g. MapTiler requires "© MapTiler"
-      // credit too. Update this if you configure a different provider.
       attribution: '&copy; MapTiler &copy; OpenStreetMap contributors',
       errorTileUrl: '' // blank rather than a broken-image icon for any tile not yet cached
     }).addTo(map);
 
-    clusterGroup = window.L.markerClusterGroup();
+    // Buildings on a campus sit close together; a tighter radius keeps
+    // neighbouring pins separate until you've really zoomed out.
+    clusterGroup = window.L.markerClusterGroup({ maxClusterRadius: 40, showCoverageOnHover: false });
     map.addLayer(clusterGroup);
 
     map.on('click', async (e) => {
@@ -296,28 +355,22 @@ export function render() {
         latitude: e.latlng.lat,
         longitude: e.latlng.lng
       });
-      if (result.ok) { loadBuildings(); loadAssets(); }
+      if (result.ok) { selectedId = Number(buildingId); await loadData(); }
       else alert(result.error || 'Could not save that location.');
     });
 
-    await Promise.all([loadBuildings(), loadAssets()]);
+    await loadData();
 
-    // The map is created with a fixed-height container that's a flex
-    // sibling of the side rail; Leaflet measures its container's size once
-    // on init, so give it a nudge in case web fonts finished loading late
-    // and reflowed the rail's width after that first measurement.
+    // Leaflet measures its container once on init; nudge it in case web fonts
+    // finished loading late and reflowed the rail's width afterwards.
     setTimeout(() => map && map.invalidateSize(), 200);
   }
 
-  initMap().catch((err) => {
-    mapEl.textContent = err.message;
-  });
+  initMap().catch((err) => { mapEl.textContent = err.message; });
 
-  // Registering/editing an asset (Asset Registry modal, src/features/
-  // assets/ui.js) dispatches this on save — refresh right away so a
-  // newly registered asset shows its own pin and appears in RECENTLY ADDED
-  // without needing to leave and come back to this screen.
-  const onAssetsChanged = () => { if (map) loadAssets(); };
+  // Registering/editing an asset (Asset Registry modal) dispatches this on
+  // save — refresh so counts, rooms and people are current without leaving.
+  const onAssetsChanged = () => { if (map) loadData(); };
   document.addEventListener('assettrack:assets-changed', onAssetsChanged);
   const observer = new MutationObserver(() => {
     if (!document.body.contains(el)) {

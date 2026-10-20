@@ -119,6 +119,9 @@ function statusBreakdown() {
     total,
     verifiedToday,
     pendingSync: Math.max(0, total - verifiedToday),
+    awaitingReview:
+      db.prepare("SELECT COUNT(*) AS c FROM pending_scans WHERE review_status = 'pending'").get().c +
+      db.prepare("SELECT COUNT(*) AS c FROM pending_registrations WHERE review_status = 'pending'").get().c,
     active: counts.active || 0,
     maintenance: counts.maintenance || 0,
     offline: counts.offline || 0
