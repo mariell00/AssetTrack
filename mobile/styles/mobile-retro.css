@@ -311,6 +311,7 @@ input::placeholder, textarea::placeholder { color: rgba(232, 236, 245, .5); }
 
 /* ---- hints, sync count, registry list ---- */
 .m-hint { margin: 8px 0 0; font-size: 12px; line-height: 1.45; color: var(--dim); }
+.m-asset-edit .m-hint, .m-register .m-hint { margin: 0 0 16px; }
 .m-sync-pending { margin: 0 0 16px; font-family: var(--font-data); font-size: 14px; }
 .m-back { margin: 0 0 14px; }
 .m-reg-search-label { margin-top: 16px; }
@@ -328,3 +329,9 @@ input::placeholder, textarea::placeholder { color: rgba(232, 236, 245, .5); }
 .m-pill-active { background: rgba(95, 214, 140, .2); color: var(--green); }
 .m-pill-maintenance, .m-pill-pending { background: rgba(242, 201, 76, .2); color: var(--yellow); }
 .m-pill-offline { background: rgba(235, 87, 87, .2); color: var(--red); }
+
+/* ---- my registrations (Sync screen) ---- */
+.m-myreg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 10px 0; border-bottom: 1px solid rgba(232, 236, 245, .25); }
+.m-myreg-main { flex: 1 1 60%; min-width: 0; font-family: var(--font-data); font-size: 14px; overflow-wrap: anywhere; }
+.m-myreg-sub { flex-basis: 100%; font-size: 12px; color: var(--dim); }
+.m-pill-pending { border-color: var(--acc); color: var(--acc); }

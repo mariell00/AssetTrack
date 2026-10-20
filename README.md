@@ -93,6 +93,25 @@ changes, aside from re-scanning the QR code if the local IP changes.
 4. The Admin Hub dashboard shows live per-room verification progress.
 5. **Reports** generates a consolidated PDF or Excel audit at any time.
 
+### New assets registered on a phone
+
+Staff never type an Asset ID on the phone — they only enter the details.
+
+- **Phone-made ID (internal).** When a registration is saved, the phone gives it a
+  random unique code (a UUID). Nobody sees or types it. It travels with the
+  registration every time it is sent.
+- **Desktop-made Asset ID (the one people see).** When the super admin verifies the
+  registration in Inventory sync, the desktop creates the asset and generates its
+  Asset ID (`AST-0001`, `AST-0002`, …). The phone's code stays on the asset as an
+  internal reference. The QR label holds the short Asset ID, so it scans easily and
+  can be read out in reports.
+- **Why the extra code.** If a sync reaches the desktop but the phone never hears
+  back, the phone sends the same registration again. The code lets the desktop
+  recognise it as the same one, so it is never queued — or verified — twice, even
+  after it has already been verified or rejected. The phone also uses it to ask
+  which asset a registration became (the Sync screen's **My registrations** list).
+  The database backs this up: a second asset or queue row with the same code is refused.
+
 ## Portability & backups
 
 - All runtime data (`inventory.db`, `settings.json`) lives in `/data` next

@@ -29,18 +29,12 @@ const PAGES = {
   sync: { title: 'Sync', label: 'Sync', icon: '⇅' }
 };
 
-// Set by renderShell(); lets screens ask the shell to switch page (e.g. the
-// Scanner's "REGISTER THIS TAG" button) via one window event.
-let navigateTo = null;
 let clockTimer = null;
-window.addEventListener('assettrack:navigate', (e) => { if (navigateTo) navigateTo(e.detail.page, e.detail); });
 
-function renderPage(page, opts = {}) {
-  if (page === 'registry') return renderRegistry({ registerTag: opts.registerTag || null });
+function renderPage(page) {
+  if (page === 'registry') return renderRegistry();
   if (page === 'sync') return renderSync();
-  return renderAssetScan({
-    onRegister: (tag) => window.dispatchEvent(new CustomEvent('assettrack:navigate', { detail: { page: 'registry', registerTag: tag } }))
-  });
+  return renderAssetScan();
 }
 
 function initials(name) { return String(name || '?').slice(0, 2).toUpperCase(); }
@@ -131,7 +125,6 @@ function renderShell() {
     });
     closeDrawer();
   }
-  navigateTo = showPage;
 
   // Live time and date in the header (same as the desktop). Stops by itself
   // once this shell is replaced, e.g. after logging out.
@@ -175,7 +168,6 @@ function renderShell() {
         </div>`;
       foot.querySelector('#m-logout-cancel').addEventListener('click', () => renderFoot(false));
       foot.querySelector('#m-logout-confirm').addEventListener('click', () => {
-        navigateTo = null;
         resetScanSession();
         logout();
         renderApp();
@@ -213,6 +205,6 @@ function renderApp() {
 // If a request ever comes back 401 (expired/invalid token), api-client
 // clears the stored session and fires this — bounce straight back to the
 // login screen instead of leaving a half-logged-in shell on screen.
-window.addEventListener('assettrack:session-expired', () => { navigateTo = null; renderApp(); });
+window.addEventListener('assettrack:session-expired', () => renderApp());
 
 renderApp();

@@ -1,10 +1,13 @@
 // mobile/features/asset-scan/ui-asset-edit.js — "Asset Info" panel. Shown
 // right after a QR scan, and when you open an asset from the Asset Registry
 // list. Lets an admin correct/update the asset's details on the spot
-// (condition, status, category, room, etc.). Uses the same pick-lists as the
+// (condition, status, category, room, etc.). Nothing is changed on the desktop
+// from here: edits are saved on the phone, go out with the next SYNC, and are
+// applied once the super admin verifies them in Inventory sync.
+// Uses the same pick-lists as the
 // desktop Asset Registry form (core/lookups.js) so nothing typed here looks
 // out of place when viewed later on the desktop.
-import { updateAssetDetail } from './services.js';
+import { queueAssetChanges } from './services.js';
 import { compressImageFile } from '../../core/photo.js';
 import {
   fetchRoomsList, fetchAssignees, roomOptionsHtml, categoryOptionsHtml, assigneeOptionsHtml,
@@ -15,9 +18,9 @@ import {
 // nothing registered under that tag, or the phone has no connection right
 // now to check) — reason distinguishes the two so the message makes sense.
 //   onDone(saved)  — called when the panel is finished (saved or skipped)
-//   onRegister(tag) — optional; offers to register an unknown tag right away
 //   skipLabel      — label for the no-changes button
-export async function renderAssetEditPanel(asset, code, reason, { onDone, onRegister, skipLabel = 'SKIP — NO CHANGES' }) {
+//   scanLocalId    — the queued scan these edits belong to (so they sync together)
+export async function renderAssetEditPanel(asset, code, reason, { onDone, scanLocalId = null, skipLabel = 'SKIP — NO CHANGES' }) {
   const el = document.createElement('div');
   el.className = 'm-panel m-asset-edit';
 
@@ -25,15 +28,13 @@ export async function renderAssetEditPanel(asset, code, reason, { onDone, onRegi
     const offline = reason === 'offline';
     const message = offline
       ? 'Scan saved locally. Editing details needs a connection to the desktop host — try again once you\'re back on Wi-Fi, or SYNC later.'
-      : `No asset is registered under "${esc(code)}" yet. You can register it now, or check the label.`;
+      : `No asset is registered under "${esc(code)}". AssetTrack makes each Asset ID (and its QR label) when a registration is verified on the desktop, so check this is an AssetTrack label — or register the item from ASSET REGISTRY.`;
     el.innerHTML = `
       <div class="m-header">${esc(code)}</div>
       <p class="m-status">${message}</p>
-      ${!offline && onRegister ? '<button class="m-btn" id="m-edit-register" type="button">▶ REGISTER THIS TAG</button>' : ''}
-      <button class="m-btn ${!offline && onRegister ? 'm-btn-secondary' : ''}" id="m-edit-continue" type="button">▶ CONTINUE SCANNING</button>
+      <button class="m-btn" id="m-edit-continue" type="button">▶ CONTINUE SCANNING</button>
     `;
     el.querySelector('#m-edit-continue').addEventListener('click', () => onDone());
-    el.querySelector('#m-edit-register')?.addEventListener('click', () => onRegister(code));
     return el;
   }
 
@@ -44,7 +45,8 @@ export async function renderAssetEditPanel(asset, code, reason, { onDone, onRegi
   el.innerHTML = `
     <div class="m-header">✔ ${esc(asset.asset_tag)}</div>
     <form id="m-edit-form">
-      <label>NAME</label>
+      <p class="m-hint">Changes are saved on this phone and sent when you SYNC. They apply once the super admin verifies them.</p>
+      <label>ASSET NAME</label>
       <input id="m-e-name" required value="${esc(asset.name)}" />
       <label>CATEGORY</label>
       <select id="m-e-category">${categoryOptionsHtml(asset.category || '')}</select>
@@ -66,7 +68,7 @@ export async function renderAssetEditPanel(asset, code, reason, { onDone, onRegi
           <input type="file" id="m-e-photo" accept="image/*" capture="environment" hidden />
         </label>
       </div>
-      <button class="m-btn" type="submit">▶ SAVE CHANGES</button>
+      <button class="m-btn" type="submit">▶ SAVE FOR SYNC</button>
       <button class="m-btn m-btn-secondary" id="m-edit-skip" type="button">${esc(skipLabel)}</button>
       <p id="m-edit-error" class="m-error"></p>
     </form>
@@ -116,13 +118,33 @@ export async function renderAssetEditPanel(asset, code, reason, { onDone, onRegi
     // wiping out an existing photo on an edit that didn't touch it.
     if (newPhotoDataUrl) payload.photo = newPhotoDataUrl;
 
-    const result = await updateAssetDetail(asset.id, payload);
-    submitBtn.disabled = false;
-
-    if (!result.ok) {
-      errorEl.textContent = result.error || 'Could not save — check your connection and try again.';
+    if (!payload.name) {
+      errorEl.textContent = 'The asset needs a name.';
+      submitBtn.disabled = false;
       return;
     }
+
+    // Send only what actually differs from what's registered, so the desktop
+    // shows the super admin exactly what would change.
+    const changes = {};
+    for (const [key, value] of Object.entries(payload)) {
+      const before = asset[key] === undefined ? null : asset[key];
+      if ((before ?? null) !== (value ?? null)) changes[key] = value;
+    }
+    if (Object.keys(changes).length === 0) {
+      submitBtn.disabled = false;
+      onDone(false); // nothing was changed
+      return;
+    }
+
+    try {
+      await queueAssetChanges(asset.asset_tag, changes, { scanLocalId });
+    } catch {
+      submitBtn.disabled = false;
+      errorEl.textContent = 'Could not save on this phone. Try again.';
+      return;
+    }
+    submitBtn.disabled = false;
     onDone(true);
   });
 

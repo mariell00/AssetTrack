@@ -1,24 +1,24 @@
 // mobile/features/register/ui-register.js — "Register asset" form: a short
-// form for a brand-new item that just arrived, submitted straight to the
-// Desktop host. On success, shows the freshly generated QR code so it can be
-// screenshotted or printed later from the desktop's Asset Registry.
-// Opened from the Asset Registry screen (or straight from the Scanner when a
-// scanned tag isn't registered yet — then `prefillTag` is that tag).
+// form for a brand-new item that just arrived. It is saved on the phone and
+// sent at the next SYNC; the asset only exists (and gets its Asset ID and QR
+// label) once the super admin verifies the registration on the desktop.
+// There is no Asset ID field: staff only enter the details. The desktop makes
+// the Asset ID when it verifies, and the phone tags the registration with its
+// own hidden id so a re-send can never create a second copy (register/services.js).
 import { registerAsset, fetchRoomsList, fetchAssignees } from './services.js';
 import { compressImageFile } from '../../core/photo.js';
 import {
   roomOptionsHtml, categoryOptionsHtml, assigneeOptionsHtml, pairOptionsHtml, STATUS_OPTIONS, esc
 } from '../../core/lookups.js';
 
-function renderForm(el, { rooms, people, prefillTag, onBack }) {
+function renderForm(el, { rooms, people, onBack }) {
   el.innerHTML = `
     <div class="m-panel">
       ${onBack ? '<button class="m-btn m-btn-secondary m-back" id="m-register-back" type="button">‹ BACK TO REGISTRY</button>' : ''}
       <div class="m-header">REGISTER ASSET</div>
       <form id="m-register-form">
-        <label>ASSET ID / TAG <span class="m-label-optional">(optional — leave blank to generate one, e.g. AST-0001)</span></label>
-        <input id="m-r-tag" placeholder="auto-generated" value="${esc(prefillTag)}" autocapitalize="characters" />
-        <label>NAME</label>
+        <p class="m-hint">The registration is saved on this phone and sent when you SYNC. The asset is added once the super admin verifies it.</p>
+        <label>ASSET NAME</label>
         <input id="m-r-name" required />
         <label>CATEGORY</label>
         <select id="m-r-category">${categoryOptionsHtml('')}</select>
@@ -36,7 +36,7 @@ function renderForm(el, { rooms, people, prefillTag, onBack }) {
             <input type="file" id="m-r-photo" accept="image/*" capture="environment" hidden />
           </label>
         </div>
-        <button class="m-btn" type="submit">▶ REGISTER</button>
+        <button class="m-btn" type="submit">▶ SAVE REGISTRATION</button>
         <p id="m-register-error" class="m-error"></p>
       </form>
     </div>
@@ -72,7 +72,6 @@ function renderForm(el, { rooms, people, prefillTag, onBack }) {
     errorEl.textContent = '';
 
     const result = await registerAsset({
-      assetTag: el.querySelector('#m-r-tag').value.trim(),
       name: el.querySelector('#m-r-name').value.trim(),
       category: el.querySelector('#m-r-category').value,
       roomId: el.querySelector('#m-r-room').value,
@@ -83,27 +82,24 @@ function renderForm(el, { rooms, people, prefillTag, onBack }) {
     submitBtn.disabled = false;
 
     if (!result.ok) {
-      errorEl.textContent = result.offline
-        ? 'Registering needs a connection to the desktop host.'
-        : (result.error || 'Could not register this asset.');
+      errorEl.textContent = result.error || 'Could not save this registration on the phone. Try again.';
       return;
     }
-    renderResult(el, result, { onBack, prefillTag });
+    renderResult(el, result, { onBack });
   });
 }
 
-function renderResult(el, { asset, qr }, ctx) {
+function renderResult(el, { name }, ctx) {
   el.innerHTML = `
     <div class="m-panel m-scanner-panel">
-      <div class="m-header">ASSET REGISTERED</div>
-      ${qr ? `<img src="${esc(qr.dataUrl)}" alt="QR code for ${esc(asset.asset_tag)}" class="m-qr-video" />` : ''}
-      <p class="m-status">${esc(asset.asset_tag)} — ${esc(asset.name)}</p>
-      ${qr ? '' : '<p class="m-error">Saved, but the QR label couldn\'t be generated — reprint it from the desktop Asset Registry.</p>'}
+      <div class="m-header">REGISTRATION SAVED</div>
+      <p class="m-status"><strong>${esc(name)}</strong> is saved on this phone.</p>
+      <p class="m-hint">Go to SYNC to send it. The super admin then verifies it on the desktop. Only after that is the asset added and given its Asset ID. Print the QR label from the desktop's Asset Registry.</p>
       <button class="m-btn" id="m-register-another" type="button">▶ REGISTER ANOTHER</button>
       ${ctx.onBack ? '<button class="m-btn m-btn-secondary" id="m-register-done" type="button">BACK TO REGISTRY</button>' : ''}
     </div>
   `;
-  el.querySelector('#m-register-another').addEventListener('click', () => load(el, { ...ctx, prefillTag: '' }));
+  el.querySelector('#m-register-another').addEventListener('click', () => load(el, ctx));
   el.querySelector('#m-register-done')?.addEventListener('click', () => ctx.onBack());
 }
 
@@ -115,14 +111,13 @@ async function load(el, ctx) {
   renderForm(el, {
     rooms: roomsResult.ok ? roomsResult.rooms : [],
     people: peopleResult.ok ? peopleResult.assignees : [],
-    prefillTag: ctx.prefillTag || '',
     onBack: ctx.onBack
   });
 }
 
-export function renderRegister({ prefillTag = '', onBack = null } = {}) {
+export function renderRegister({ onBack = null } = {}) {
   const el = document.createElement('div');
   el.className = 'm-screen m-register';
-  load(el, { prefillTag, onBack });
+  load(el, { onBack });
   return el;
 }
