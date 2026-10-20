@@ -12,16 +12,14 @@ import { esc } from '../../core/lookups.js';
 const PAGE_SIZE = 50;
 const STATUS_LABELS = { active: 'ACTIVE', maintenance: 'MAINT.', pending: 'PENDING', offline: 'OFFLINE' };
 
-// `registerTag` — open straight on the register form with this tag filled in
-// (used by the Scanner's "REGISTER THIS TAG" button).
-export function renderRegistry({ registerTag = null } = {}) {
+export function renderRegistry() {
   const el = document.createElement('div');
   el.className = 'm-screen m-registry';
 
   function show(node) { el.innerHTML = ''; el.appendChild(node); }
 
-  function showRegister(prefillTag = '') {
-    show(renderRegister({ prefillTag, onBack: showList }));
+  function showRegister() {
+    show(renderRegister({ onBack: showList }));
   }
 
   async function showEdit(id) {
@@ -110,7 +108,6 @@ export function renderRegistry({ registerTag = null } = {}) {
     load();
   }
 
-  if (registerTag) showRegister(registerTag);
-  else showList();
+  showList();
   return el;
 }

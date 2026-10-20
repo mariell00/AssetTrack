@@ -13,11 +13,11 @@ const LAST_ROOM_KEY = 'assettrack_mobile_last_room';
 // Lives at module level (not inside renderAssetScan) because the Scanner
 // screen is rebuilt every time you come back to it from the menu — the
 // session list shouldn't vanish just because you looked at the Registry.
-const session = { scanned: [] }; // [{ code, name }]
+const session = { scanned: [] }; // [{ code, name, changed }]
 
 export function resetScanSession() { session.scanned = []; }
 
-export function renderAssetScan({ onRegister } = {}) {
+export function renderAssetScan() {
   const el = document.createElement('div');
   el.className = 'm-screen m-asset-scan';
   el.innerHTML = `
@@ -61,7 +61,7 @@ export function renderAssetScan({ onRegister } = {}) {
 
   function refreshList() {
     list.innerHTML = session.scanned
-      .map(({ code, name }) => `<div class="m-row">✔ ${esc(code)}${name ? ` — ${esc(name)}` : ''}</div>`)
+      .map(({ code, name, changed }) => `<div class="m-row">✔ ${esc(code)}${name ? ` — ${esc(name)}` : ''}${changed ? ' · edits saved' : ''}</div>`)
       .join('') || '<p class="m-status">No assets scanned yet in this session.</p>';
   }
 
@@ -81,17 +81,19 @@ export function renderAssetScan({ onRegister } = {}) {
     busy = true;
 
     unmountScanner();
-    await recordScan(code, roomId || null, 'verified');
+    const scanLocalId = await recordScan(code, roomId || null, 'verified');
 
     const result = await fetchAssetByTag(code);
     const asset = result.ok ? result.asset : null;
-    session.scanned.push({ code, name: asset ? asset.name : null });
+    const entry = { code, name: asset ? asset.name : null, changed: false };
+    session.scanned.push(entry);
     refreshList();
 
     const reason = !result.ok && result.offline ? 'offline' : 'not_found';
     editEl = await renderAssetEditPanel(asset, code, reason, {
-      onRegister,
-      onDone: () => {
+      scanLocalId,
+      onDone: (saved) => {
+        if (saved === true) { entry.changed = true; refreshList(); }
         editEl?.remove();
         editEl = null;
         busy = false;

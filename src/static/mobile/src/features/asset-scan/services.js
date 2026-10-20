@@ -1,16 +1,18 @@
 // mobile/features/asset-scan/services.js — saves each QR scan to IndexedDB
 // (offline-first: works with zero Wi-Fi, syncs later via the sync feature),
 // plus live lookup/update of the scanned asset's details.
-import { addPendingScan } from '../../core/indexed-db.js';
+import { addPendingScan, updatePendingItem } from '../../core/indexed-db.js';
 import { currentUser } from '../auth/services.js';
 import { apiGet, apiPut } from '../../core/api-client.js';
 import { fetchRoomsList } from '../../core/lookups.js';
 
 // The scanned QR value is the asset's Asset Tag; the backend's
 // /api/v1/inventory/sync endpoint matches scans by asset_tag.
+// Resolves with the queued item's id, so edits made right after the scan can be attached to it.
 async function recordScan(qrValue, roomId, status = 'verified') {
   const user = currentUser();
-  await addPendingScan({
+  return addPendingScan({
+    type: 'scan',
     asset_tag: qrValue,
     room_id: roomId,
     scanned_by: user ? user.username : 'unknown',
@@ -32,12 +34,19 @@ async function fetchAssetDetail(id) {
   return apiGet(`/api/v1/assets/${id}/detail`);
 }
 
-// Saves edits made on the mobile "Asset Info" panel straight to the
-// desktop host (same PUT /api/v1/assets/:id the desktop Asset Registry
-// modal uses). Requires connectivity — edits aren't queued offline like
-// scans are, to avoid silently overwriting newer changes made elsewhere.
-async function updateAssetDetail(assetId, data) {
-  return apiPut(`/api/v1/assets/${assetId}`, data);
+// Edits made on the "Asset Info" panel are NOT sent to the desktop straight away.
+// They are saved on the phone and go out with the next SYNC as a proposed update;
+// the super admin verifies it in Inventory sync before it changes the asset.
+//   scanLocalId — the scan these edits belong to (so they travel together);
+//                 without one (opened from the registry list) they go as an
+//                 edit-only item.
+async function queueAssetChanges(assetTag, changes, { scanLocalId = null } = {}) {
+  if (scanLocalId) {
+    const ok = await updatePendingItem(scanLocalId, { changes });
+    if (ok) return;
+  }
+  const user = currentUser();
+  await addPendingScan({ type: 'edit', asset_tag: assetTag, scanned_by: user ? user.username : 'unknown', changes });
 }
 
-export { recordScan, fetchAssetByTag, fetchAssetDetail, updateAssetDetail, fetchRoomsList };
+export { recordScan, fetchAssetByTag, fetchAssetDetail, queueAssetChanges, fetchRoomsList };
