@@ -14,29 +14,29 @@ import {
 function renderForm(el, { rooms, people, onBack }) {
   el.innerHTML = `
     <div class="m-panel">
-      ${onBack ? '<button class="m-btn m-btn-secondary m-back" id="m-register-back" type="button">‹ BACK TO REGISTRY</button>' : ''}
-      <div class="m-header">REGISTER ASSET</div>
+      ${onBack ? '<button class="m-btn m-btn-secondary m-back" id="m-register-back" type="button">‹ Back to registry</button>' : ''}
+      <div class="m-header">Register asset</div>
       <form id="m-register-form">
-        <p class="m-hint">The registration is saved on this phone and sent when you SYNC. The asset is added once the super admin verifies it.</p>
-        <label>ASSET NAME</label>
+        <p class="m-hint">The registration is saved on this phone and sent when you sync. The asset is added once the super admin verifies it.</p>
+        <label>Asset name</label>
         <input id="m-r-name" required />
-        <label>CATEGORY</label>
+        <label>Category</label>
         <select id="m-r-category">${categoryOptionsHtml('')}</select>
-        <label>ROOM</label>
+        <label>Room</label>
         <select id="m-r-room">${roomOptionsHtml(rooms, '')}</select>
-        <label>ASSIGNED TO <span class="m-label-optional">(asset user, optional)</span></label>
+        <label>Assigned to <span class="m-label-optional">(asset user, optional)</span></label>
         <select id="m-r-assigned">${assigneeOptionsHtml(people, '')}</select>
-        <label>STATUS</label>
+        <label>Status</label>
         <select id="m-r-status">${pairOptionsHtml(STATUS_OPTIONS, 'active')}</select>
-        <label>PHOTO <span class="m-label-optional">(optional)</span></label>
+        <label>Photo <span class="m-label-optional">(optional)</span></label>
         <div class="m-photo-row">
           <img id="m-r-photo-preview" class="m-photo-preview" style="display:none;" alt="" />
           <label class="m-btn m-btn-secondary m-photo-pick">
-            <span id="m-r-photo-label">▶ TAKE / CHOOSE PHOTO</span>
+            <span id="m-r-photo-label">Take / choose photo</span>
             <input type="file" id="m-r-photo" accept="image/*" capture="environment" hidden />
           </label>
         </div>
-        <button class="m-btn" type="submit">▶ SAVE REGISTRATION</button>
+        <button class="m-btn" type="submit">Save registration</button>
         <p id="m-register-error" class="m-error"></p>
       </form>
     </div>
@@ -52,12 +52,12 @@ function renderForm(el, { rooms, people, onBack }) {
   photoInput.addEventListener('change', async () => {
     const file = photoInput.files[0];
     if (!file) return;
-    photoLabel.textContent = 'COMPRESSING…';
+    photoLabel.textContent = 'Compressing…';
     try {
       photoDataUrl = await compressImageFile(file);
       photoPreview.src = photoDataUrl;
       photoPreview.style.display = 'block';
-      photoLabel.textContent = '▶ RETAKE / CHANGE PHOTO';
+      photoLabel.textContent = 'Retake / change photo';
     } catch {
       photoDataUrl = null;
       photoLabel.textContent = '▶ TAKE / CHOOSE PHOTO — failed, try again';
@@ -92,11 +92,11 @@ function renderForm(el, { rooms, people, onBack }) {
 function renderResult(el, { name }, ctx) {
   el.innerHTML = `
     <div class="m-panel m-scanner-panel">
-      <div class="m-header">REGISTRATION SAVED</div>
+      <div class="m-header">Registration saved</div>
       <p class="m-status"><strong>${esc(name)}</strong> is saved on this phone.</p>
-      <p class="m-hint">Go to SYNC to send it. The super admin then verifies it on the desktop. Only after that is the asset added and given its Asset ID. Print the QR label from the desktop's Asset Registry.</p>
-      <button class="m-btn" id="m-register-another" type="button">▶ REGISTER ANOTHER</button>
-      ${ctx.onBack ? '<button class="m-btn m-btn-secondary" id="m-register-done" type="button">BACK TO REGISTRY</button>' : ''}
+      <p class="m-hint">Go to Sync to send it. The super admin then verifies it on the desktop. Only after that is the asset added and given its Asset ID. Print the QR label from the desktop's Asset Registry.</p>
+      <button class="m-btn" id="m-register-another" type="button">Register another</button>
+      ${ctx.onBack ? '<button class="m-btn m-btn-secondary" id="m-register-done" type="button">Back to registry</button>' : ''}
     </div>
   `;
   el.querySelector('#m-register-another').addEventListener('click', () => load(el, ctx));
@@ -104,7 +104,7 @@ function renderResult(el, { name }, ctx) {
 }
 
 async function load(el, ctx) {
-  el.innerHTML = `<div class="m-panel"><div class="m-header">REGISTER ASSET</div><p class="m-status">Loading…</p></div>`;
+  el.innerHTML = `<div class="m-panel"><div class="m-header">Register asset</div><p class="m-status">Loading…</p></div>`;
   const [roomsResult, peopleResult] = await Promise.all([fetchRoomsList(), fetchAssignees()]);
   // If the lists can't be fetched, the selects fall back to "— Unassigned —"
   // rather than blocking registration entirely.

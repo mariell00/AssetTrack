@@ -20,7 +20,7 @@ import {
 //   onDone(saved)  — called when the panel is finished (saved or skipped)
 //   skipLabel      — label for the no-changes button
 //   scanLocalId    — the queued scan these edits belong to (so they sync together)
-export async function renderAssetEditPanel(asset, code, reason, { onDone, scanLocalId = null, skipLabel = 'SKIP — NO CHANGES' }) {
+export async function renderAssetEditPanel(asset, code, reason, { onDone, scanLocalId = null, skipLabel = 'Skip — no changes' }) {
   const el = document.createElement('div');
   el.className = 'm-panel m-asset-edit';
 
@@ -32,7 +32,7 @@ export async function renderAssetEditPanel(asset, code, reason, { onDone, scanLo
     el.innerHTML = `
       <div class="m-header">${esc(code)}</div>
       <p class="m-status">${message}</p>
-      <button class="m-btn" id="m-edit-continue" type="button">▶ CONTINUE SCANNING</button>
+      <button class="m-btn" id="m-edit-continue" type="button">Continue scanning</button>
     `;
     el.querySelector('#m-edit-continue').addEventListener('click', () => onDone());
     return el;
@@ -45,30 +45,30 @@ export async function renderAssetEditPanel(asset, code, reason, { onDone, scanLo
   el.innerHTML = `
     <div class="m-header">✔ ${esc(asset.asset_tag)}</div>
     <form id="m-edit-form">
-      <p class="m-hint">Changes are saved on this phone and sent when you SYNC. They apply once the super admin verifies them.</p>
-      <label>ASSET NAME</label>
+      <p class="m-hint">Changes are saved on this phone and sent when you sync. They apply once the super admin verifies them.</p>
+      <label>Asset name</label>
       <input id="m-e-name" required value="${esc(asset.name)}" />
-      <label>CATEGORY</label>
+      <label>Category</label>
       <select id="m-e-category">${categoryOptionsHtml(asset.category || '')}</select>
-      <label>ROOM</label>
+      <label>Room</label>
       <select id="m-e-room">${roomOptionsHtml(rooms, asset.room_id)}</select>
-      <label>ASSIGNED TO <span class="m-label-optional">(asset user)</span></label>
+      <label>Assigned to <span class="m-label-optional">(asset user)</span></label>
       <select id="m-e-assigned">${assigneeOptionsHtml(people, asset.assigned_to || '')}</select>
-      <label>CONDITION</label>
+      <label>Condition</label>
       <select id="m-e-condition">${pairOptionsHtml(CONDITION_OPTIONS, asset.condition || 'good')}</select>
-      <label>STATUS</label>
+      <label>Status</label>
       <select id="m-e-status">${pairOptionsHtml(STATUS_OPTIONS, asset.status || 'active')}</select>
-      <label>DESCRIPTION</label>
+      <label>Description</label>
       <textarea id="m-e-description" rows="2" placeholder="optional">${esc(asset.description)}</textarea>
-      <label>PHOTO <span class="m-label-optional">(optional — leave as-is to keep the current one)</span></label>
+      <label>Photo <span class="m-label-optional">(optional — leave as-is to keep the current one)</span></label>
       <div class="m-photo-row">
         <img id="m-e-photo-preview" class="m-photo-preview" src="${esc(asset.photo)}" style="${asset.photo ? '' : 'display:none;'}" alt="" />
         <label class="m-btn m-btn-secondary m-photo-pick">
-          <span id="m-e-photo-label">▶ ${asset.photo ? 'RETAKE / CHANGE PHOTO' : 'TAKE / CHOOSE PHOTO'}</span>
+          <span id="m-e-photo-label">▶ ${asset.photo ? 'Retake / change photo' : 'Take / choose photo'}</span>
           <input type="file" id="m-e-photo" accept="image/*" capture="environment" hidden />
         </label>
       </div>
-      <button class="m-btn" type="submit">▶ SAVE FOR SYNC</button>
+      <button class="m-btn" type="submit">Save for sync</button>
       <button class="m-btn m-btn-secondary" id="m-edit-skip" type="button">${esc(skipLabel)}</button>
       <p id="m-edit-error" class="m-error"></p>
     </form>
@@ -83,12 +83,12 @@ export async function renderAssetEditPanel(asset, code, reason, { onDone, scanLo
   photoInput.addEventListener('change', async () => {
     const file = photoInput.files[0];
     if (!file) return;
-    photoLabel.textContent = 'COMPRESSING…';
+    photoLabel.textContent = 'Compressing…';
     try {
       newPhotoDataUrl = await compressImageFile(file);
       photoPreview.src = newPhotoDataUrl;
       photoPreview.style.display = 'block';
-      photoLabel.textContent = '▶ RETAKE / CHANGE PHOTO';
+      photoLabel.textContent = 'Retake / change photo';
     } catch {
       newPhotoDataUrl = null;
       photoLabel.textContent = '▶ TAKE / CHOOSE PHOTO — failed, try again';

@@ -22,7 +22,7 @@ export function renderAssetScan() {
   el.className = 'm-screen m-asset-scan';
   el.innerHTML = `
     <div class="m-room-picker">
-      <label for="m-room-select">ROOM BEING INVENTORIED</label>
+      <label for="m-room-select">Room being inventoried</label>
       <select id="m-room-select"><option value="">Loading rooms…</option></select>
       <p id="m-room-hint" class="m-hint" hidden>No room selected — scans will be filed as Unassigned.</p>
     </div>

@@ -10,7 +10,7 @@ import { renderRegister } from '../register/ui-register.js';
 import { esc } from '../../core/lookups.js';
 
 const PAGE_SIZE = 50;
-const STATUS_LABELS = { active: 'ACTIVE', maintenance: 'MAINT.', pending: 'PENDING', offline: 'OFFLINE' };
+const STATUS_LABELS = { active: 'Active', maintenance: 'Maintenance', pending: 'Pending', offline: 'Offline' };
 
 export function renderRegistry() {
   const el = document.createElement('div');
@@ -25,21 +25,21 @@ export function renderRegistry() {
   async function showEdit(id) {
     const loading = document.createElement('div');
     loading.className = 'm-panel';
-    loading.innerHTML = '<div class="m-header">ASSET INFO</div><p class="m-status">Loading…</p>';
+    loading.innerHTML = '<div class="m-header">Asset info</div><p class="m-status">Loading…</p>';
     show(loading);
 
     const result = await fetchAssetDetail(id);
     if (!result.ok) {
       loading.innerHTML = `
-        <div class="m-header">ASSET INFO</div>
+        <div class="m-header">Asset info</div>
         <p class="m-error">${esc(result.offline ? 'Opening an asset needs a connection to the desktop host.' : (result.error || 'Could not load this asset.'))}</p>
-        <button class="m-btn m-btn-secondary" type="button" id="m-back-list">‹ BACK TO REGISTRY</button>`;
+        <button class="m-btn m-btn-secondary" type="button" id="m-back-list">‹ Back to registry</button>`;
       loading.querySelector('#m-back-list').addEventListener('click', showList);
       return;
     }
     const panel = await renderAssetEditPanel(result.asset, result.asset.asset_tag, null, {
       onDone: showList,
-      skipLabel: 'CANCEL'
+      skipLabel: 'Cancel'
     });
     show(panel);
   }
@@ -48,9 +48,9 @@ export function renderRegistry() {
     const panel = document.createElement('div');
     panel.innerHTML = `
       <div class="m-panel">
-        <div class="m-header">ASSET REGISTRY</div>
-        <button class="m-btn" id="m-reg-new" type="button">＋ REGISTER NEW ASSET</button>
-        <label for="m-reg-search" class="m-reg-search-label">SEARCH</label>
+        <div class="m-header">Asset registry</div>
+        <button class="m-btn" id="m-reg-new" type="button">＋ Register new asset</button>
+        <label for="m-reg-search" class="m-reg-search-label">Search</label>
         <input id="m-reg-search" type="search" placeholder="Name or asset tag…" autocomplete="off" value="${esc(typeof initialSearch === 'string' ? initialSearch : '')}" />
         <p id="m-reg-count" class="m-status"></p>
         <div id="m-reg-list" class="m-asset-list"></div>
