@@ -12,20 +12,20 @@ export function render() {
 
   el.innerHTML = `
     <div class="crt-panel">
-      <div class="panel-title">REPORT PARAMETERS</div>
+      <div class="panel-title">Report parameters</div>
       <div class="report-params-grid">
-        <label>DATE FROM<input type="date" id="report-from" class="retro-input" value="${fmt(monthAgo)}" /></label>
-        <label>DATE TO<input type="date" id="report-to" class="retro-input" value="${fmt(today)}" /></label>
-        <label>ROOM / LOCATION
-          <input type="text" id="report-room" class="retro-input" value="ALL ROOMS" placeholder="ALL ROOMS" />
+        <label>Date from<input type="date" id="report-from" class="retro-input" value="${fmt(monthAgo)}" /></label>
+        <label>Date to<input type="date" id="report-to" class="retro-input" value="${fmt(today)}" /></label>
+        <label>Room / location
+          <input type="text" id="report-room" class="retro-input" value="All rooms" placeholder="All rooms" />
         </label>
-        <label>STATUS FILTER
+        <label>Status filter
           <select id="report-status" class="retro-input">
-            <option value="ALL">ALL</option>
-            <option value="active">ACTIVE</option>
-            <option value="maintenance">MAINTENANCE</option>
-            <option value="pending">PENDING</option>
-            <option value="offline">OFFLINE</option>
+            <option value="ALL">All</option>
+            <option value="active">Active</option>
+            <option value="maintenance">Maintenance</option>
+            <option value="pending">Pending</option>
+            <option value="offline">Offline</option>
           </select>
         </label>
       </div>
@@ -33,25 +33,25 @@ export function render() {
 
     <div class="report-action-row">
       <button class="report-action-card" id="btn-pdf">
-        <span class="report-action-icon">⏏</span>
-        <span class="report-action-label">[ GENERATE PDF ]</span>
-        <span class="report-action-caption">FULL ASSET INVENTORY REPORT</span>
+        <span class="report-action-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span>
+        <span class="report-action-label">Generate PDF</span>
+        <span class="report-action-caption">Full asset inventory report</span>
       </button>
       <button class="report-action-card" id="btn-xlsx">
-        <span class="report-action-icon">▤</span>
-        <span class="report-action-label">[ EXPORT EXCEL ]</span>
-        <span class="report-action-caption">SPREADSHEET DATA EXPORT (.XLSX)</span>
+        <span class="report-action-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 10h18M3 15h18M9 4v16"/></svg></span>
+        <span class="report-action-label">Export Excel</span>
+        <span class="report-action-caption">Spreadsheet data export (.xlsx)</span>
       </button>
       <label class="report-action-card report-action-card-upload" id="btn-import">
-        <span class="report-action-icon">⭱</span>
-        <span class="report-action-label">[ IMPORT EXCEL ]</span>
-        <span class="report-action-caption">BULK-LOAD ASSETS FROM .XLSX/.CSV</span>
+        <span class="report-action-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 16V4M7 9l5-5 5 5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></span>
+        <span class="report-action-label">Import Excel</span>
+        <span class="report-action-caption">Bulk-load assets from .xlsx or .csv</span>
         <input type="file" id="report-import-file" accept=".xlsx,.csv" hidden />
       </label>
     </div>
 
     <div class="crt-panel">
-      <div class="panel-title">REPORT PREVIEW</div>
+      <div class="panel-title">Report preview</div>
       <div id="report-preview" class="report-preview-grid">Loading…</div>
     </div>
   `;
@@ -73,10 +73,10 @@ export function render() {
     if (!result.ok) { box.textContent = result.error || 'Unable to load preview.'; return; }
     const p = result.preview;
     box.innerHTML = `
-      <div class="preview-stat"><span class="preview-label">TOTAL RECORDS</span><span class="preview-value">${p.total_records}</span></div>
-      <div class="preview-stat"><span class="preview-label">DATE RANGE</span><span class="preview-value">${p.date_range_days ? p.date_range_days + ' DAYS' : '—'}</span></div>
-      <div class="preview-stat"><span class="preview-label">ROOMS</span><span class="preview-value">${p.rooms_count}</span></div>
-      <div class="preview-stat"><span class="preview-label">STATUS</span><span class="preview-value">${p.status}</span></div>
+      <div class="preview-stat"><span class="preview-label">Total records</span><span class="preview-value">${p.total_records}</span></div>
+      <div class="preview-stat"><span class="preview-label">Date range</span><span class="preview-value">${p.date_range_days ? p.date_range_days + ' Days' : '—'}</span></div>
+      <div class="preview-stat"><span class="preview-label">Rooms</span><span class="preview-value">${p.rooms_count}</span></div>
+      <div class="preview-stat"><span class="preview-label">Status</span><span class="preview-value">${p.status === 'ALL' ? 'All' : p.status.charAt(0) + p.status.slice(1).toLowerCase()}</span></div>
     `;
   }
 
@@ -88,7 +88,7 @@ export function render() {
     const qs = new URLSearchParams({ from, to, room, status, format }).toString();
     const originalLabel = btn.querySelector('.report-action-label').textContent;
     btn.disabled = true;
-    btn.querySelector('.report-action-label').textContent = '[ GENERATING… ]';
+    btn.querySelector('.report-action-label').textContent = 'Generating…';
 
     try {
       const token = localStorage.getItem('assettrack_token');
@@ -128,7 +128,7 @@ export function render() {
     const card = el.querySelector('#btn-import');
     const label = card.querySelector('.report-action-label');
     const originalLabel = label.textContent;
-    label.textContent = '[ IMPORTING… ]';
+    label.textContent = 'Importing…';
 
     try {
       const token = localStorage.getItem('assettrack_token');

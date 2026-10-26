@@ -10,19 +10,19 @@ export function render() {
   el.innerHTML = `
     <div class="crt-panel">
       <div class="crt-header">
-        <span class="crt-dot"></span> SPATIAL ANALYTICS
+        <span class="crt-dot"></span> Spatial analytics
         <div class="header-actions">
-          <button class="btn-retro small" id="btn-refresh-analytics">↻ REFRESH</button>
+          <button class="btn-retro small" id="btn-refresh-analytics">Refresh</button>
         </div>
       </div>
       <div class="analytics-layout">
         <div class="analytics-main">
           <div class="panel">
-            <h3>SCANS BY BUILDING (7 DAYS)</h3>
+            <h3>Scans by building (7 Days)</h3>
             <div id="bar-chart" class="bar-chart">Loading…</div>
           </div>
           <div class="panel">
-            <h3>ACTIVITY HEATMAP — THIS WEEK VS LAST WEEK</h3>
+            <h3>Activity heatmap — this week vs last week</h3>
             <div id="heatmap" class="heatmap">Loading…</div>
           </div>
         </div>
@@ -32,9 +32,9 @@ export function render() {
   `;
 
   function heatColor(value, max) {
-    if (max === 0) return 'rgba(75, 86, 148, 0.08)';
+    if (max === 0) return 'rgba(37, 99, 235, 0.06)';
     const intensity = Math.min(1, value / max);
-    return `rgba(75, 86, 148, ${0.12 + intensity * 0.75})`;
+    return `rgba(37, 99, 235, ${0.10 + intensity * 0.70})`;
   }
 
   async function load() {

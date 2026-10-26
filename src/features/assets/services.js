@@ -327,7 +327,7 @@ function dashboardStats() {
 // label printed with this code works with the mobile scanner as-is.
 async function generateAssetQrDataUrl(assetTag) {
   return QRCode.toDataURL(assetTag, {
-    color: { dark: '#111844', light: '#EAE0CF' },
+    color: { dark: '#111827', light: '#FFFFFF' },
     margin: 1,
     width: 320
   });

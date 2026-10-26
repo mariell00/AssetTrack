@@ -6,77 +6,59 @@ import { esc } from '../assets/ui.js';
 export function render() {
   const el = document.createElement('div');
   el.className = 'screen screen-login';
-  // "blue" = school palette (cobalt #0033FF / navy #0A1A3F / white). Use 'red' for the old charcoal + red look.
-  el.dataset.accent = 'blue';
   el.innerHTML = `
-    <div class="lg-ghost" aria-hidden="true">nbsc supply office nbsc supply office nbsc supply office nbsc supply office nbsc supply office nbsc supply office</div>
     <div class="lg-card">
       <header class="lg-head">
-        <div>
-          <h1 class="lg-nbsc">NBSC</h1>
-          <p class="lg-college">Northern Bukidnon State College</p>
-        </div>
-        <h2 class="lg-office">supply office</h2>
+        <img class="lg-wordmark" src="assets/brand/nbsc-wordmark.png" alt="Northern Bukidnon State College" />
+        <p class="lg-office">Supply office</p>
       </header>
-
-      <div class="lg-marks" aria-hidden="true">
-        <svg width="26" height="26" viewBox="0 0 26 26" fill="none" stroke="currentColor" stroke-width="2"><circle cx="13" cy="13" r="8"/><path d="M13 1v8M13 17v8M1 13h8M17 13h8"/></svg>
-        <span class="lg-bar"></span>
-        <span class="lg-dots"></span>
-        <span class="lg-code">asset registry</span>
-      </div>
 
       <div class="lg-body">
         <figure class="lg-figure">
-          <!-- Placeholder photo: replace assets/login/placeholder.jpg with the real campus image. -->
-          <img src="assets/login/placeholder.jpg" alt="" />
-          <figcaption class="lg-figcap">photo placeholder</figcaption>
+          <img src="assets/brand/nbsc-shield.jpg" alt="NBSC shield" />
         </figure>
 
         <form id="login-form" class="lg-form" novalidate>
+          <div class="lg-form-head">
+            <h1 class="lg-title">Sign in</h1>
+            <p class="lg-sub">AssetTrack asset registry</p>
+          </div>
           <div class="lg-field" id="field-username">
             <div class="lg-field-head">
-              <label for="login-username">user name</label>
+              <label for="login-username">Username</label>
               <span class="lg-flag" id="flag-username" aria-live="polite"></span>
             </div>
             <input type="text" id="login-username" autocomplete="username" required />
           </div>
           <div class="lg-field" id="field-password">
             <div class="lg-field-head">
-              <label for="login-password">password</label>
+              <label for="login-password">Password</label>
               <span class="lg-flag" id="flag-password" aria-live="polite"></span>
             </div>
             <input type="password" id="login-password" autocomplete="current-password" required />
           </div>
-          <button type="submit" class="lg-submit" id="login-submit">Login</button>
+          <button type="submit" class="lg-submit" id="login-submit">Sign in</button>
           <p id="login-error" class="lg-status" role="alert"></p>
-          <button type="button" class="lg-forgot" id="login-forgot">forget password?</button>
+          <button type="button" class="lg-forgot" id="login-forgot">Forgot password?</button>
         </form>
       </div>
 
       <div class="lg-foot">
-        <div class="lg-desc-wrap">
-          <svg class="lg-globe" width="64" height="64" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
-            <circle cx="32" cy="32" r="28"/><ellipse cx="32" cy="32" rx="12" ry="28"/><ellipse cx="32" cy="32" rx="22" ry="28"/>
-            <path d="M32 4v56M4 32h56M8 20h48M8 44h48"/>
-          </svg>
-          <p class="lg-desc">Track, tag and verify every college asset, even without a connection. Authorized supply office staff only.</p>
-        </div>
-        <div class="lg-checker" aria-hidden="true"></div>
+        <p class="lg-desc">Track, tag and verify every college asset, even without a connection. Authorized supply office staff only.</p>
       </div>
     </div>
 
     <dialog class="lg-modal" id="forgot-dialog" aria-labelledby="forgot-title">
       <div class="lg-modal-box">
         <div class="lg-modal-bar">
-          <span class="lg-modal-code">superadmin recovery</span>
+          <span class="lg-modal-code">Superadmin recovery</span>
           <button type="button" class="lg-modal-x" id="forgot-x" aria-label="Close">&times;</button>
         </div>
         <div class="lg-modal-body">
-          <h3 class="lg-modal-title" id="forgot-title">forget password?</h3>
+          <h3 class="lg-modal-title" id="forgot-title">Forgot password?</h3>
 
           <section class="lg-step" data-step="request">
-            <p class="lg-modal-text">A one-time code will be emailed to the system administrator &mdash; the person who set up AssetTrack. With that code you can set a new user name and password for the superadmin account.</p>
+            <p class="lg-modal-text">A one-time code will be emailed to the system administrator &mdash; the person who set up AssetTrack. With that code you can set a new username and password for the superadmin account.</p>
             <p class="lg-status lg-modal-status" id="forgot-status" role="alert"></p>
             <button type="button" class="lg-submit lg-modal-ok" id="forgot-send">Send code</button>
             <div class="lg-modal-links"><button type="button" class="lg-linkbtn" id="forgot-have-code">I already have a code</button></div>
@@ -85,32 +67,32 @@ export function render() {
           <form class="lg-step" data-step="reset" id="reset-form" novalidate hidden>
             <p class="lg-modal-text" id="reset-hint"></p>
             <div class="lg-field" id="field-code">
-              <div class="lg-field-head"><label for="reset-code">one-time code</label><span class="lg-flag" id="flag-code" aria-live="polite"></span></div>
+              <div class="lg-field-head"><label for="reset-code">One-time code</label><span class="lg-flag" id="flag-code" aria-live="polite"></span></div>
               <input type="text" id="reset-code" class="lg-code-input" autocomplete="one-time-code" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="XXXX-XXXX" />
             </div>
             <div class="lg-field" id="field-newuser">
-              <div class="lg-field-head"><label for="reset-user">new user name</label><span class="lg-flag" id="flag-newuser" aria-live="polite"></span></div>
+              <div class="lg-field-head"><label for="reset-user">New username</label><span class="lg-flag" id="flag-newuser" aria-live="polite"></span></div>
               <input type="text" id="reset-user" autocomplete="username" spellcheck="false" />
             </div>
             <div class="lg-field" id="field-newpass">
-              <div class="lg-field-head"><label for="reset-pass">new password</label><span class="lg-flag" id="flag-newpass" aria-live="polite"></span></div>
+              <div class="lg-field-head"><label for="reset-pass">New password</label><span class="lg-flag" id="flag-newpass" aria-live="polite"></span></div>
               <input type="password" id="reset-pass" autocomplete="new-password" />
             </div>
             <div class="lg-field" id="field-newpass2">
-              <div class="lg-field-head"><label for="reset-pass2">confirm password</label><span class="lg-flag" id="flag-newpass2" aria-live="polite"></span></div>
+              <div class="lg-field-head"><label for="reset-pass2">Confirm password</label><span class="lg-flag" id="flag-newpass2" aria-live="polite"></span></div>
               <input type="password" id="reset-pass2" autocomplete="new-password" />
             </div>
             <p class="lg-status lg-modal-status" id="reset-status" role="alert"></p>
             <button type="submit" class="lg-submit lg-modal-ok" id="reset-submit">Reset superadmin</button>
             <div class="lg-modal-links">
-              <button type="button" class="lg-linkbtn" id="reset-resend">send a new code</button>
-              <button type="button" class="lg-linkbtn" id="reset-back">back</button>
+              <button type="button" class="lg-linkbtn" id="reset-resend">Send a new code</button>
+              <button type="button" class="lg-linkbtn" id="reset-back">Back</button>
             </div>
           </form>
 
           <section class="lg-step" data-step="done" hidden>
             <p class="lg-modal-text" id="done-text"></p>
-            <button type="button" class="lg-submit lg-modal-ok" id="done-ok">Back to login</button>
+            <button type="button" class="lg-submit lg-modal-ok" id="done-ok">Back to sign in</button>
           </section>
         </div>
       </div>
@@ -327,10 +309,10 @@ export function render() {
     }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = 'Checking';
+    submitBtn.textContent = 'Signing in…';
     const result = await apiPost('/api/v1/auth/login', { username, password });
     submitBtn.disabled = false;
-    submitBtn.textContent = 'Login';
+    submitBtn.textContent = 'Sign in';
 
     if (!result.ok) {
       if (/invalid username or password/i.test(result.error || '')) {
@@ -356,7 +338,7 @@ export function render() {
 export function renderUserPanel() {
   const el = document.createElement('div');
   el.className = 'panel user-panel';
-  el.innerHTML = `<h3>USER ACCOUNTS</h3><div id="user-list" class="mono-list">Loading…</div>`;
+  el.innerHTML = `<h3>User accounts</h3><div id="user-list" class="mono-list">Loading…</div>`;
 
   apiGet('/api/v1/auth/users').then((result) => {
     const list = el.querySelector('#user-list');
@@ -389,7 +371,7 @@ function lastLoginCell(u) {
   const isMobile = u.last_login_source === 'mobile';
   const badgeClass = isMobile ? 'badge-source-mobile' : 'badge-source-desktop';
   const icon = isMobile ? '📱' : '🖥';
-  const badgeLabel = `${icon} ${u.last_login_device ? u.last_login_device.toUpperCase() : (isMobile ? 'MOBILE' : 'DESKTOP')}`;
+  const badgeLabel = `${icon} ${u.last_login_device ? u.last_login_device : (isMobile ? 'Mobile' : 'Desktop')}`;
   const title = u.last_login_ip ? ` title="IP: ${u.last_login_ip}"` : '';
   return `
     <div class="last-login-cell"${title}>
@@ -408,20 +390,20 @@ function openAddUserModal(root, onCreated) {
   overlay.innerHTML = `
     <div class="modal-box crt-panel">
       <div class="crt-header">
-        <span class="crt-dot"></span> ADD ADMIN
+        <span class="crt-dot"></span> Add admin
         <button class="modal-close" id="user-modal-close" type="button" aria-label="Close">✕</button>
       </div>
       <form id="user-form" class="retro-form modal-form">
-        <label>USERNAME
+        <label>Username
           <input type="text" id="u-username" class="retro-input" autocomplete="off" required />
         </label>
-        <label>TEMPORARY PASSWORD
+        <label>Temporary password
           <input type="text" id="u-password" class="retro-input" autocomplete="off" required />
         </label>
-        <label>ASSIGNED AREA
+        <label>Assigned area
           <input type="text" id="u-area" class="retro-input" placeholder="e.g. Main Building" />
         </label>
-        <button type="submit" class="btn-retro">▶ CREATE ACCOUNT</button>
+        <button type="submit" class="btn-retro">Create account</button>
         <p id="user-modal-error" class="form-error" role="alert"></p>
       </form>
     </div>
@@ -449,7 +431,7 @@ function openAddUserModal(root, onCreated) {
 }
 
 function roleBadge(u) {
-  if (u.is_superadmin) return '<span class="badge badge-role-super">SUPER ADMIN</span>';
+  if (u.is_superadmin) return '<span class="badge badge-role-super">Super admin</span>';
   return `<span class="badge badge-role-${u.role}">${u.role}</span>`;
 }
 
@@ -466,18 +448,18 @@ export function renderAdminManagement() {
   el.innerHTML = `
     <div class="crt-panel">
       <div class="crt-header">
-        <span class="crt-dot"></span> MANAGE ADMINS
+        <span class="crt-dot"></span> Manage admins
         <div class="header-actions">
-          <button id="btn-add-user" class="btn-retro small" type="button">+ ADD ADMIN</button>
+          <button id="btn-add-user" class="btn-retro small" type="button">+ Add admin</button>
         </div>
       </div>
       <p class="screen-lede">The super admin is the only account that signs in to this desktop app, and can’t be deactivated or deleted. Admins sign in from the mobile app only — they can’t open this app.</p>
       <div class="users-toolbar">
-        <input type="text" id="user-search" class="retro-input" placeholder="SEARCH USERNAME..." aria-label="Search accounts" />
+        <input type="text" id="user-search" class="retro-input" placeholder="Search by username…" aria-label="Search accounts" />
       </div>
       <table class="retro-table">
         <thead>
-          <tr><th>USER</th><th>ROLE</th><th>ASSIGNED AREA</th><th>LAST LOGIN</th><th>STATUS</th><th></th></tr>
+          <tr><th>User</th><th>Role</th><th>Assigned area</th><th>Last login</th><th>Status</th><th></th></tr>
         </thead>
         <tbody id="user-rows"><tr><td colspan="6">Loading…</td></tr></tbody>
       </table>
@@ -507,9 +489,9 @@ export function renderAdminManagement() {
         <td>${lastLoginCell(u)}</td>
         <td><span class="badge badge-status-${u.status}">${u.status}</span></td>
         <td class="row-actions">
-          <button class="btn-retro small btn-toggle-status" data-id="${u.id}" data-status="${u.status}" type="button"
+          <button class="btn-retro small outline btn-toggle-status" data-id="${u.id}" data-status="${u.status}" type="button"
             ${canToggle ? '' : `disabled title="${lockTitle}"`}>
-            ${u.status === 'active' ? 'DEACTIVATE' : 'ACTIVATE'}
+            ${u.status === 'active' ? 'Deactivate' : 'Activate'}
           </button>
         </td>
       </tr>`;

@@ -12,7 +12,7 @@ async function generatePdfReport(rows, title = 'AssetTrack Audit Report') {
   let page = pdf.addPage([612, 792]);
   let y = 740;
 
-  page.drawText(title, { x: 40, y, size: 16, font: fontBold, color: rgb(0.07, 0.09, 0.27) });
+  page.drawText(title, { x: 40, y, size: 16, font: fontBold, color: rgb(0.067, 0.094, 0.153) });
   y -= 30;
   page.drawText('TAG        NAME                     ROOM            COND     LAST VERIFIED', {
     x: 40, y, size: 8, font: fontBold

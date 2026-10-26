@@ -11,34 +11,34 @@ export function render() {
       <div class="crt-panel qr-code-panel">
         <div class="qr-code-bar"></div>
         <div id="qr-holder" class="qr-holder">Generating code…</div>
-        <button class="btn-retro qr-scan-btn">▣ SCAN TO ACCESS</button>
-        <p class="qr-caption">ASSETTRACK MOBILE CLIENT<br/><span id="qr-version">v2.4.1</span></p>
+        <button class="btn-retro qr-scan-btn">Scan to access</button>
+        <p class="qr-caption">AssetTrack mobile client<br/><span id="qr-version">v2.4.1</span></p>
       </div>
 
       <div class="qr-side">
         <div class="crt-panel">
-          <div class="panel-title">SERVER ADDRESS</div>
+          <div class="panel-title">Server address</div>
           <div id="qr-url" class="server-url">loading…</div>
-          <button class="btn-retro small outline" id="btn-copy-url">[ COPY URL ]</button>
+          <button class="btn-retro small outline" id="btn-copy-url">Copy URL</button>
         </div>
 
         <div class="crt-panel">
-          <div class="panel-title">NETWORK STATUS</div>
+          <div class="panel-title">Network status</div>
           <div id="network-status" class="status-list">Loading…</div>
         </div>
 
         <div class="qr-download-banner">
-          <div class="download-title">📲 GETTING THE APP ON A PHONE</div>
-          <div class="download-caption">Scanning the code opens a page that lets each admin choose to INSTALL APP (adds a home-screen icon) or CONTINUE IN BROWSER — no separate download needed.</div>
+          <div class="download-title">Getting the app on a phone</div>
+          <div class="download-caption">Scanning the code opens a page that lets each admin choose to Install app (adds a home-screen icon) or Continue in browser — no separate download needed.</div>
         </div>
 
         <div class="crt-panel">
-          <div class="panel-title">ACCESS MODE</div>
-          <div id="access-mode-badge" class="status-row"><span>MODE</span><strong id="access-mode-value">checking…</strong></div>
+          <div class="panel-title">Access mode</div>
+          <div id="access-mode-badge" class="status-row"><span>Mode</span><strong id="access-mode-value">checking…</strong></div>
         </div>
 
         <div class="crt-panel">
-          <div class="panel-title">HOW TO CONNECT</div>
+          <div class="panel-title">How to connect</div>
           <ol class="connect-steps" id="connect-steps">
             <li>Ensure device is on same WiFi network</li>
             <li>Open native camera or QR scanner app</li>
@@ -58,18 +58,18 @@ export function render() {
     const badge = el.querySelector('#access-mode-value');
     const steps = el.querySelector('#connect-steps');
     if (mode === 'public') {
-      badge.textContent = 'PUBLIC (INTERNET)';
+      badge.textContent = 'Public (internet)';
       badge.classList.add('status-green');
       steps.innerHTML = `
         <li>Works over any internet connection — same WiFi not required</li>
         <li>Open native camera or QR scanner app</li>
         <li>Point camera at QR code on left</li>
         <li>Tap the auto-detected link</li>
-        <li>Choose INSTALL APP or CONTINUE IN BROWSER</li>
+        <li>Choose Install app or Continue in browser</li>
         <li>Log in with your mobile credentials</li>
       `;
     } else {
-      badge.textContent = 'LOCAL NETWORK (SECURE)';
+      badge.textContent = 'Local network (secure)';
       badge.classList.remove('status-green');
       steps.innerHTML = `
         <li>Ensure device is on same WiFi network</li>
@@ -77,7 +77,7 @@ export function render() {
         <li>Point camera at QR code on left</li>
         <li>Tap the auto-detected link</li>
         <li><strong>First time only:</strong> the browser will warn "connection is not private" — tap Advanced → Proceed. This is expected: it's this server's own private LAN certificate, not a public website, and it's what makes the camera scanner work.</li>
-        <li>Choose INSTALL APP or CONTINUE IN BROWSER</li>
+        <li>Choose Install app or Continue in browser</li>
         <li>Log in with your mobile credentials</li>
       `;
     }
@@ -104,13 +104,13 @@ export function render() {
     if (!result.ok) { box.textContent = 'Unable to load network status.'; return; }
     const s = result.status;
     box.innerHTML = `
-      <div class="status-row"><span>LOCAL IP</span><strong class="status-green">${s.localIp}</strong></div>
-      <div class="status-row"><span>ADMIN PORT</span><strong>${s.port}</strong></div>
-      <div class="status-row"><span>MOBILE PORT (HTTPS)</span><strong>${s.mobilePort}</strong></div>
-      <div class="status-row"><span>PROTOCOL</span><strong>${s.protocol}</strong></div>
-      <div class="status-row"><span>SUBNET</span><strong>${s.subnet}</strong></div>
-      <div class="status-row"><span>CLIENTS CONNECTED</span><strong>${s.clientsConnected}</strong></div>
-      <div class="status-row"><span>REQUESTS/MIN</span><strong>${s.requestsPerMin}</strong></div>
+      <div class="status-row"><span>Local IP</span><strong class="status-green">${s.localIp}</strong></div>
+      <div class="status-row"><span>Admin port</span><strong>${s.port}</strong></div>
+      <div class="status-row"><span>Mobile port (HTTPS)</span><strong>${s.mobilePort}</strong></div>
+      <div class="status-row"><span>Protocol</span><strong>${s.protocol}</strong></div>
+      <div class="status-row"><span>Subnet</span><strong>${s.subnet}</strong></div>
+      <div class="status-row"><span>Clients connected</span><strong>${s.clientsConnected}</strong></div>
+      <div class="status-row"><span>Requests/Min</span><strong>${s.requestsPerMin}</strong></div>
     `;
   }
 
@@ -120,7 +120,7 @@ export function render() {
       await navigator.clipboard.writeText(mobileUrl);
       const btn = el.querySelector('#btn-copy-url');
       const original = btn.textContent;
-      btn.textContent = '[ COPIED ]';
+      btn.textContent = 'Copied';
       setTimeout(() => { btn.textContent = original; }, 1500);
     } catch {
       alert(mobileUrl);

@@ -33,7 +33,7 @@ function ensureLeafletLoaded() {
   ));
 }
 
-const STATUS_LABELS = { active: 'ACTIVE', pending: 'PENDING', maintenance: 'MAINT.', offline: 'OFFLINE' };
+const STATUS_LABELS = { active: 'Active', pending: 'Pending', maintenance: 'Maintenance', offline: 'Offline' };
 const plural = (n, word) => `${n} ${word}${n === 1 ? '' : 's'}`;
 
 function initialsOf(name) {
@@ -98,34 +98,34 @@ export function render() {
   el.className = 'screen screen-map';
   el.innerHTML = `
     <div class="crt-panel">
-      <div class="crt-header"><span class="crt-dot"></span> CLUSTER MAP</div>
+      <div class="crt-header"><span class="crt-dot"></span> Cluster map</div>
       <div class="map-top-row">
         <div class="map-side-rail">
           <div class="map-profile-block" id="rail-building-block">
             <div class="map-avatar map-avatar-lg map-avatar-building" aria-hidden="true">▦</div>
             <div class="map-profile-name" id="rail-building-name">No building selected</div>
-            <div class="map-profile-caption">BUILDING</div>
+            <div class="map-profile-caption">Building</div>
           </div>
           <div class="map-side-divider"></div>
-          <div class="panel-title">BUILDINGS</div>
+          <div class="panel-title">Buildings</div>
           <div id="building-list" class="mono-list map-recent-list">Loading…</div>
         </div>
         <div class="map-main">
           <div id="leaflet-map" class="leaflet-map-container">Loading map…</div>
         </div>
       </div>
-      <p class="map-caption">ASSETTRACK v2.4.1 // NBSC CAMPUS MAP — click a pin to open that building; its rooms and people appear below. Pin numbers are assets held.</p>
+      <p class="map-caption">Click a pin to open that building. Its rooms and people appear below, and the number on each pin is how many assets it holds.</p>
     </div>
     <div class="map-lower">
       <div class="crt-panel map-legend" id="unplaced-panel">
-        <div class="panel-title">PIN PLACEMENT</div>
+        <div class="panel-title">Pin placement</div>
         <div id="unplaced-buildings" class="mono-list">Loading…</div>
-        <p class="map-hint">Add or edit buildings and rooms from the LOCATIONS screen, or click PLACE ON MAP / MOVE PIN here, then click the map.</p>
+        <p class="map-hint">Add or edit buildings and rooms from the Locations screen, or click Place on map / move pin here, then click the map.</p>
       </div>
       <div class="crt-panel map-selection">
-        <div class="panel-title">BUILDING DETAILS</div>
+        <div class="panel-title">Building details</div>
         <div id="building-details">
-          <div class="profile-details-empty">&gt; Click a pin or a building in the list<br/>to see its rooms and people_</div>
+          <div class="profile-details-empty">Click a pin or a building in the list to see its rooms and people.</div>
         </div>
       </div>
     </div>
@@ -159,7 +159,7 @@ export function render() {
   // ---- BUILDING DETAILS -------------------------------------------------
 
   function roomsTab(b) {
-    if (!b.rooms.length) return '<div class="profile-details-empty">No rooms in this building yet — add them from the LOCATIONS screen.</div>';
+    if (!b.rooms.length) return '<div class="profile-details-empty">No rooms in this building yet — add them from the Locations screen.</div>';
     const photoOf = new Map(b.people.map((p) => [p.name.toLowerCase(), p.photo]));
     return b.rooms.map((r) => {
       const stack = r.people.slice(0, 4).map((p) => avatarHtml(p.name, 'map-avatar-sm', photoOf.get(p.name.toLowerCase()))).join('');
@@ -223,8 +223,8 @@ export function render() {
         <div class="bd-summary">${esc(summaryLine(b))}${b.latitude == null ? ' · <span class="bd-dim">not pinned on the map</span>' : ''}</div>
       </div>
       <div class="bk-tabs bd-tabs" role="tablist" aria-label="Building details">
-        <button class="bk-tab${activeTab === 'rooms' ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === 'rooms'}" data-tab="rooms" type="button">ROOMS <span class="tab-count">${b.room_count}</span></button>
-        <button class="bk-tab${activeTab === 'people' ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === 'people'}" data-tab="people" type="button">PEOPLE <span class="tab-count">${b.people_count}</span></button>
+        <button class="bk-tab${activeTab === 'rooms' ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === 'rooms'}" data-tab="rooms" type="button">Rooms <span class="tab-count">${b.room_count}</span></button>
+        <button class="bk-tab${activeTab === 'people' ? ' is-active' : ''}" role="tab" aria-selected="${activeTab === 'people'}" data-tab="people" type="button">People <span class="tab-count">${b.people_count}</span></button>
       </div>
       <div class="bd-list" role="tabpanel">${activeTab === 'rooms' ? roomsTab(b) : peopleTab(b)}</div>
     `;
@@ -289,7 +289,7 @@ export function render() {
             <span><strong>${esc(b.name)}</strong><br/>
               <span class="recent-asset-user">${b.latitude == null ? 'not pinned · ' : ''}${esc(plural(b.room_count, 'room'))} · ${esc(plural(b.asset_count, 'asset'))}</span></span>
           </div>`).join('')
-      : '<div class="mono-row">No buildings yet — add one from LOCATIONS.</div>';
+      : '<div class="mono-row">No buildings yet — add one from Locations.</div>';
     const byId = new Map(buildings.map((b) => [b.id, b]));
     listEl.querySelectorAll('.building-row').forEach((row) => {
       const open = () => {
@@ -306,9 +306,9 @@ export function render() {
       ? buildings.map((b) => `
           <div class="mono-row mono-row-place">
             <span>${esc(b.name)}${b.latitude != null ? ' · pinned' : ''}</span>
-            <button class="btn-retro small outline btn-place" data-id="${b.id}" data-name="${esc(b.name)}">${b.latitude != null ? 'MOVE PIN' : 'PLACE ON MAP'}</button>
+            <button class="btn-retro small outline btn-place" data-id="${b.id}" data-name="${esc(b.name)}">${b.latitude != null ? 'Move pin' : 'Place on map'}</button>
           </div>`).join('')
-      : '<div class="mono-row">No buildings yet — add one from LOCATIONS.</div>';
+      : '<div class="mono-row">No buildings yet — add one from Locations.</div>';
     unplacedEl.querySelectorAll('.btn-place').forEach((btn) => {
       btn.addEventListener('click', () => startPlacing(btn.dataset.id, btn.dataset.name));
     });

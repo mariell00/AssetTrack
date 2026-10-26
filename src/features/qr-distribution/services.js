@@ -9,7 +9,7 @@ const QRCode = require('qrcode');
 async function generateMobileQrDataUrl(baseUrl) {
   const url = `${baseUrl.replace(/\/$/, '')}/static/mobile/index.html`;
   const dataUrl = await QRCode.toDataURL(url, {
-    color: { dark: '#111844', light: '#EAE0CF' },
+    color: { dark: '#111827', light: '#FFFFFF' },
     margin: 1,
     width: 320
   });

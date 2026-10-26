@@ -9,7 +9,7 @@
 //       - a grid of per-room sync cards and the Mobile Check-in Log.
 import { apiGet, apiPost } from '../../js/api-client.js';
 
-const SCAN_LABELS = { verified: 'VERIFIED', missing: 'MISSING', misplaced: 'MISPLACED' };
+const SCAN_LABELS = { verified: 'Verified', missing: 'Missing', misplaced: 'Misplaced' };
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => (
@@ -35,7 +35,7 @@ function formatTime(ts) {
   return ts.replace('T', ' ').slice(0, 19);
 }
 
-const STATUS_LABELS = { active: 'ACTIVE', maintenance: 'MAINT.', pending: 'PENDING', offline: 'OFFLINE' };
+const STATUS_LABELS = { active: 'Active', maintenance: 'Maintenance', pending: 'Pending', offline: 'Offline' };
 const statusBadge = (s) => `<span class="badge badge-asset-${esc(s || 'active')}">${STATUS_LABELS[s || 'active'] || esc(s).toUpperCase()}</span>`;
 const scanBadge = (s) => `<span class="badge badge-scan-${esc(s)}">${SCAN_LABELS[s] || esc(s).toUpperCase()}</span>`;
 
@@ -58,13 +58,13 @@ async function openReviewModal(root, { type, id }, onDone) {
 
   if (isReg) {
     const a = d.asset;
-    heading = 'VERIFY REGISTRATION';
-    verifyLabel = 'VERIFY & ADD ASSET';
+    heading = 'Verify registration';
+    verifyLabel = 'Verify & add asset';
     top = `
-      ${a.photo ? `<img class="ad-photo" src="${a.photo}" alt="Photo of ${esc(a.name)}" />` : '<div class="ad-photo ad-photo-empty">NO PHOTO</div>'}
+      ${a.photo ? `<img class="ad-photo" src="${a.photo}" alt="Photo of ${esc(a.name)}" />` : '<div class="ad-photo ad-photo-empty">No photo</div>'}
       <div class="ad-id">
         <div class="ad-tag">${esc(a.name)}</div>
-        <div><span class="badge badge-asset-active">NEW ASSET</span> ${statusBadge(a.status)}</div>
+        <div><span class="badge badge-asset-active">New asset</span> ${statusBadge(a.status)}</div>
         <div class="ad-name">The Asset ID is generated when you verify this.</div>
       </div>`;
     body = `
@@ -80,14 +80,14 @@ async function openReviewModal(root, { type, id }, onDone) {
       <div class="ad-section"><h3>Sent from</h3><p class="ad-text">${esc(d.device)} · ${localTime(d.received_at)}</p></div>`;
   } else {
     const a = d.asset;
-    heading = d.kind === 'edit' ? 'VERIFY EDIT' : 'VERIFY SCAN';
-    verifyLabel = d.kind === 'edit' ? 'APPLY CHANGES' : 'VERIFY SCAN';
+    heading = d.kind === 'edit' ? 'Verify edit' : 'Verify scan';
+    verifyLabel = d.kind === 'edit' ? 'Apply changes' : 'Verify scan';
     top = `
-      ${a.photo ? `<img class="ad-photo" src="${a.photo}" alt="Photo of ${esc(a.name)}" />` : '<div class="ad-photo ad-photo-empty">NO PHOTO</div>'}
+      ${a.photo ? `<img class="ad-photo" src="${a.photo}" alt="Photo of ${esc(a.name)}" />` : '<div class="ad-photo ad-photo-empty">No photo</div>'}
       <div class="ad-id">
         <div class="ad-tag">${esc(a.asset_tag)}</div>
         <div class="ad-name">${esc(a.name)}</div>
-        <div>${d.kind === 'edit' ? '<span class="badge badge-asset-pending">EDIT ONLY</span>' : `${scanBadge(d.scanned_as)}`}</div>
+        <div>${d.kind === 'edit' ? '<span class="badge badge-asset-pending">Edit only</span>' : `${scanBadge(d.scanned_as)}`}</div>
       </div>`;
     const diffRows = d.diff.map((c) => `
       <tr>
@@ -106,7 +106,7 @@ async function openReviewModal(root, { type, id }, onDone) {
       <div class="ad-section">
         <h3>Proposed changes</h3>
         ${d.diff.length
-          ? `<table class="retro-table q-diff"><thead><tr><th>FIELD</th><th>CURRENT</th><th>PROPOSED</th></tr></thead><tbody>${diffRows}</tbody></table>`
+          ? `<table class="retro-table q-diff"><thead><tr><th>Field</th><th>Current</th><th>Proposed</th></tr></thead><tbody>${diffRows}</tbody></table>`
           : `<p class="ad-empty">${d.kind === 'edit' ? 'These edits match what is already saved.' : 'No changes. This scan only confirms the asset was found.'}</p>`}
       </div>
       <div class="ad-section"><h3>Sent from</h3><p class="ad-text">${esc(d.device)}</p></div>`;
@@ -122,7 +122,7 @@ async function openReviewModal(root, { type, id }, onDone) {
         ${body}
       </div>
       <div class="ad-actions">
-        <button type="button" class="btn-retro small danger" id="rv-reject">REJECT</button>
+        <button type="button" class="btn-retro small danger" id="rv-reject">Reject</button>
         <button type="button" class="btn-retro small" id="rv-verify">${verifyLabel}</button>
       </div>
     </div>`;
@@ -153,22 +153,22 @@ export function render() {
   el.className = 'screen screen-inventory';
   el.innerHTML = `
     <div class="crt-panel queue-panel">
-      <div class="crt-header"><span class="crt-dot"></span> AWAITING VERIFICATION</div>
+      <div class="crt-header"><span class="crt-dot"></span> Awaiting verification</div>
       <div class="queue-tabs" role="tablist">
-        <button type="button" role="tab" class="queue-tab is-active" data-tab="registrations" aria-selected="true">PENDING REGISTRATIONS <span class="queue-n" id="n-registrations"></span></button>
-        <button type="button" role="tab" class="queue-tab" data-tab="scans" aria-selected="false">PENDING SCANS <span class="queue-n" id="n-scans"></span></button>
+        <button type="button" role="tab" class="queue-tab is-active" data-tab="registrations" aria-selected="true">Pending registrations <span class="queue-n" id="n-registrations"></span></button>
+        <button type="button" role="tab" class="queue-tab" data-tab="scans" aria-selected="false">Pending scans <span class="queue-n" id="n-scans"></span></button>
       </div>
       <p class="queue-lede" id="queue-lede"></p>
       <div id="queue-body" class="queue-body">Loading…</div>
     </div>
     <div class="crt-panel">
-      <div class="crt-header"><span class="crt-dot"></span> INVENTORY SYNC</div>
+      <div class="crt-header"><span class="crt-dot"></span> Inventory sync</div>
       <div id="sync-grid" class="sync-grid">Loading…</div>
     </div>
     <div class="crt-panel checkin-panel">
-      <div class="panel-title">MOBILE CHECK-IN LOG</div>
+      <div class="panel-title">Mobile check-in log</div>
       <table class="retro-table">
-        <thead><tr><th>TIME</th><th>DEVICE</th><th>ROOM</th><th>COUNT</th><th>STATUS</th></tr></thead>
+        <thead><tr><th>Time</th><th>Device</th><th>Room</th><th>Count</th><th>Status</th></tr></thead>
         <tbody id="checkin-rows"><tr><td colspan="5">Loading…</td></tr></tbody>
       </table>
     </div>
@@ -191,11 +191,11 @@ export function render() {
       return `
         <div class="sync-card">
           <div class="sync-card-title">${r.room_name}</div>
-          <div class="sync-card-last">LAST: ${formatTime(r.last_sync)}</div>
+          <div class="sync-card-last">Last: ${formatTime(r.last_sync)}</div>
           <div class="segmented-bar">${segments}</div>
           <div class="sync-card-footer">
             <span class="sync-card-count tier-text-${tier}">${r.verified}/${r.expected}${r.awaiting ? ` <span class="awaiting-tag">+${r.awaiting} awaiting</span>` : ''}</span>
-            <button class="btn-retro small btn-sync-room" data-room="${r.room_id}">⟳ SYNC</button>
+            <button class="btn-retro small btn-sync-room" data-room="${r.room_id}">Sync</button>
           </div>
         </div>
       `;
@@ -222,7 +222,7 @@ export function render() {
         <td>${row.device}</td>
         <td>${row.room}</td>
         <td>${row.count}</td>
-        <td><span class="status-dot status-${row.status}"></span> ${row.status === 'complete' ? 'COMPLETE' : 'PARTIAL'}</td>
+        <td><span class="status-dot status-${row.status}"></span> ${row.status === 'complete' ? 'Complete' : 'Partial'}</td>
       </tr>
     `).join('');
   }
@@ -270,8 +270,8 @@ export function render() {
         <div class="queue-scroll">
           <table class="retro-table queue-table">
             <thead><tr>${isReg
-              ? '<th>ASSET NAME</th><th>CATEGORY</th><th>ROOM</th><th>ASSIGNED TO</th><th>STATUS</th>'
-              : '<th>ASSET ID</th><th>ASSET</th><th>TYPE</th><th>SCANNED AS</th><th>SCANNED IN</th><th>CHANGES</th>'}</tr></thead>
+              ? '<th>Asset name</th><th>Category</th><th>Room</th><th>Assigned to</th><th>Status</th>'
+              : '<th>Asset ID</th><th>Asset</th><th>Type</th><th>Scanned as</th><th>Scanned in</th><th>Changes</th>'}</tr></thead>
             <tbody>
               ${b.items.map((i) => isReg ? `
                 <tr class="q-item" data-id="${i.id}" tabindex="0" role="button" aria-label="Review ${esc(i.name)}">
@@ -280,7 +280,7 @@ export function render() {
                 </tr>` : `
                 <tr class="q-item ${i.room_mismatch ? 'q-flag' : ''}" data-id="${i.id}" tabindex="0" role="button" aria-label="Review ${esc(i.asset_tag)}">
                   <td class="mono-strong">${esc(i.asset_tag)}</td><td>${esc(i.asset_name)}</td>
-                  <td>${i.kind === 'edit' ? '<span class="badge badge-asset-pending">EDIT</span>' : '<span class="badge badge-asset-active">SCAN</span>'}</td>
+                  <td>${i.kind === 'edit' ? '<span class="badge badge-asset-pending">Edit</span>' : '<span class="badge badge-asset-active">Scan</span>'}</td>
                   <td>${i.kind === 'edit' ? '—' : scanBadge(i.scanned_as)}</td>
                   <td>${i.kind === 'edit' ? '—' : esc(i.scanned_room)}${i.room_mismatch ? `<span class="q-warn">registered in ${esc(i.registered_room)}</span>` : ''}</td>
                   <td>${i.change_fields.length ? esc(i.change_fields.join(', ')) : '—'}</td>
@@ -290,8 +290,8 @@ export function render() {
         </div>
         <footer class="queue-batch-actions">
           <span class="q-sel">Click an asset to review it</span>
-          <button type="button" class="btn-retro small danger q-reject-all">REJECT ALL</button>
-          <button type="button" class="btn-retro small q-verify-all">VERIFY ALL</button>
+          <button type="button" class="btn-retro small danger q-reject-all">Reject all</button>
+          <button type="button" class="btn-retro small q-verify-all">Verify all</button>
         </footer>
       </section>
     `).join('');
@@ -369,7 +369,7 @@ export function render() {
 export function renderPanel() {
   const el = document.createElement('div');
   el.className = 'panel inventory-panel';
-  el.innerHTML = `<h3>ROOM VERIFICATION PROGRESS</h3><div id="progress-bars" class="mono-list">Loading…</div>`;
+  el.innerHTML = `<h3>Room verification progress</h3><div id="progress-bars" class="mono-list">Loading…</div>`;
 
   apiGet('/api/v1/inventory/progress').then((result) => {
     const container = el.querySelector('#progress-bars');

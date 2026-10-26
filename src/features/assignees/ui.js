@@ -24,34 +24,34 @@ function openAssigneeModal(root, { assignee } = {}, onSaved) {
   overlay.innerHTML = `
     <div class="modal-box crt-panel asset-form-box">
       <div class="crt-header">
-        <span class="crt-dot"></span> ${isEdit ? 'EDIT ASSIGNEE' : 'ADD ASSIGNEE'}
+        <span class="crt-dot"></span> ${isEdit ? 'Edit assignee' : 'Add assignee'}
         <button class="modal-close" id="asg-close" type="button" aria-label="Close">✕</button>
       </div>
       <form id="asg-form" class="retro-form modal-form">
-        <label>FULL NAME
+        <label>Full name
           <input type="text" id="asg-name" class="retro-input" value="${isEdit ? esc(assignee.name) : ''}" required />
         </label>
-        <label>POSITION <span class="mono-dim">(optional)</span>
+        <label>Position <span class="mono-dim">(optional)</span>
           <input type="text" id="asg-position" class="retro-input" placeholder="e.g. Registrar" value="${isEdit ? esc(assignee.position || '') : ''}" />
         </label>
-        <label>DEPARTMENT / OFFICE <span class="mono-dim">(optional)</span>
+        <label>Department / office <span class="mono-dim">(optional)</span>
           <input type="text" id="asg-dept" class="retro-input" placeholder="e.g. Supply Office" value="${isEdit ? esc(assignee.department || '') : ''}" />
         </label>
-        <label>CONTACT <span class="mono-dim">(optional — phone or email)</span>
+        <label>Contact <span class="mono-dim">(optional — phone or email)</span>
           <input type="text" id="asg-contact" class="retro-input" value="${isEdit ? esc(assignee.contact || '') : ''}" />
         </label>
-        <label>PHOTO <span class="mono-dim">(optional${isEdit && assignee.photo ? ' — leave as-is to keep the current one' : ''})</span>
+        <label>Photo <span class="mono-dim">(optional${isEdit && assignee.photo ? ' — leave as-is to keep the current one' : ''})</span>
           <div class="photo-field-row">
             <img id="asg-photo-preview" class="photo-preview photo-preview-round" src="${isEdit && assignee.photo ? assignee.photo : ''}" style="${isEdit && assignee.photo ? '' : 'display:none;'}" alt="" />
             <label class="btn-retro small outline file-btn">
-              <span id="asg-photo-label">${isEdit && assignee.photo ? 'CHANGE PHOTO' : 'ATTACH PHOTO'}</span>
+              <span id="asg-photo-label">${isEdit && assignee.photo ? 'Change photo' : 'Attach photo'}</span>
               <input type="file" id="asg-photo" accept="image/*" hidden />
             </label>
-            ${isEdit && assignee.photo ? '<button type="button" class="btn-retro small danger" id="asg-photo-clear">REMOVE</button>' : ''}
+            ${isEdit && assignee.photo ? '<button type="button" class="btn-retro small danger" id="asg-photo-clear">Remove</button>' : ''}
           </div>
         </label>
         ${isEdit && assignee.asset_count > 0 ? `<p class="asg-note">Renaming updates the ${assignee.asset_count} asset${assignee.asset_count === 1 ? '' : 's'} assigned to this person too.</p>` : ''}
-        <button type="submit" class="btn-retro">${isEdit ? '▶ SAVE CHANGES' : '▶ ADD ASSIGNEE'}</button>
+        <button type="submit" class="btn-retro">${isEdit ? 'Save changes' : 'Add assignee'}</button>
         <p id="asg-error" class="form-error" role="alert"></p>
       </form>
     </div>
@@ -67,22 +67,22 @@ function openAssigneeModal(root, { assignee } = {}, onSaved) {
   q('#asg-photo').addEventListener('change', async () => {
     const file = q('#asg-photo').files[0];
     if (!file) return;
-    q('#asg-photo-label').textContent = 'COMPRESSING…';
+    q('#asg-photo-label').textContent = 'Compressing…';
     try {
       photo = await compressImageFile(file);
       q('#asg-photo-preview').src = photo;
       q('#asg-photo-preview').style.display = 'block';
-      q('#asg-photo-label').textContent = 'CHANGE PHOTO';
+      q('#asg-photo-label').textContent = 'Change photo';
     } catch {
       photo = undefined;
-      q('#asg-photo-label').textContent = 'ATTACH PHOTO — failed, try again';
+      q('#asg-photo-label').textContent = 'Couldn’t attach photo, try again';
     }
   });
   const clearBtn = q('#asg-photo-clear');
   if (clearBtn) clearBtn.addEventListener('click', () => {
     photo = null;
     q('#asg-photo-preview').style.display = 'none';
-    q('#asg-photo-label').textContent = 'ATTACH PHOTO';
+    q('#asg-photo-label').textContent = 'Attach photo';
     clearBtn.remove();
   });
 
@@ -113,18 +113,18 @@ export function render() {
   el.innerHTML = `
     <div class="crt-panel">
       <div class="crt-header">
-        <span class="crt-dot"></span> MANAGE ASSIGNEES
+        <span class="crt-dot"></span> Manage assignees
         <div class="header-actions">
-          <button id="btn-add-assignee" class="btn-retro small" type="button">+ ADD ASSIGNEE</button>
+          <button id="btn-add-assignee" class="btn-retro small" type="button">+ Add assignee</button>
         </div>
       </div>
       <p class="screen-lede">People who can be picked in <strong>Assigned to</strong> when registering an asset. They don’t sign in — for logins, open <a href="#/admins">Manage Admins</a> from your profile in the menu.</p>
       <div class="users-toolbar">
-        <input type="text" id="asg-search" class="retro-input" placeholder="SEARCH NAME, POSITION OR OFFICE..." aria-label="Search assignees" />
+        <input type="text" id="asg-search" class="retro-input" placeholder="Search by name, position or office…" aria-label="Search assignees" />
       </div>
       <table class="retro-table">
         <thead>
-          <tr><th>ASSIGNEE</th><th>POSITION / OFFICE</th><th>CONTACT</th><th>ASSETS</th><th>STATUS</th><th></th></tr>
+          <tr><th>Assignee</th><th>Position / office</th><th>Contact</th><th>Assets</th><th>Status</th><th></th></tr>
         </thead>
         <tbody id="asg-rows"><tr><td colspan="6">Loading…</td></tr></tbody>
       </table>
@@ -152,9 +152,9 @@ export function render() {
         <td class="mono-strong">${p.asset_count}</td>
         <td><span class="badge badge-status-${p.status}">${p.status}</span></td>
         <td class="row-actions">
-          <button class="btn-retro small outline" data-act="edit" type="button">EDIT</button>
-          <button class="btn-retro small" data-act="toggle" type="button">${p.status === 'active' ? 'DEACTIVATE' : 'ACTIVATE'}</button>
-          <button class="btn-retro small danger" data-act="delete" type="button" aria-label="Delete ${esc(p.name)}">DELETE</button>
+          <button class="btn-retro small outline" data-act="edit" type="button">Edit</button>
+          <button class="btn-retro small outline" data-act="toggle" type="button">${p.status === 'active' ? 'Deactivate' : 'Activate'}</button>
+          <button class="btn-retro small danger" data-act="delete" type="button" aria-label="Delete ${esc(p.name)}">Delete</button>
         </td>
       </tr>
     `).join('');

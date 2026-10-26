@@ -3,12 +3,9 @@
 <head>
   <meta charset="UTF-8" />
   <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline'; img-src 'self' data:; script-src 'self' 'unsafe-inline'" />
-  <title>AssetTrack — Mainframe</title>
-  <link rel="stylesheet" href="styles/retro-theme.css" />
-  <link rel="stylesheet" href="styles/scanlines.css" />
+  <title>AssetTrack</title>
   <link rel="stylesheet" href="styles/fonts.css" />
-  <link rel="stylesheet" href="styles/app-brutal.css" />
-  <link rel="stylesheet" href="styles/login-brutal.css" />
+  <link rel="stylesheet" href="styles/theme.css" />
   <!-- Boot guard: the markup below ships the full app chrome (header with the
        "Dashboard" page title). Keep it hidden until router.js has decided
        whether this is the login screen or the app, so neither flashes first. -->
@@ -34,10 +31,9 @@
     <!-- Header (all screens except login): NBSC logo, product name + current page,
          live time and date, menu icon. Follows the dashboard wireframe. -->
     <header id="app-header">
-      <!-- Logo slot: swap the text for <img src="assets/logo/nbsc.png" alt="NBSC"> once the file exists. -->
-      <div class="hd-logo" aria-label="NBSC">NBSC</div>
+      <div class="hd-logo"><img src="assets/brand/nbsc-wordmark.png" alt="Northern Bukidnon State College" /></div>
       <div class="hd-title">
-        <h1 class="hd-brand">ASSETTRACK</h1>
+        <h1 class="hd-brand">AssetTrack</h1>
         <p class="hd-page" id="page-title">Dashboard</p>
       </div>
       <div class="hd-clock" aria-live="off">
@@ -57,19 +53,19 @@
   <div id="menu-scrim" hidden></div>
   <aside id="menu-drawer" aria-label="Main menu" hidden>
     <div class="dr-bar">
-      <span class="dr-code">menu</span>
+      <span class="dr-code">Menu</span>
       <button type="button" id="btn-menu-close" class="dr-x" aria-label="Close menu">&times;</button>
     </div>
 
     <nav id="nav-links">
-      <a href="#/dashboard" data-nav="dashboard"><span class="nav-icon">◈</span><span class="nav-label">Dashboard</span></a>
-      <a href="#/assets" data-nav="assets"><span class="nav-icon">▤</span><span class="nav-label">Asset registry</span></a>
-      <a href="#/map" data-nav="map"><span class="nav-icon">▦</span><span class="nav-label">Cluster map</span></a>
-      <a href="#/locations" data-nav="locations" id="nav-locations"><span class="nav-icon">⌂</span><span class="nav-label">Locations</span></a>
-      <a href="#/inventory" data-nav="inventory"><span class="nav-icon">⟳</span><span class="nav-label">Inventory sync</span></a>
-      <a href="#/reports" data-nav="reports"><span class="nav-icon">▥</span><span class="nav-label">Reports</span></a>
-      <a href="#/mobile" data-nav="mobile"><span class="nav-icon">▧</span><span class="nav-label">QR distribution</span></a>
-      <a href="#/assignees" data-nav="assignees" id="nav-assignees"><span class="nav-icon">☺</span><span class="nav-label">Assignees</span></a>
+      <a href="#/dashboard" data-nav="dashboard"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/></svg></span><span class="nav-label">Dashboard</span></a>
+      <a href="#/assets" data-nav="assets"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg></span><span class="nav-label">Asset registry</span></a>
+      <a href="#/map" data-nav="map"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 4L3 6v14l6-2 6 2 6-2V4l-6 2z"/><path d="M9 4v14M15 6v14"/></svg></span><span class="nav-label">Cluster map</span></a>
+      <a href="#/locations" data-nav="locations" id="nav-locations"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="3" width="14" height="18" rx="1.5"/><path d="M9 7h2M13 7h2M9 11h2M13 11h2M10 21v-4h4v4"/></svg></span><span class="nav-label">Locations</span></a>
+      <a href="#/inventory" data-nav="inventory"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 0 0-14-4L4 9"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14 4l2-2"/><path d="M20 20v-5h-5"/></svg></span><span class="nav-label">Inventory sync</span></a>
+      <a href="#/reports" data-nav="reports"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h6"/></svg></span><span class="nav-label">Reports</span></a>
+      <a href="#/mobile" data-nav="mobile"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h3M21 17v4"/></svg></span><span class="nav-label">QR distribution</span></a>
+      <a href="#/assignees" data-nav="assignees" id="nav-assignees"><span class="nav-icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.5a3.5 3.5 0 0 1 0 7M18.5 20a6.5 6.5 0 0 0-3-5.5"/></svg></span><span class="nav-label">Assignees</span></a>
     </nav>
 
     <div class="dr-foot">
@@ -78,10 +74,10 @@
       <a class="user-card" id="user-card" href="#/admins" aria-label="Your profile — manage admins">
         <span class="user-avatar" id="sidebar-avatar">AD</span>
         <div class="user-meta">
-          <span class="user-name" id="sidebar-username">ADMIN</span>
-          <span class="user-role" id="sidebar-role">SUPER ADMIN</span>
+          <span class="user-name" id="sidebar-username">Admin</span>
+          <span class="user-role" id="sidebar-role">Super admin</span>
         </div>
-        <span class="user-card-cue" id="user-card-cue" aria-hidden="true">MANAGE ADMINS ›</span>
+        <span class="user-card-cue" id="user-card-cue" aria-hidden="true">Manage admins ›</span>
       </a>
       <div class="dr-status">
         <span><span class="status-dot status-complete"></span>Database online</span>

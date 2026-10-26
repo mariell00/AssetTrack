@@ -4,7 +4,7 @@
 import { apiGet, apiPost, apiPut, apiDelete } from '../../js/api-client.js';
 import { compressImageFile } from '../../js/photo.js';
 
-const STATUS_LABELS = { active: 'ACTIVE', maintenance: 'MAINT.', pending: 'PENDING', offline: 'OFFLINE' };
+const STATUS_LABELS = { active: 'Active', maintenance: 'Maintenance', pending: 'Pending', offline: 'Offline' };
 
 function statusBadge(status) {
   const s = status || 'active';
@@ -21,7 +21,7 @@ export function confirmDialog({ title, messageHtml, confirmLabel = 'Confirm', da
     dlg.setAttribute('aria-labelledby', 'confirm-dialog-title');
     dlg.innerHTML = `
       <div class="confirm-bar">
-        <span class="confirm-code">confirm</span>
+        <span class="confirm-code">Confirm</span>
         <button type="button" class="confirm-x" data-act="cancel" aria-label="Close">&times;</button>
       </div>
       <div class="confirm-body">
@@ -55,7 +55,7 @@ function showQrLabelModal(root, { asset_tag, name, dataUrl }) {
   overlay.innerHTML = `
     <div class="modal-box crt-panel qr-label-box">
       <div class="crt-header">
-        <span class="crt-dot"></span> ASSET QR LABEL
+        <span class="crt-dot"></span> Asset QR label
         <button class="modal-close" id="qr-modal-close">✕</button>
       </div>
       <div class="qr-label-body">
@@ -63,8 +63,8 @@ function showQrLabelModal(root, { asset_tag, name, dataUrl }) {
         <div class="qr-label-tag mono-strong">${asset_tag}</div>
         <div class="qr-label-name">${name}</div>
         <div class="qr-label-actions">
-          <button class="btn-retro small outline" id="qr-btn-download">⭳ DOWNLOAD PNG</button>
-          <button class="btn-retro small" id="qr-btn-print">⎙ PRINT LABEL</button>
+          <button class="btn-retro small outline" id="qr-btn-download">Download PNG</button>
+          <button class="btn-retro small" id="qr-btn-print">Print label</button>
         </div>
       </div>
     </div>
@@ -89,7 +89,7 @@ function showQrLabelModal(root, { asset_tag, name, dataUrl }) {
         <head>
           <title>${asset_tag} label</title>
           <style>
-            body { font-family: 'Courier New', monospace; text-align: center; padding: 24px; }
+            body { font-family: Inter, system-ui, sans-serif; text-align: center; padding: 24px; }
             img { width: 220px; height: 220px; }
             h2 { margin: 10px 0 2px; letter-spacing: 1px; }
             p { margin: 0 0 16px; color: #555; }
@@ -175,52 +175,52 @@ async function openAssetModal(root, { asset } = {}) {
   overlay.innerHTML = `
     <div class="modal-box crt-panel asset-form-box">
       <div class="crt-header">
-        <span class="crt-dot"></span> ${isEdit ? 'EDIT ASSET' : 'REGISTER ASSET'}
+        <span class="crt-dot"></span> ${isEdit ? 'Edit asset' : 'Register asset'}
         <button class="modal-close" id="modal-close">✕</button>
       </div>
       <form id="asset-form" class="retro-form modal-form">
-        ${isEdit ? `<label>ASSET ID
+        ${isEdit ? `<label>Asset ID
           <input type="text" class="retro-input" value="${esc(asset.asset_tag)}" readonly aria-readonly="true" />
         </label>` : ''}
-        <label>NAME
+        <label>Name
           <input type="text" id="f-name" class="retro-input" value="${asset ? asset.name : ''}" required />
         </label>
-        <label>CATEGORY
+        <label>Category
           <select id="f-category" class="retro-input">${categoryOptionsHtml(asset ? asset.category : '')}</select>
         </label>
-        <label>ROOM
+        <label>Room
           <select id="f-room" class="retro-input">${roomOptionsHtml(rooms, asset ? asset.room_id : '')}</select>
         </label>
-        <label>ASSIGNED TO (ASSET USER)
+        <label>Assigned to (Asset user)
           <select id="f-assigned" class="retro-input">${assigneeOptionsHtml(assignees, asset ? asset.assigned_to : '')}</select>
           <span class="mono-dim asg-manage-hint">Not listed? Add them under <a href="#/assignees" id="f-assigned-manage">Manage Assignees</a>.</span>
         </label>
-        <label id="f-assigned-photo-field">ASSIGNED USER PHOTO <span class="mono-dim">(optional${isEdit ? ' — leave as-is to keep the current one' : ''})</span>
+        <label id="f-assigned-photo-field">Assigned user photo <span class="mono-dim">(optional${isEdit ? ' — leave as-is to keep the current one' : ''})</span>
           <div class="photo-field-row">
             <img id="f-assigned-photo-preview" class="photo-preview photo-preview-round" src="${asset && asset.assigned_photo ? asset.assigned_photo : ''}" style="${asset && asset.assigned_photo ? '' : 'display:none;'}" alt="" />
             <label class="btn-retro small outline file-btn">
-              <span id="f-assigned-photo-label">${asset && asset.assigned_photo ? 'CHANGE PHOTO' : 'ATTACH PHOTO'}</span>
+              <span id="f-assigned-photo-label">${asset && asset.assigned_photo ? 'Change photo' : 'Attach photo'}</span>
               <input type="file" id="f-assigned-photo" accept="image/*" hidden />
             </label>
           </div>
         </label>
-        <label>STATUS
+        <label>Status
           <select id="f-status" class="retro-input">
             ${Object.entries(STATUS_LABELS).map(([val, label]) =>
               `<option value="${val}" ${asset && asset.status === val ? 'selected' : ''}>${label}</option>`
             ).join('')}
           </select>
         </label>
-        <label>PHOTO <span class="mono-dim">(optional${isEdit ? ' — leave as-is to keep the current one' : ''})</span>
+        <label>Photo <span class="mono-dim">(optional${isEdit ? ' — leave as-is to keep the current one' : ''})</span>
           <div class="photo-field-row">
             <img id="f-photo-preview" class="photo-preview" src="${asset && asset.photo ? asset.photo : ''}" style="${asset && asset.photo ? '' : 'display:none;'}" alt="" />
             <label class="btn-retro small outline file-btn">
-              <span id="f-photo-label">${asset && asset.photo ? 'CHANGE PHOTO' : 'ATTACH PHOTO'}</span>
+              <span id="f-photo-label">${asset && asset.photo ? 'Change photo' : 'Attach photo'}</span>
               <input type="file" id="f-photo" accept="image/*" hidden />
             </label>
           </div>
         </label>
-        <button type="submit" class="btn-retro">${isEdit ? '▶ SAVE CHANGES' : '▶ REGISTER ASSET'}</button>
+        <button type="submit" class="btn-retro">${isEdit ? 'Save changes' : 'Register asset'}</button>
         <p id="modal-error" class="form-error"></p>
       </form>
     </div>
@@ -238,15 +238,15 @@ async function openAssetModal(root, { asset } = {}) {
   photoInput.addEventListener('change', async () => {
     const file = photoInput.files[0];
     if (!file) return;
-    photoLabel.textContent = 'COMPRESSING…';
+    photoLabel.textContent = 'Compressing…';
     try {
       newPhotoDataUrl = await compressImageFile(file);
       photoPreview.src = newPhotoDataUrl;
       photoPreview.style.display = 'block';
-      photoLabel.textContent = 'CHANGE PHOTO';
+      photoLabel.textContent = 'Change photo';
     } catch {
       newPhotoDataUrl = null;
-      photoLabel.textContent = 'ATTACH PHOTO — failed, try again';
+      photoLabel.textContent = 'Couldn’t attach photo, try again';
     }
   });
 
@@ -263,7 +263,7 @@ async function openAssetModal(root, { asset } = {}) {
     const saved = assigneePhotos.get(assignedSelect.value.toLowerCase());
     assignedPhotoPreview.src = saved || '';
     assignedPhotoPreview.style.display = saved ? 'block' : 'none';
-    assignedPhotoLabel.textContent = saved ? 'CHANGE PHOTO' : 'ATTACH PHOTO';
+    assignedPhotoLabel.textContent = saved ? 'Change photo' : 'Attach photo';
   });
   syncAssignedPhotoField();
 
@@ -277,15 +277,15 @@ async function openAssetModal(root, { asset } = {}) {
   assignedPhotoInput.addEventListener('change', async () => {
     const file = assignedPhotoInput.files[0];
     if (!file) return;
-    assignedPhotoLabel.textContent = 'COMPRESSING…';
+    assignedPhotoLabel.textContent = 'Compressing…';
     try {
       newAssignedPhotoDataUrl = await compressImageFile(file);
       assignedPhotoPreview.src = newAssignedPhotoDataUrl;
       assignedPhotoPreview.style.display = 'block';
-      assignedPhotoLabel.textContent = 'CHANGE PHOTO';
+      assignedPhotoLabel.textContent = 'Change photo';
     } catch {
       newAssignedPhotoDataUrl = null;
-      assignedPhotoLabel.textContent = 'ATTACH PHOTO — failed, try again';
+      assignedPhotoLabel.textContent = 'Couldn’t attach photo, try again';
     }
   });
 
@@ -352,7 +352,7 @@ function formatDate(value) {
   return d.toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
-const SCAN_LABELS = { verified: 'VERIFIED', missing: 'MISSING', misplaced: 'MISPLACED' };
+const SCAN_LABELS = { verified: 'Verified', missing: 'Missing', misplaced: 'Misplaced' };
 
 // Full-detail pop-up for one asset: everything we know about it, plus the
 // actions that used to sit in the table (QR label, Edit, Delete).
@@ -370,7 +370,7 @@ async function openAssetDetailModal(root, assetId) {
   overlay.innerHTML = `
     <div class="modal-box crt-panel asset-detail-box" role="dialog" aria-modal="true" aria-label="Asset details">
       <div class="crt-header">
-        <span class="crt-dot"></span> ASSET DETAILS
+        <span class="crt-dot"></span> Asset details
         <button class="modal-close" id="ad-close" aria-label="Close">✕</button>
       </div>
 
@@ -378,7 +378,7 @@ async function openAssetDetailModal(root, assetId) {
       <div class="ad-top">
         ${a.photo
           ? `<img class="ad-photo" src="${a.photo}" alt="Photo of ${esc(a.name)}" />`
-          : '<div class="ad-photo ad-photo-empty">NO PHOTO</div>'}
+          : '<div class="ad-photo ad-photo-empty">No photo</div>'}
         <div class="ad-id">
           <div class="ad-tag">${esc(a.asset_tag)}</div>
           <div class="ad-name">${esc(a.name)}</div>
@@ -403,7 +403,7 @@ async function openAssetDetailModal(root, assetId) {
         <h3>Open issues <span class="mono-dim">(${a.open_issues})</span></h3>
         ${a.issues && a.issues.length ? a.issues.map((i) => `
           <div class="ad-row">
-            <span class="badge ${i.resolved ? 'badge-asset-active' : 'badge-asset-offline'}">${i.resolved ? 'RESOLVED' : 'OPEN'}</span>
+            <span class="badge ${i.resolved ? 'badge-asset-active' : 'badge-asset-offline'}">${i.resolved ? 'Resolved' : 'Open'}</span>
             <span class="ad-row-main">${esc(i.note)}</span>
             <span class="ad-row-meta">${esc(i.reported_by)} · ${formatDate(i.created_at)}</span>
           </div>`).join('') : '<p class="ad-empty">No issues reported.</p>'}
@@ -422,9 +422,9 @@ async function openAssetDetailModal(root, assetId) {
       </div>
 
       <div class="ad-actions">
-        <button class="btn-retro small danger" id="ad-delete">DELETE</button>
-        <button class="btn-retro small outline" id="ad-qr">QR LABEL</button>
-        <button class="btn-retro small" id="ad-edit">EDIT</button>
+        <button class="btn-retro small danger" id="ad-delete">Delete</button>
+        <button class="btn-retro small outline" id="ad-qr">QR label</button>
+        <button class="btn-retro small" id="ad-edit">Edit</button>
       </div>
     </div>
   `;
@@ -510,18 +510,18 @@ export function render() {
   el.innerHTML = `
     <div class="crt-panel">
       <div class="registry-toolbar">
-        <input type="text" id="asset-search" class="retro-input search-input" placeholder="› search assets..." aria-label="Search assets" />
+        <input type="text" id="asset-search" class="retro-input search-input" placeholder="Search assets…" aria-label="Search assets" />
         <div class="sort-group">
-          <label class="sort-label" for="asset-sort">SORT BY</label>
+          <label class="sort-label" for="asset-sort">Sort by</label>
           <select id="asset-sort" class="retro-input sort-select">
             ${SORT_OPTIONS.map((o) => `<option value="${o.key}" ${o.key === sort.key ? 'selected' : ''}>${o.label}</option>`).join('')}
           </select>
           <button type="button" id="asset-sort-dir" class="btn-retro small outline sort-dir"></button>
         </div>
         <div class="toolbar-actions">
-          <button id="btn-add-asset" class="btn-retro">+ REGISTER ASSET</button>
+          <button id="btn-add-asset" class="btn-retro">+ Register asset</button>
           <label class="btn-retro outline file-btn">
-            IMPORT CSV
+            Import CSV
             <input type="file" id="import-file" accept=".xlsx,.csv" hidden />
           </label>
         </div>
@@ -530,11 +530,11 @@ export function render() {
         <thead>
           <tr>
             <th></th>
-            ${sortableTh('asset_tag', 'ASSET ID')}
-            ${sortableTh('name', 'NAME')}
-            ${sortableTh('assigned_to', 'ASSIGNED TO')}
-            ${sortableTh('room_name', 'ROOM')}
-            ${sortableTh('status', 'STATUS')}
+            ${sortableTh('asset_tag', 'Asset ID')}
+            ${sortableTh('name', 'Name')}
+            ${sortableTh('assigned_to', 'Assigned to')}
+            ${sortableTh('room_name', 'Room')}
+            ${sortableTh('status', 'Status')}
           </tr>
         </thead>
         <tbody id="asset-rows"><tr><td colspan="6">Loading…</td></tr></tbody>

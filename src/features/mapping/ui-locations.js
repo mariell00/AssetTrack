@@ -7,7 +7,7 @@
 // dropdown instead of free text.
 //
 // Placing a building's pin on the map is still done from the CLUSTER MAP
-// screen's "PLACE ON MAP" flow (clicking the actual map) — not duplicated
+// screen's "Place on map" flow (clicking the actual map) — not duplicated
 // here — so this screen just shows whether a building has been placed yet.
 import { apiGet, apiPost, apiPut, apiDelete } from '../../js/api-client.js';
 
@@ -18,20 +18,20 @@ function openBuildingModal(root, { building } = {}, onSaved) {
   overlay.innerHTML = `
     <div class="modal-box crt-panel">
       <div class="crt-header">
-        <span class="crt-dot"></span> ${isEdit ? 'RENAME BUILDING' : 'ADD BUILDING'}
+        <span class="crt-dot"></span> ${isEdit ? 'Rename building' : 'Add building'}
         <button class="modal-close" id="modal-close">✕</button>
       </div>
       <form id="building-form" class="retro-form modal-form">
-        <label>BUILDING NAME
+        <label>Building name
           <input type="text" id="f-building-name" class="retro-input" value="${building ? escapeAttr(building.name) : ''}" placeholder="e.g. Main Building" required />
         </label>
-        <label>LATITUDE <span class="mono-dim">(optional — or place it later from CLUSTER MAP)</span>
+        <label>Latitude <span class="mono-dim">(optional — or place it later from Cluster map)</span>
           <input type="text" inputmode="decimal" id="f-building-lat" class="retro-input" value="${building && building.latitude != null ? building.latitude : ''}" placeholder="e.g. 8.359999" />
         </label>
-        <label>LONGITUDE <span class="mono-dim">(optional)</span>
+        <label>Longitude <span class="mono-dim">(optional)</span>
           <input type="text" inputmode="decimal" id="f-building-lng" class="retro-input" value="${building && building.longitude != null ? building.longitude : ''}" placeholder="e.g. 124.868103" />
         </label>
-        <button type="submit" class="btn-retro">${isEdit ? '▶ SAVE CHANGES' : '▶ ADD BUILDING'}</button>
+        <button type="submit" class="btn-retro">${isEdit ? 'Save changes' : 'Add building'}</button>
         <p id="modal-error" class="form-error"></p>
       </form>
     </div>
@@ -92,22 +92,22 @@ function openRoomModal(root, { room, buildings, defaultBuildingId } = {}, onSave
   overlay.innerHTML = `
     <div class="modal-box crt-panel">
       <div class="crt-header">
-        <span class="crt-dot"></span> ${isEdit ? 'EDIT ROOM' : 'ADD ROOM'}
+        <span class="crt-dot"></span> ${isEdit ? 'Edit room' : 'Add room'}
         <button class="modal-close" id="modal-close">✕</button>
       </div>
       <form id="room-form" class="retro-form modal-form">
-        <label>ROOM NAME
+        <label>Room name
           <input type="text" id="f-room-name" class="retro-input" value="${room ? escapeAttr(room.name) : ''}" placeholder="e.g. Room 201" required />
         </label>
-        <label>BUILDING
+        <label>Building
           <select id="f-room-building" class="retro-input" required>
             ${buildings.map((b) => `<option value="${b.id}" ${(room ? room.building_id : defaultBuildingId) === b.id ? 'selected' : ''}>${b.name}</option>`).join('')}
           </select>
         </label>
-        <label>FLOOR <span class="mono-dim">(optional)</span>
+        <label>Floor <span class="mono-dim">(optional)</span>
           <input type="text" id="f-room-floor" class="retro-input" value="${room && room.floor ? escapeAttr(room.floor) : ''}" placeholder="e.g. 2nd Floor" />
         </label>
-        <button type="submit" class="btn-retro">${isEdit ? '▶ SAVE CHANGES' : '▶ ADD ROOM'}</button>
+        <button type="submit" class="btn-retro">${isEdit ? 'Save changes' : 'Add room'}</button>
         <p id="modal-error" class="form-error"></p>
       </form>
     </div>
@@ -145,12 +145,12 @@ export function render() {
   el.innerHTML = `
     <div class="crt-panel">
       <div class="crt-header">
-        <span class="crt-dot"></span> LOCATIONS // BUILDINGS &amp; ROOMS
+        <span class="crt-dot"></span> Buildings &amp; rooms
         <div class="header-actions">
-          <button id="btn-add-building" class="btn-retro small">+ ADD BUILDING</button>
+          <button id="btn-add-building" class="btn-retro small">+ Add building</button>
         </div>
       </div>
-      <p class="map-hint">Give a building coordinates directly here, or use "PLACE ON MAP" / "MOVE PIN" to click the exact spot on the CLUSTER MAP — every room added below rides along with the building's pin.</p>
+      <p class="map-hint">Give a building coordinates directly here, or use "Place on map" / "Move pin" to click the exact spot on the Cluster map — every room added below rides along with the building's pin.</p>
       <div id="buildings-list" class="locations-list">Loading…</div>
     </div>
   `;
@@ -159,8 +159,8 @@ export function render() {
 
   function buildingBlockHtml(building, rooms) {
     const placedLabel = building.latitude != null
-      ? `PINNED @ ${building.latitude.toFixed(5)}, ${building.longitude.toFixed(5)}`
-      : 'NOT ON MAP YET';
+      ? `Pinned at ${building.latitude.toFixed(5)}, ${building.longitude.toFixed(5)}`
+      : 'Not on map yet';
     const roomRows = rooms.length
       ? rooms.map((r) => `
           <tr data-room-id="${r.id}">
@@ -168,8 +168,8 @@ export function render() {
             <td>${r.floor || '—'}</td>
             <td>${r.asset_count}</td>
             <td class="row-actions">
-              <button class="btn-retro small outline btn-edit-room" data-id="${r.id}">EDIT</button>
-              <button class="btn-retro small danger btn-del-room" data-id="${r.id}">DEL</button>
+              <button class="btn-retro small outline btn-edit-room" data-id="${r.id}">Edit</button>
+              <button class="btn-retro small danger btn-del-room" data-id="${r.id}">Delete</button>
             </td>
           </tr>
         `).join('')
@@ -180,14 +180,14 @@ export function render() {
         <div class="crt-header small">
           <span>${building.name} <span class="mono-dim">(${placedLabel})</span></span>
           <div class="header-actions">
-            <button class="btn-retro small outline btn-place-building" data-id="${building.id}" data-name="${escapeAttr(building.name)}">${building.latitude != null ? '⌖ MOVE PIN' : '⌖ PLACE ON MAP'}</button>
-            <button class="btn-retro small btn-add-room" data-id="${building.id}" data-name="${escapeAttr(building.name)}">+ ROOM</button>
-            <button class="btn-retro small outline btn-edit-building" data-id="${building.id}">RENAME</button>
-            <button class="btn-retro small danger btn-del-building" data-id="${building.id}">DEL</button>
+            <button class="btn-retro small outline btn-place-building" data-id="${building.id}" data-name="${escapeAttr(building.name)}">${building.latitude != null ? 'Move pin' : 'Place on map'}</button>
+            <button class="btn-retro small btn-add-room" data-id="${building.id}" data-name="${escapeAttr(building.name)}">+ Room</button>
+            <button class="btn-retro small outline btn-edit-building" data-id="${building.id}">Rename</button>
+            <button class="btn-retro small danger btn-del-building" data-id="${building.id}">Delete</button>
           </div>
         </div>
         <table class="retro-table">
-          <thead><tr><th>ROOM</th><th>FLOOR</th><th>ASSETS</th><th>ACTIONS</th></tr></thead>
+          <thead><tr><th>Room</th><th>Floor</th><th>Assets</th><th>Actions</th></tr></thead>
           <tbody>${roomRows}</tbody>
         </table>
       </div>
@@ -202,18 +202,18 @@ export function render() {
         <td>${r.floor || '—'}</td>
         <td>${r.asset_count}</td>
         <td class="row-actions">
-          <button class="btn-retro small outline btn-edit-room" data-id="${r.id}">ASSIGN / EDIT</button>
-          <button class="btn-retro small danger btn-del-room" data-id="${r.id}">DEL</button>
+          <button class="btn-retro small outline btn-edit-room" data-id="${r.id}">Assign / edit</button>
+          <button class="btn-retro small danger btn-del-room" data-id="${r.id}">Delete</button>
         </td>
       </tr>
     `).join('');
     return `
       <div class="crt-panel location-building" data-building-id="">
         <div class="crt-header small">
-          <span>UNASSIGNED ROOMS <span class="mono-dim">(no building set)</span></span>
+          <span>Unassigned rooms <span class="mono-dim">(no building set)</span></span>
         </div>
         <table class="retro-table">
-          <thead><tr><th>ROOM</th><th>FLOOR</th><th>ASSETS</th><th>ACTIONS</th></tr></thead>
+          <thead><tr><th>Room</th><th>Floor</th><th>Assets</th><th>Actions</th></tr></thead>
           <tbody>${roomRows}</tbody>
         </table>
       </div>

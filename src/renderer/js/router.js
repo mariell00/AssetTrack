@@ -93,8 +93,8 @@ function updateSidebarUser() {
   // role here), so this is the one check every desktop-only control keys off.
   const isSuper = user.role === 'superadmin';
   document.getElementById('sidebar-avatar').textContent = user.username.slice(0, 2).toUpperCase();
-  document.getElementById('sidebar-username').textContent = user.username.toUpperCase();
-  document.getElementById('sidebar-role').textContent = isSuper ? 'SUPER ADMIN' : 'ADMIN';
+  document.getElementById('sidebar-username').textContent = user.username;
+  document.getElementById('sidebar-role').textContent = isSuper ? 'Super admin' : 'Admin';
 
   // The profile card is the way into Manage Admins. That screen is
   // superadmin-only server-side (requireRole('superadmin') on every

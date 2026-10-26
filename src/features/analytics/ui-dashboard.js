@@ -6,14 +6,14 @@
 // All CSS-drawn — no chart library — so it keeps working fully offline.
 import { apiGet } from '../../js/api-client.js';
 
-const PLOT_HEIGHT = 300; // px — must match --bk-plot in app-brutal.css
+const PLOT_HEIGHT = 300; // px — must match --bk-plot in theme.css
 
 const CATEGORY_CLASS = {
   SYNC: 'log-sync', IMPORT: 'log-import', ALERT: 'log-alert', UPDATE: 'log-update',
   CONN: 'log-conn', EXPORT: 'log-export', AUTH: 'log-auth', INIT: 'log-init'
 };
-const ASSET_STATUS_LABELS = { active: 'ACTIVE', maintenance: 'MAINT.', pending: 'PENDING', offline: 'OFFLINE' };
-const SCAN_RESULT_LABELS = { verified: 'VERIFIED', missing: 'MISSING', misplaced: 'MISPLACED' };
+const ASSET_STATUS_LABELS = { active: 'Active', maintenance: 'Maintenance', pending: 'Pending', offline: 'Offline' };
+const SCAN_RESULT_LABELS = { verified: 'Verified', missing: 'Missing', misplaced: 'Misplaced' };
 
 function esc(value) {
   return String(value ?? '').replace(/[&<>"']/g, (c) => (
@@ -138,7 +138,7 @@ export function render() {
     }).join('')}</div>${s.awaitingReview ? `
       <a class="bk-review-note" href="#/inventory">
         <strong>${s.awaitingReview}</strong> item${s.awaitingReview === 1 ? '' : 's'} from the mobile app ${s.awaitingReview === 1 ? 'is' : 'are'} waiting for verification
-        <span>REVIEW ›</span>
+        <span>Review ›</span>
       </a>` : ''}`;
   }
 

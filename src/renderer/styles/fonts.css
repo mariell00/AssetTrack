@@ -1,22 +1,19 @@
-/* fonts.css — local font files for the cyber-brutalist rework.
-   Bundled (not fetched) because AssetTrack is offline-first and the CSP in
-   index.html only allows 'self' sources. Role tokens below are what new
-   screens should use; the legacy screens still read --font-display/--font-mono
-   from retro-theme.css until they're migrated. */
-@font-face { font-family: 'Space Grotesk'; font-weight: 700; font-style: normal; font-display: swap;
-  src: url('../assets/fonts/space-grotesk-latin-700-normal.woff2') format('woff2'); }
+/* fonts.css — Inter, bundled locally (not fetched): AssetTrack is offline-first
+   and the CSP in index.html only allows 'self' sources.
+
+   Only the Regular (400) file is bundled. Where the design asks for a heavier
+   weight the browser draws a synthetic bold from it, so type hierarchy leans on
+   size and colour first and weight second. To get true 500/600/700 weights, add
+   the matching Inter latin woff2 files (e.g. from the @fontsource/inter package)
+   to ../assets/fonts/ and add one @font-face per file below, same family name. */
 @font-face { font-family: 'Inter'; font-weight: 400; font-style: normal; font-display: swap;
   src: url('../assets/fonts/inter-latin-400-normal.woff2') format('woff2'); }
-@font-face { font-family: 'JetBrains Mono'; font-weight: 400; font-style: normal; font-display: swap;
-  src: url('../assets/fonts/jetbrains-mono-latin-400-normal.woff2') format('woff2'); }
-@font-face { font-family: 'JetBrains Mono'; font-weight: 700; font-style: normal; font-display: swap;
-  src: url('../assets/fonts/jetbrains-mono-latin-700-normal.woff2') format('woff2'); }
-@font-face { font-family: 'Archivo Black'; font-weight: 400; font-style: normal; font-display: swap;
-  src: url('../assets/fonts/archivo-black-latin-400-normal.woff2') format('woff2'); }
 
 :root {
-  --font-head: 'Space Grotesk', 'Helvetica Neue', Arial, sans-serif;   /* headings */
-  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', sans-serif; /* body */
-  --font-data: 'JetBrains Mono', ui-monospace, Consolas, monospace;     /* labels, timestamps, code */
-  --font-btn:  'Archivo Black', 'Arial Black', Impact, sans-serif;      /* buttons, all-caps display */
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  /* One family everywhere; the old role tokens stay defined so nothing that
+     still references them breaks. */
+  --font-head: var(--font-body);
+  --font-data: var(--font-body);
+  --font-btn:  var(--font-body);
 }
