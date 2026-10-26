@@ -15,8 +15,8 @@ export const CATEGORY_OPTIONS = [
   'Personal Computer', 'Laptop', 'Monitor', 'Printer', 'Projector',
   'Network Equipment', 'Air Conditioner', 'Furniture', 'Laboratory Equipment', 'Other'
 ];
-export const STATUS_OPTIONS = [['active', 'ACTIVE'], ['pending', 'PENDING'], ['maintenance', 'MAINT.'], ['offline', 'OFFLINE']];
-export const CONDITION_OPTIONS = [['good', 'GOOD'], ['fair', 'FAIR'], ['poor', 'POOR']];
+export const STATUS_OPTIONS = [['active', 'Active'], ['pending', 'Pending'], ['maintenance', 'Maintenance'], ['offline', 'Offline']];
+export const CONDITION_OPTIONS = [['good', 'Good'], ['fair', 'Fair'], ['poor', 'Poor']];
 
 export function esc(str) {
   return String(str ?? '').replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');

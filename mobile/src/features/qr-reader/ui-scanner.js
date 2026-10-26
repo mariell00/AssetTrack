@@ -6,10 +6,10 @@ export function renderScanner(onCodeRead) {
   el.className = 'm-screen m-scanner';
   el.innerHTML = `
     <div class="m-panel m-scanner-panel">
-      <div class="m-header">SCAN ASSET QR CODE</div>
+      <div class="m-header">Scan asset QR code</div>
       <video id="m-qr-video" class="m-qr-video" playsinline muted></video>
       <p id="m-scan-status" class="m-status">Point the camera at the asset's QR label…</p>
-      <button id="m-scan-retry" class="m-btn" style="display:none;" type="button">▶ RETRY CAMERA</button>
+      <button id="m-scan-retry" class="m-btn" style="display:none;" type="button">Retry camera</button>
     </div>
   `;
 

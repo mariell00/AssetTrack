@@ -24,9 +24,9 @@ window.addEventListener('beforeinstallprompt', (e) => {
 });
 
 const PAGES = {
-  scan: { title: 'Scanner', label: 'Scanner', icon: '▣' },
-  registry: { title: 'Asset registry', label: 'Asset registry', icon: '▤' },
-  sync: { title: 'Sync', label: 'Sync', icon: '⇅' }
+  scan: { title: 'Scanner', label: 'Scanner', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h3M21 17v4"/></svg>' },
+  registry: { title: 'Asset registry', label: 'Asset registry', icon: '<svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>' },
+  sync: { title: 'Sync', label: 'Sync', icon: '<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4L4 9"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14 4l2-2"/><path d="M20 20v-5h-5"/></svg>' }
 };
 
 let clockTimer = null;
@@ -43,16 +43,15 @@ function esc(s) { return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&
 function renderShell() {
   root.innerHTML = '';
   const user = currentUser();
-  const roleLabel = user ? String(user.role || '').toUpperCase() : '';
+  const roleLabel = user ? ({ superadmin: 'Super admin', admin: 'Admin' }[user.role] || String(user.role || '')) : '';
 
   const shell = document.createElement('div');
   shell.className = 'm-shell';
   shell.innerHTML = `
     <header class="m-head">
-      <!-- Logo slot: swap the text for <img src="assets/nbsc.png" alt="NBSC"> once the file exists. -->
-      <div class="m-logo" aria-label="NBSC">NBSC</div>
+      <img class="m-logo" src="assets/brand/nbsc-shield.jpg" alt="NBSC" />
       <div class="m-title">
-        <h1 class="m-brand">ASSETTRACK</h1>
+        <h1 class="m-brand">AssetTrack</h1>
         <p class="m-page" id="m-pagebar"></p>
       </div>
       <button type="button" class="m-menu-btn" id="m-menu-btn" aria-label="Open menu" aria-expanded="false" aria-controls="m-drawer">
@@ -65,7 +64,7 @@ function renderShell() {
     <div class="m-scrim" id="m-scrim" hidden></div>
     <aside class="m-drawer" id="m-drawer" aria-label="Main menu" hidden>
       <div class="m-drawer-bar">
-        <span>MENU</span>
+        <span>Menu</span>
         <button type="button" class="m-drawer-x" id="m-drawer-x" aria-label="Close menu">&times;</button>
       </div>
       <nav class="m-nav" id="m-nav">
@@ -150,11 +149,11 @@ function renderShell() {
         <div class="m-usercard">
           <span class="m-avatar">${esc(initials(user && user.username))}</span>
           <span class="m-usermeta">
-            <span class="m-username">${esc(user ? user.username.toUpperCase() : '')}</span>
+            <span class="m-username">${esc(user ? user.username : '')}</span>
             <span class="m-userrole">${esc(roleLabel)}</span>
           </span>
         </div>
-        <button type="button" class="m-btn m-btn-secondary m-logout" id="m-logout">LOG OUT</button>`;
+        <button type="button" class="m-btn m-btn-secondary m-logout" id="m-logout">Log out</button>`;
       foot.querySelector('#m-logout').addEventListener('click', async () => renderFoot(true, await pendingCount()));
     } else {
       foot.innerHTML = `
@@ -163,8 +162,8 @@ function renderShell() {
           ? `<strong>${pending}</strong> scan${pending === 1 ? ' is' : 's are'} not synced yet. ${pending === 1 ? 'It stays' : 'They stay'} on this phone until you sync.`
           : 'You will be returned to the login screen.'}</p>
         <div class="m-confirm-actions">
-          <button type="button" class="m-btn m-btn-secondary" id="m-logout-cancel">CANCEL</button>
-          <button type="button" class="m-btn" id="m-logout-confirm">LOG OUT</button>
+          <button type="button" class="m-btn m-btn-secondary" id="m-logout-cancel">Cancel</button>
+          <button type="button" class="m-btn" id="m-logout-confirm">Log out</button>
         </div>`;
       foot.querySelector('#m-logout-cancel').addEventListener('click', () => renderFoot(false));
       foot.querySelector('#m-logout-confirm').addEventListener('click', () => {

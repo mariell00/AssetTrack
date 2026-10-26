@@ -299,8 +299,8 @@ async function setupNamedTunnel(expressApp, config, lanUrl, logEvent) {
 // screen is showing. macOS keeps its normal traffic-light title bar.
 const TITLEBAR_HEIGHT = 32; // keep in sync with #titlebar-drag in index.html and .screen-login padding
 const TITLEBAR_THEMES = {
-  login: { color: '#060F26', symbolColor: '#FFFFFF' }, // navy login stage
-  app:   { color: '#060F26', symbolColor: '#FFFFFF' }  // navy app stage (matches the login)
+  login: { color: '#F7F8FA', symbolColor: '#111827' }, // Fog login stage
+  app:   { color: '#FFFFFF', symbolColor: '#111827' }  // white app background
 };
 
 function createWindow(config) {
@@ -311,7 +311,7 @@ function createWindow(config) {
     center: true,
     minWidth: 960,
     minHeight: 640,
-    backgroundColor: '#060F26',
+    backgroundColor: '#FFFFFF',
     title: 'AssetTrack — Admin Hub',
     ...(customTitleBar && {
       titleBarStyle: 'hidden',

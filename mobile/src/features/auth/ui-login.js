@@ -21,15 +21,15 @@ export function renderLogin(onSuccess) {
 
   el.innerHTML = `
     <div class="m-panel">
-      <div class="m-header">ASSETTRACK SCANNER</div>
+      <div class="m-header">AssetTrack scanner</div>
       <form id="m-login-form">
-        <label>DESKTOP URL</label>
+        <label>Desktop URL</label>
         <input id="m-desktop-url" placeholder="http://192.168.1.42:3000" value="${defaultUrl}" required />
-        <label>USERNAME</label>
+        <label>Username</label>
         <input id="m-username" required />
-        <label>PASSWORD</label>
+        <label>Password</label>
         <input id="m-password" type="password" required />
-        <button class="m-btn" type="submit">▶ CONNECT</button>
+        <button class="m-btn" type="submit">Connect</button>
         <p id="m-login-error" class="m-error"></p>
       </form>
     </div>

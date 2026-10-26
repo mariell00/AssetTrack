@@ -9,15 +9,15 @@ export function renderSync() {
   el.className = 'm-screen m-sync';
   el.innerHTML = `
     <div class="m-panel">
-      <div class="m-header">WI-FI SYNC</div>
+      <div class="m-header">Wi-Fi sync</div>
       <p id="m-sync-pending" class="m-sync-pending">Checking…</p>
-      <label>DESKTOP HOST</label>
+      <label>Desktop host</label>
       <input id="m-sync-url" value="${esc(getBaseUrl())}" placeholder="http://192.168.1.42:3000" />
-      <button id="m-sync-btn" class="m-btn m-btn-big" type="button">⇅ SYNC NOW</button>
+      <button id="m-sync-btn" class="m-btn m-btn-big" type="button">⇅ Sync now</button>
       <p id="m-sync-status" class="m-status" aria-live="polite"></p>
     </div>
     <div class="m-panel" id="m-myreg" hidden>
-      <div class="m-header">MY REGISTRATIONS</div>
+      <div class="m-header">My registrations</div>
       <p class="m-hint">New assets you registered on this phone. The Asset ID is made by the desktop when the super admin verifies it.</p>
       <div id="m-myreg-list"></div>
     </div>
@@ -30,11 +30,11 @@ export function renderSync() {
   const regList = el.querySelector('#m-myreg-list');
 
   const REG_STATES = {
-    queued:   { pill: 'QUEUED',   cls: 'm-pill-pending', note: 'Saved on this phone — not sent yet.' },
-    pending:  { pill: 'SENT',     cls: 'm-pill-pending', note: 'Waiting for the super admin to verify it.' },
-    approved: { pill: 'VERIFIED', cls: 'm-pill-active',  note: '' },
-    rejected: { pill: 'REJECTED', cls: 'm-pill-offline', note: 'The super admin did not add this asset.' },
-    failed:   { pill: 'NOT USED', cls: 'm-pill-offline', note: 'The desktop could not use this registration.' }
+    queued:   { pill: 'Queued',   cls: 'm-pill-pending', note: 'Saved on this phone — not sent yet.' },
+    pending:  { pill: 'Sent',     cls: 'm-pill-pending', note: 'Waiting for the super admin to verify it.' },
+    approved: { pill: 'Verified', cls: 'm-pill-active',  note: '' },
+    rejected: { pill: 'Rejected', cls: 'm-pill-offline', note: 'The super admin did not add this asset.' },
+    failed:   { pill: 'Not used', cls: 'm-pill-offline', note: 'The desktop could not use this registration.' }
   };
 
   async function drawRegistrations() {

@@ -37,13 +37,13 @@ function renderInstallChoice(getDeferredPrompt, onContinue) {
 
   el.innerHTML = `
     <div class="m-panel">
-      <div class="m-header">GET ASSETTRACK SCANNER</div>
+      <div class="m-header">Get AssetTrack scanner</div>
       <p class="m-status">
         Install it once for a full-screen app icon on your home screen, or just continue in the browser —
         both work identically, this only changes how you launch it next time.
       </p>
-      <button class="m-btn" id="m-install-btn">⬇ INSTALL APP</button>
-      <button class="m-btn m-btn-secondary" id="m-continue-btn">CONTINUE IN BROWSER</button>
+      <button class="m-btn" id="m-install-btn">⬇ Install app</button>
+      <button class="m-btn m-btn-secondary" id="m-continue-btn">Continue in browser</button>
       <p id="m-install-note" class="m-status" style="display:none; margin-top: 12px;"></p>
     </div>
   `;

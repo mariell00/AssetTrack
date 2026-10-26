@@ -1,0 +1,157 @@
+/* mobile.css — mobile build of the AssetTrack minimal light theme (same palette,
+   same font as the desktop theme.css), tuned for touch: 16px form text (no iOS
+   zoom-on-focus), 44px+ tap targets, press feedback instead of hover.
+   Inter is bundled in /assets/fonts so the app looks right with no internet
+   (the phone only talks to the desktop). Only Regular (400) is bundled; heavier
+   weights are synthesised by the browser — see desktop fonts.css for how to add real ones. */
+
+@font-face { font-family: 'Inter'; font-weight: 400; font-style: normal; font-display: swap; src: url('../assets/fonts/inter-latin-400-normal.woff2') format('woff2'); }
+
+:root {
+  --bg: #FFFFFF;        /* Pure White: page */
+  --surface: #F7F8FA;   /* Fog: surfaces, inputs */
+  --border: #E5E7EB;    /* Hairline */
+  --ink: #111827;       /* Ink: text */
+  --slate: #6B7280;     /* Slate: secondary text */
+  --blue: #2563EB;      /* Calm Cobalt: actions */
+  --blue-hover: #1D4ED8;
+  --blue-soft: #EFF6FF; /* Blue Mist: pressed / selected */
+  --success: #16A34A;  --success-soft: #F0FDF4;
+  --warning: #D97706;  --warning-soft: #FFFBEB;
+  --danger:  #DC2626;  --danger-soft:  #FEF2F2;
+  --radius: 12px;
+  --radius-sm: 10px;
+  --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  color-scheme: light;
+}
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+[hidden] { display: none !important; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+button, input, select, textarea { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+/* ---- app shell: header, clock, menu drawer, content ---- */
+.m-shell { display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+/* Brand mark on the screens outside the shell (install choice, login). */
+#mobile-app > .m-screen::before { content: url('../assets/brand/nbsc-wordmark.png'); display: block; flex: none; align-self: flex-start; margin: 0 0 20px -6px; line-height: 0; }
+
+.m-head { flex: none; display: flex; align-items: center; gap: 12px; padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 10px; }
+.m-logo { flex: none; display: block; width: 40px; height: 40px; object-fit: cover; border-radius: 10px; }
+.m-title { flex: 1; min-width: 0; }
+.m-brand { margin: 0; font-size: 20px; line-height: 1.15; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
+.m-page { margin: 1px 0 0; font-size: 13px; color: var(--slate); }
+.m-menu-btn { flex: none; width: 44px; height: 44px; padding: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm); cursor: pointer; }
+.m-menu-btn span { display: block; width: 18px; height: 2px; border-radius: 1px; background: var(--ink); }
+.m-menu-btn:active { background: var(--surface); }
+
+.m-clockbar { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; margin: 0 16px; padding: 4px 0 10px; border-bottom: 1px solid var(--border); }
+.m-time { font-size: 16px; font-variant-numeric: tabular-nums; }
+.m-date { font-size: 12px; color: var(--slate); text-align: right; }
+
+/* ---- menu drawer ---- */
+.m-scrim { position: fixed; inset: 0; z-index: 40; background: rgba(17, 24, 39, .35); }
+.m-drawer { position: fixed; top: 0; right: 0; bottom: 0; z-index: 50; width: min(86vw, 320px); display: flex; flex-direction: column; background: var(--bg); border-left: 1px solid var(--border); box-shadow: 0 12px 32px rgba(17, 24, 39, .18); padding-top: env(safe-area-inset-top, 0px); }
+.m-drawer-bar { flex: none; display: flex; align-items: center; justify-content: space-between; padding: 12px 10px 6px 20px; font-size: 12px; color: var(--slate); }
+.m-drawer-x { width: 40px; height: 40px; padding: 0; background: transparent; color: var(--slate); border: 0; border-radius: var(--radius-sm); font-size: 24px; line-height: 1; cursor: pointer; }
+.m-drawer-x:active { background: var(--surface); }
+.m-nav { flex: 1; min-height: 0; overflow-y: auto; padding: 4px 12px; }
+.m-nav-item { display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 10px 12px; margin-bottom: 2px; background: transparent; color: var(--ink); border: 0; border-radius: var(--radius-sm); font-size: 16px; text-align: left; cursor: pointer; }
+.m-nav-icon { display: inline-flex; width: 22px; height: 22px; flex: none; color: var(--slate); }
+.m-nav-icon svg { width: 22px; height: 22px; fill: none; stroke: currentColor; stroke-width: 1.75; stroke-linecap: round; stroke-linejoin: round; }
+.m-nav-label { flex: 1; }
+.m-nav-item:active:not(.active) { background: var(--surface); }
+.m-nav-item.active { background: var(--blue-soft); color: var(--blue); }
+.m-nav-item.active .m-nav-icon { color: var(--blue); }
+.m-nav-badge { min-width: 22px; padding: 1px 7px; background: var(--danger); color: #fff; border-radius: 999px; font-size: 12px; text-align: center; }
+.m-drawer-foot { flex: none; padding: 16px 18px calc(env(safe-area-inset-bottom, 0px) + 18px); border-top: 1px solid var(--border); }
+.m-usercard { display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+.m-avatar { flex: none; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; background: var(--blue); color: #fff; border-radius: 50%; font-size: 13px; }
+.m-usermeta { display: flex; flex-direction: column; min-width: 0; }
+.m-username { font-size: 14px; overflow-wrap: anywhere; }
+.m-userrole { font-size: 12px; color: var(--slate); }
+.m-logout { margin-top: 14px; }
+.m-confirm-title { margin: 0 0 6px; font-size: 20px; font-weight: 600; letter-spacing: -.01em; }
+.m-confirm-actions { display: flex; gap: 10px; }
+.m-confirm-actions .m-btn { margin-top: 0; }
+
+.m-content { flex: 1; min-height: 0; overflow-y: auto; padding: 16px 16px calc(env(safe-area-inset-bottom, 0px) + 28px); }
+
+/* Screens outside the shell (install choice, login): centred card under the wordmark. */
+#mobile-app > .m-screen { min-height: 100vh; min-height: 100dvh; display: flex; flex-direction: column; justify-content: center; padding: calc(env(safe-area-inset-top, 0px) + 24px) 16px calc(env(safe-area-inset-bottom, 0px) + 24px); background: var(--surface); }
+
+/* ---- panels ---- */
+.m-panel { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 18px; }
+.m-header { margin: -18px -18px 16px; padding: 14px 18px; border-bottom: 1px solid var(--border); font-size: 16px; font-weight: 600; line-height: 1.35; letter-spacing: -.005em; text-align: left; overflow-wrap: anywhere; }
+
+/* ---- forms ---- */
+.m-login input, .m-sync input, .m-register input, .m-register select, .m-registry input[type="search"],
+.m-asset-edit input, .m-asset-edit select, .m-asset-edit textarea, .m-room-picker select {
+  width: 100%; min-height: 46px; margin-bottom: 14px; padding: 11px 14px; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--border); border-radius: var(--radius-sm); font-size: 16px;
+}
+.m-room-picker select { margin-bottom: 0; }
+.m-asset-edit textarea { resize: vertical; }
+input::placeholder, textarea::placeholder { color: var(--slate); opacity: .85; }
+.m-login input:focus, .m-sync input:focus, .m-register input:focus, .m-register select:focus, .m-registry input[type="search"]:focus,
+.m-asset-edit input:focus, .m-asset-edit select:focus, .m-asset-edit textarea:focus, .m-room-picker select:focus {
+  outline: none; background: var(--bg); border-color: var(--blue); box-shadow: 0 0 0 3px rgba(37, 99, 235, .22);
+}
+.m-login label:not(.m-btn), .m-sync label:not(.m-btn), .m-register label:not(.m-btn), .m-asset-edit label:not(.m-btn), .m-registry label:not(.m-btn), .m-room-picker label {
+  display: block; margin-bottom: 6px; font-size: 13px; color: var(--slate);
+}
+.m-label-optional { font-size: 12px; color: var(--slate); opacity: .8; }
+
+/* ---- buttons ---- */
+.m-btn { display: block; width: 100%; min-height: 48px; padding: 13px 16px; background: var(--blue); color: #fff; border: 1px solid var(--blue); border-radius: var(--radius-sm); font-size: 16px; font-weight: 600; text-align: center; cursor: pointer; transition: background .12s; }
+.m-btn:active { background: var(--blue-hover); border-color: var(--blue-hover); }
+.m-btn:disabled { opacity: .5; }
+@media (hover: hover) { .m-btn:hover { background: var(--blue-hover); border-color: var(--blue-hover); } }
+.m-btn-big { font-size: 18px; padding: 18px; }
+.m-btn-secondary { margin-top: 12px; background: var(--bg); color: var(--ink); border-color: var(--border); }
+.m-btn-secondary:active { background: var(--surface); border-color: var(--border); }
+@media (hover: hover) { .m-btn-secondary:hover { background: var(--surface); border-color: #D1D5DB; } }
+
+.m-error { margin: 12px 0 0; color: var(--danger); font-size: 14px; line-height: 1.45; }
+.m-error:empty { display: none; }
+.m-status { color: var(--slate); font-size: 14px; line-height: 1.55; }
+
+/* ---- scan screen ---- */
+.m-room-picker { margin-bottom: 16px; padding: 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); }
+.m-scanner-panel { text-align: center; }
+.m-scanner-panel .m-status { margin: 0 0 14px; }
+.m-qr-video { display: block; width: 100%; max-width: 320px; aspect-ratio: 1 / 1; object-fit: cover; margin: 16px auto; background: #000; border-radius: var(--radius); }
+.m-scanned-list { margin-top: 20px; }
+.m-row { padding: 11px 2px; border-bottom: 1px solid var(--border); font-size: 14px; overflow-wrap: anywhere; }
+
+/* ---- asset edit + photo picker ---- */
+.m-asset-edit { margin-bottom: 16px; }
+.m-photo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+.m-photo-preview { flex: none; width: 56px; height: 56px; object-fit: cover; border: 1px solid var(--border); border-radius: var(--radius-sm); }
+.m-photo-pick { display: inline-flex; align-items: center; justify-content: center; width: auto; flex: 1; margin-top: 0; text-align: center; }
+
+/* ---- hints, sync count, registry list ---- */
+.m-hint { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--slate); }
+.m-asset-edit .m-hint, .m-register .m-hint { margin: 0 0 16px; }
+.m-sync-pending { margin: 0 0 16px; font-size: 15px; }
+.m-back { margin: 0 0 14px; }
+.m-reg-search-label { margin-top: 16px; }
+.m-registry input[type="search"] { margin-bottom: 8px; }
+.m-asset-list { margin-top: 6px; }
+.m-asset-row { display: block; width: 100%; padding: 13px 6px; text-align: left; background: transparent; color: var(--ink); border: 0; border-bottom: 1px solid var(--border); border-radius: 0; cursor: pointer; }
+.m-asset-row:active { background: var(--blue-soft); }
+.m-asset-row-main { display: block; font-size: 15px; overflow-wrap: anywhere; }
+.m-asset-row-main strong { font-weight: 600; }
+.m-asset-row-sub { display: block; margin-top: 4px; font-size: 13px; color: var(--slate); }
+.m-pill { display: inline-block; padding: 1px 9px; border-radius: 999px; background: var(--surface); color: var(--slate); font-size: 12px; }
+.m-pill-active { background: var(--success-soft); color: var(--success); }
+.m-pill-maintenance, .m-pill-pending { background: var(--warning-soft); color: var(--warning); }
+.m-pill-offline { background: var(--danger-soft); color: var(--danger); }
+
+/* ---- my registrations (Sync screen) ---- */
+.m-myreg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 11px 0; border-bottom: 1px solid var(--border); }
+.m-myreg-main { flex: 1 1 60%; min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
+.m-myreg-sub { flex-basis: 100%; font-size: 13px; color: var(--slate); }
+
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
