@@ -345,9 +345,8 @@ export function renderUserPanel() {
     if (!result.ok) { list.textContent = 'Unable to load users.'; return; }
     list.innerHTML = result.users
       .map((u) => {
-        const icon = u.last_login_source === 'mobile' ? '📱' : '🖥';
         const device = u.last_login_device ? ` (${u.last_login_device})` : '';
-        return `<div class="mono-row">${icon} ${u.username} — ${u.role}${device}</div>`;
+        return `<div class="mono-row">${u.username} — ${u.role}${device}</div>`;
       })
       .join('');
   });
@@ -370,8 +369,7 @@ function lastLoginCell(u) {
   const when = u.last_active.replace('T', ' ');
   const isMobile = u.last_login_source === 'mobile';
   const badgeClass = isMobile ? 'badge-source-mobile' : 'badge-source-desktop';
-  const icon = isMobile ? '📱' : '🖥';
-  const badgeLabel = `${icon} ${u.last_login_device ? u.last_login_device : (isMobile ? 'Mobile' : 'Desktop')}`;
+  const badgeLabel = u.last_login_device ? u.last_login_device : (isMobile ? 'Mobile' : 'Desktop');
   const title = u.last_login_ip ? ` title="IP: ${u.last_login_ip}"` : '';
   return `
     <div class="last-login-cell"${title}>

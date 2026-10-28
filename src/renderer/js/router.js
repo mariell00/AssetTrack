@@ -23,7 +23,7 @@ const ROUTE_TITLES = {
   '/assets': 'Asset registry',
   '/map': 'Cluster map',
   '/locations': 'Locations',
-  '/inventory': 'Inventory sync',
+  '/inventory': 'Sync',
   '/reports': 'Reports',
   '/mobile': 'QR distribution',
   '/admins': 'Manage admins',
@@ -225,17 +225,39 @@ function tickClock() {
   document.getElementById('top-date').textContent =
     now.toLocaleDateString(undefined, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
 }
-// Scans synced from the mobile app wait for the super admin to verify them in
-// Inventory sync. Show how many are waiting: a count on the menu item and a red
-// square on the menu button, so it's noticed without opening the screen.
+// Registrations, scans and edits synced from the mobile app wait for the super admin
+// to verify them on the Sync screen. Show how many are waiting in three places so it
+// is noticed without opening that screen: a count on the menu item, a red dot on the
+// menu button, and a "Pending verification" notice in the bottom-right corner.
+const pendingToast = document.getElementById('pending-toast');
+let toastDismissedAt = 0; // the waiting-count the notice was dismissed at
+
+function updatePendingToast(n, registrations, updates) {
+  if (n < toastDismissedAt) toastDismissedAt = n;             // some were handled: a later arrival counts as new
+  if (n === 0) { toastDismissedAt = 0; pendingToast.hidden = true; return; }
+  const onSyncScreen = (location.hash || '').replace(/^#/, '').split('?')[0] === '/inventory';
+  if (onSyncScreen || n <= toastDismissedAt || shell.classList.contains('auth-mode')) { pendingToast.hidden = true; return; }
+  const parts = [];
+  if (registrations) parts.push(`${registrations} registration${registrations === 1 ? '' : 's'}`);
+  if (updates) parts.push(`${updates} update${updates === 1 ? '' : 's'}`);
+  document.getElementById('pt-detail').textContent = `${n} waiting · ${parts.join(', ')}`;
+  pendingToast.dataset.count = String(n);
+  pendingToast.hidden = false;
+}
+document.getElementById('pt-dismiss').addEventListener('click', () => {
+  toastDismissedAt = Number(pendingToast.dataset.count) || 0;
+  pendingToast.hidden = true;
+});
+
 async function refreshReviewBadge() {
-  if (shell.classList.contains('auth-mode') || !isAuthed()) return;
+  if (shell.classList.contains('auth-mode') || !isAuthed()) { pendingToast.hidden = true; return; }
   const link = document.querySelector('#nav-links a[data-nav="inventory"]');
   if (!link) return;
   const result = await apiGet('/api/v1/inventory/pending/count');
   const n = result.ok ? result.count : 0;
   let badge = link.querySelector('.nav-badge');
   document.getElementById('btn-menu').classList.toggle('has-alert', n > 0);
+  updatePendingToast(n, result.ok ? result.registrations : 0, result.ok ? result.scans : 0);
   if (n === 0) { if (badge) badge.remove(); return; }
   if (!badge) {
     badge = document.createElement('span');
@@ -243,7 +265,7 @@ async function refreshReviewBadge() {
     link.appendChild(badge);
   }
   badge.textContent = n > 99 ? '99+' : String(n);
-  badge.setAttribute('aria-label', `${n} scan${n === 1 ? '' : 's'} waiting for verification`);
+  badge.setAttribute('aria-label', `${n} item${n === 1 ? '' : 's'} waiting for verification`);
 }
 document.addEventListener('assettrack:queue-changed', refreshReviewBadge);
 setInterval(refreshReviewBadge, 20000);

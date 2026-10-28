@@ -1,13 +1,17 @@
 // features/inventory/ui.js — two things:
 //  1) renderPanel() — a compact "room verification progress" widget, used
 //     as a small tile embedded in other screens if needed.
-//  2) render() — the full "Inventory Sync" screen:
-//       - AWAITING VERIFICATION: what phones sent at sync, in two lists —
-//         PENDING REGISTRATIONS (a new asset) and PENDING SCANS (an existing
-//         asset scanned / edited). Each list shows the sync requests, the assets
-//         in each request, and a pop-out to confirm one asset at a time.
-//       - a grid of per-room sync cards and the Mobile Check-in Log.
+//  2) render() — the "Sync" screen:
+//       - PENDING APPROVAL: ONE list of everything phones sent at sync, whatever
+//         it is — a REGISTRATION (a new asset) or an UPDATE (a scan or edit of an
+//         existing asset). Rows are grouped by sync request (so a whole request can
+//         be verified/rejected at once). Click a row for a pop-out: a registration
+//         shows the new asset; an update shows ORIGINAL next to UPDATED.
+//       - CHECK-IN LOG: past phone check-ins; click a row to see what it covered.
+//     The "waiting for verification" notice that follows you around the app lives
+//     in router.js and links here.
 import { apiGet, apiPost } from '../../js/api-client.js';
+import { confirmDialog } from '../assets/ui.js';
 
 const SCAN_LABELS = { verified: 'Verified', missing: 'Missing', misplaced: 'Misplaced' };
 
@@ -19,25 +23,19 @@ function esc(value) {
 
 function localTime(sqlDate) {
   if (!sqlDate) return '—';
-  const d = new Date(String(sqlDate).replace(' ', 'T') + 'Z'); // SQLite stores UTC
+  const d = new Date(String(sqlDate).replace(' ', 'T') + (String(sqlDate).length <= 16 ? ':00Z' : 'Z')); // SQLite stores UTC
   return Number.isNaN(d.getTime()) ? esc(sqlDate)
     : d.toLocaleString(undefined, { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
 }
 
-function tierClass(pct) {
-  if (pct >= 100) return 'full';
-  if (pct >= 75) return 'partial';
-  return 'low';
-}
-
-function formatTime(ts) {
-  if (!ts) return 'never';
-  return ts.replace('T', ' ').slice(0, 19);
-}
+const plural = (n, one, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 const STATUS_LABELS = { active: 'Active', maintenance: 'Maintenance', pending: 'Pending', offline: 'Offline' };
-const statusBadge = (s) => `<span class="badge badge-asset-${esc(s || 'active')}">${STATUS_LABELS[s || 'active'] || esc(s).toUpperCase()}</span>`;
-const scanBadge = (s) => `<span class="badge badge-scan-${esc(s)}">${SCAN_LABELS[s] || esc(s).toUpperCase()}</span>`;
+const statusBadge = (s) => `<span class="badge badge-asset-${esc(s || 'active')}">${STATUS_LABELS[s || 'active'] || esc(s)}</span>`;
+const scanBadge = (s) => `<span class="badge badge-scan-${esc(s)}">${SCAN_LABELS[s] || esc(s)}</span>`;
+const typeBadge = (type) => (type === 'registration'
+  ? '<span class="badge badge-type-registration">Registration</span>'
+  : '<span class="badge badge-type-update">Update</span>');
 
 function peso(v) {
   if (v === null || v === undefined || v === '') return '—';
@@ -45,29 +43,70 @@ function peso(v) {
   return Number.isNaN(n) ? esc(v) : `₱${n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
-// The confirmation pop-out for ONE item from a sync request. `onDone` runs after it
-// has been verified or rejected so the lists can refresh.
+// Opens a pop-out on `root`; returns { overlay, close }. Esc, ✕ and a click outside all close it.
+function openPopout(root, { heading, bodyHtml, actionsHtml = '' }) {
+  const overlay = document.createElement('div');
+  overlay.className = 'modal-overlay';
+  overlay.innerHTML = `
+    <div class="modal-box crt-panel asset-detail-box" role="dialog" aria-modal="true" aria-label="${esc(heading)}">
+      <div class="crt-header"><span class="crt-dot"></span> ${esc(heading)}<button type="button" class="modal-close" data-close aria-label="Close">✕</button></div>
+      <div class="ad-scroll">${bodyHtml}</div>
+      ${actionsHtml ? `<div class="ad-actions">${actionsHtml}</div>` : ''}
+    </div>`;
+  root.appendChild(overlay);
+  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
+  const onKey = (e) => { if (e.key === 'Escape') close(); };
+  document.addEventListener('keydown', onKey);
+  overlay.querySelector('[data-close]').addEventListener('click', close);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  return { overlay, close };
+}
+
+const field = (label, value) => `<div class="ad-field"><span class="ad-label">${label}</span><span class="ad-value">${value}</span></div>`;
+
+// One column of the Original / Updated comparison.
+function compareColumn(title, rows, side) {
+  const cell = (c) => {
+    const v = side === 'from' ? c.from : c.to;
+    if (c.is_photo) return v ? `<img class="q-thumb" src="${v}" alt="" />` : '<span class="bd-dim">No photo</span>';
+    if (c.field === 'status') return v ? statusBadge(v) : '—';
+    if (c.field === 'value_php') return peso(v);
+    return esc(v) || '—';
+  };
+  return `
+    <div class="cmp-col">
+      <h3>${title}</h3>
+      ${rows.map((c) => `
+        <div class="cmp-row${c.changed ? ` is-changed-${side}` : ''}">
+          <span class="ad-label">${esc(c.label)}</span>
+          <span class="ad-value">${cell(c)}</span>
+        </div>`).join('')}
+    </div>`;
+}
+
+// The review pop-out for ONE item. Resolves via `onDone` after it was verified/rejected.
 async function openReviewModal(root, { type, id }, onDone) {
   const isReg = type === 'registration';
   const result = await apiGet(`/api/v1/inventory/pending/${isReg ? 'registrations' : 'scans'}/${id}`);
   if (!result.ok) { alert(result.error || 'Could not open this item.'); onDone(); return; }
   const d = isReg ? result.registration : result.scan;
 
-  const field = (label, value) => `<div class="ad-field"><span class="ad-label">${label}</span><span class="ad-value">${value}</span></div>`;
-  let heading; let top; let body; let verifyLabel;
+  let heading; let body; let verifyLabel;
 
   if (isReg) {
     const a = d.asset;
-    heading = 'Verify registration';
+    heading = 'Review registration';
     verifyLabel = 'Verify & add asset';
-    top = `
-      ${a.photo ? `<img class="ad-photo" src="${a.photo}" alt="Photo of ${esc(a.name)}" />` : '<div class="ad-photo ad-photo-empty">No photo</div>'}
-      <div class="ad-id">
-        <div class="ad-tag">${esc(a.name)}</div>
-        <div><span class="badge badge-asset-active">New asset</span> ${statusBadge(a.status)}</div>
-        <div class="ad-name">The Asset ID is generated when you verify this.</div>
-      </div>`;
     body = `
+      <div class="ad-top">
+        ${a.photo ? `<img class="ad-photo" src="${a.photo}" alt="Photo of ${esc(a.name)}" />` : '<div class="ad-photo ad-photo-empty">No photo</div>'}
+        <div class="ad-id">
+          <div>${typeBadge('registration')}</div>
+          <div class="ad-tag">${esc(a.name)}</div>
+          <div>${statusBadge(a.status)}</div>
+          <div class="ad-name">The Asset ID is generated when you verify this.</div>
+        </div>
+      </div>
       <div class="ad-grid">
         ${field('Category', esc(a.category) || '—')}
         ${field('Condition', esc(a.condition) || 'good')}
@@ -80,22 +119,15 @@ async function openReviewModal(root, { type, id }, onDone) {
       <div class="ad-section"><h3>Sent from</h3><p class="ad-text">${esc(d.device)} · ${localTime(d.received_at)}</p></div>`;
   } else {
     const a = d.asset;
-    heading = d.kind === 'edit' ? 'Verify edit' : 'Verify scan';
-    verifyLabel = d.kind === 'edit' ? 'Apply changes' : 'Verify scan';
-    top = `
-      ${a.photo ? `<img class="ad-photo" src="${a.photo}" alt="Photo of ${esc(a.name)}" />` : '<div class="ad-photo ad-photo-empty">No photo</div>'}
-      <div class="ad-id">
+    const changed = d.compare.filter((c) => c.changed);
+    heading = 'Review update';
+    verifyLabel = d.kind === 'edit' ? 'Apply changes' : 'Verify update';
+    body = `
+      <div class="ad-head">
+        <div>${typeBadge('update')} ${d.kind === 'edit' ? '<span class="badge">Edit</span>' : `<span class="badge">Mobile scan</span> ${scanBadge(d.scanned_as)}`}</div>
         <div class="ad-tag">${esc(a.asset_tag)}</div>
         <div class="ad-name">${esc(a.name)}</div>
-        <div>${d.kind === 'edit' ? '<span class="badge badge-asset-pending">Edit only</span>' : `${scanBadge(d.scanned_as)}`}</div>
-      </div>`;
-    const diffRows = d.diff.map((c) => `
-      <tr>
-        <td class="mono-strong">${esc(c.label)}</td>
-        <td>${c.is_photo ? (c.from ? `<img class="q-thumb" src="${c.from}" alt="" />` : '—') : (esc(c.from) || '—')}</td>
-        <td class="q-new">${c.is_photo ? (c.to ? `<img class="q-thumb" src="${c.to}" alt="" />` : '—') : (esc(c.to) || '—')}</td>
-      </tr>`).join('');
-    body = `
+      </div>
       <div class="ad-grid">
         ${d.kind === 'scan' ? field('Scanned in', esc(d.scanned_room)) : field('Type', 'Edited from the registry list')}
         ${field('Registered in', esc(d.registered_room))}
@@ -103,40 +135,31 @@ async function openReviewModal(root, { type, id }, onDone) {
         ${field('Sent', localTime(d.received_at))}
       </div>
       ${d.room_mismatch ? `<p class="q-callout">This asset was scanned in <strong>${esc(d.scanned_room)}</strong> but is registered in <strong>${esc(d.registered_room)}</strong>. Check before verifying.</p>` : ''}
-      <div class="ad-section">
-        <h3>Proposed changes</h3>
-        ${d.diff.length
-          ? `<table class="retro-table q-diff"><thead><tr><th>Field</th><th>Current</th><th>Proposed</th></tr></thead><tbody>${diffRows}</tbody></table>`
-          : `<p class="ad-empty">${d.kind === 'edit' ? 'These edits match what is already saved.' : 'No changes. This scan only confirms the asset was found.'}</p>`}
-      </div>
+      ${changed.length
+        ? `<p class="cmp-summary">${plural(changed.length, 'field')} will change. Changes are highlighted.</p>
+           <div class="cmp">${compareColumn('Original', d.compare, 'from')}${compareColumn('Updated', d.compare, 'to')}</div>`
+        : `<p class="q-callout">${d.kind === 'edit' ? 'These edits match what is already saved.' : 'No field changes. This scan only confirms the asset was found.'}</p>
+           <div class="cmp cmp-single">${compareColumn('Current details', d.compare, 'from')}</div>`}
       <div class="ad-section"><h3>Sent from</h3><p class="ad-text">${esc(d.device)}</p></div>`;
   }
 
-  const overlay = document.createElement('div');
-  overlay.className = 'modal-overlay';
-  overlay.innerHTML = `
-    <div class="modal-box crt-panel asset-detail-box" role="dialog" aria-modal="true" aria-label="${heading}">
-      <div class="crt-header"><span class="crt-dot"></span> ${heading}<button type="button" class="modal-close" id="rv-close" aria-label="Close">✕</button></div>
-      <div class="ad-scroll">
-        <div class="ad-top">${top}</div>
-        ${body}
-      </div>
-      <div class="ad-actions">
-        <button type="button" class="btn-retro small danger" id="rv-reject">Reject</button>
-        <button type="button" class="btn-retro small" id="rv-verify">${verifyLabel}</button>
-      </div>
-    </div>`;
-  root.appendChild(overlay);
-
-  const close = () => { overlay.remove(); document.removeEventListener('keydown', onKey); };
-  const onKey = (e) => { if (e.key === 'Escape') close(); };
-  document.addEventListener('keydown', onKey);
-  overlay.querySelector('#rv-close').addEventListener('click', close);
-  overlay.addEventListener('click', (e) => { if (e.target === overlay) close(); });
+  const { overlay, close } = openPopout(root, {
+    heading, bodyHtml: body,
+    actionsHtml: `
+      <button type="button" class="btn-retro small danger" id="rv-reject">Reject</button>
+      <button type="button" class="btn-retro small" id="rv-verify">${verifyLabel}</button>`
+  });
   overlay.querySelector('#rv-verify').focus();
 
   async function act(action) {
-    if (action === 'reject' && !confirm(isReg ? 'Reject this registration? The asset will not be added.' : 'Reject this? It will not be counted and no changes will be applied.')) return;
+    if (action === 'reject') {
+      const sure = await confirmDialog({
+        title: 'Reject this?',
+        messageHtml: isReg ? 'The asset will not be added.' : 'It will not be counted and no changes will be applied.',
+        confirmLabel: 'Reject', danger: true
+      });
+      if (!sure) return;
+    }
     overlay.querySelectorAll('button').forEach((b) => { b.disabled = true; });
     const res = await apiPost('/api/v1/inventory/pending/review', { type, action, ids: [id] });
     if (!res.ok) alert(res.error || 'Could not save that. Try again.');
@@ -148,158 +171,162 @@ async function openReviewModal(root, { type, id }, onDone) {
   overlay.querySelector('#rv-reject').addEventListener('click', () => act('reject'));
 }
 
+// The pop-out for one check-in log row: who, where, when, and the assets it covered.
+function openCheckinModal(root, row) {
+  const items = row.items || [];
+  const body = `
+    <div class="ad-head">
+      <div><span class="status-dot status-${row.status}"></span>${row.status === 'complete' ? 'Complete' : 'Partial'} check-in</div>
+      <div class="ad-tag">${esc(row.room)}</div>
+      <div class="ad-name">${esc(row.device)}</div>
+    </div>
+    <div class="ad-grid">
+      ${field('Checked in', localTime(row.time))}
+      ${field('Scanned by', esc(row.user))}
+      ${field('Assets', row.expected ? `${row.count} of ${row.expected}` : String(row.count))}
+      ${field('Missing', row.missing != null ? String(row.missing) : '—')}
+    </div>
+    ${row.notes ? `<div class="ad-section"><h3>Notes</h3><p class="ad-text">${esc(row.notes)}</p></div>` : ''}
+    <div class="ad-section">
+      <h3>Assets in this check-in (${items.length})</h3>
+      ${items.length
+        ? items.map((i) => `
+          <div class="ad-row">
+            <span class="ad-row-main"><strong>${esc(i.asset_tag)}</strong> · ${esc(i.name)}</span>
+            ${scanBadge(i.status)}
+            <span class="ad-row-meta">${localTime(i.scanned_at)}</span>
+          </div>`).join('')
+        : '<p class="ad-empty">No individual assets were recorded for this check-in.</p>'}
+    </div>`;
+  openPopout(root, { heading: 'Check-in details', bodyHtml: body });
+}
+
+// Registrations + updates, regrouped by sync request so a request that carried both
+// shows as one block. Newest request first.
+function groupQueue(queue) {
+  const groups = new Map();
+  const put = (batch, item) => {
+    if (!groups.has(batch.batch_id)) groups.set(batch.batch_id, { ...batch, items: [] });
+    groups.get(batch.batch_id).items.push(item);
+  };
+  queue.registrations.batches.forEach((b) => b.items.forEach((i) => put(b, { ...i, type: 'registration' })));
+  queue.scans.batches.forEach((b) => b.items.forEach((i) => put(b, { ...i, type: 'update' })));
+  return [...groups.values()].sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)));
+}
+
+function rowHtml(i) {
+  if (i.type === 'registration') {
+    const extra = [i.category, i.assigned_to ? `for ${i.assigned_to}` : null].filter(Boolean).join(' · ');
+    return `
+      <tr class="q-item" data-type="registration" data-id="${i.id}" tabindex="0" role="button" aria-label="Review registration ${esc(i.name)}">
+        <td>${typeBadge('registration')}</td>
+        <td><span class="mono-strong">${esc(i.name)}</span><span class="q-sub">Asset ID is assigned when verified</span></td>
+        <td>${esc(i.room)}</td>
+        <td>New asset${extra ? ` · ${esc(extra)}` : ''}</td>
+        <td class="q-go" aria-hidden="true">Review ›</td>
+      </tr>`;
+  }
+  const changes = i.change_fields.length ? `changes ${esc(i.change_fields.join(', '))}` : '';
+  const what = i.kind === 'edit'
+    ? `Edit · ${changes || 'no changes'}`
+    : `Mobile scan · ${SCAN_LABELS[i.scanned_as] || esc(i.scanned_as)}${changes ? ` · ${changes}` : ''}`;
+  return `
+    <tr class="q-item${i.room_mismatch ? ' q-flag' : ''}" data-type="scan" data-id="${i.id}" tabindex="0" role="button" aria-label="Review update ${esc(i.asset_tag)}">
+      <td>${typeBadge('update')}</td>
+      <td><span class="mono-strong">${esc(i.asset_name)}</span><span class="q-sub">${esc(i.asset_tag)}</span></td>
+      <td>${i.kind === 'edit' ? esc(i.registered_room) : esc(i.scanned_room)}${i.room_mismatch ? `<span class="q-warn">registered in ${esc(i.registered_room)}</span>` : ''}</td>
+      <td>${what}</td>
+      <td class="q-go" aria-hidden="true">Review ›</td>
+    </tr>`;
+}
+
 export function render() {
   const el = document.createElement('div');
   el.className = 'screen screen-inventory';
   el.innerHTML = `
     <div class="crt-panel queue-panel">
-      <div class="crt-header"><span class="crt-dot"></span> Awaiting verification</div>
-      <div class="queue-tabs" role="tablist">
-        <button type="button" role="tab" class="queue-tab is-active" data-tab="registrations" aria-selected="true">Pending registrations <span class="queue-n" id="n-registrations"></span></button>
-        <button type="button" role="tab" class="queue-tab" data-tab="scans" aria-selected="false">Pending scans <span class="queue-n" id="n-scans"></span></button>
-      </div>
-      <p class="queue-lede" id="queue-lede"></p>
+      <div class="crt-header"><span class="crt-dot"></span> Pending approval <span class="tab-count" id="pa-count"></span></div>
+      <p class="queue-lede">Everything phones sent at their last sync waits here until you verify it. A <strong>registration</strong> adds a new asset; an <strong>update</strong> is a scan or an edit of an asset that already exists. Click a row to review it.</p>
       <div id="queue-body" class="queue-body">Loading…</div>
     </div>
-    <div class="crt-panel">
-      <div class="crt-header"><span class="crt-dot"></span> Inventory sync</div>
-      <div id="sync-grid" class="sync-grid">Loading…</div>
-    </div>
     <div class="crt-panel checkin-panel">
-      <div class="panel-title">Mobile check-in log</div>
-      <table class="retro-table">
-        <thead><tr><th>Time</th><th>Device</th><th>Room</th><th>Count</th><th>Status</th></tr></thead>
-        <tbody id="checkin-rows"><tr><td colspan="5">Loading…</td></tr></tbody>
+      <div class="crt-header"><span class="crt-dot"></span> Check-in log</div>
+      <table class="retro-table checkin-table">
+        <thead><tr><th>Time</th><th>Device</th><th>Room</th><th>Count</th><th>Status</th><th></th></tr></thead>
+        <tbody id="checkin-rows"><tr><td colspan="6">Loading…</td></tr></tbody>
       </table>
     </div>
   `;
 
-  async function loadRooms() {
-    const result = await apiGet('/api/v1/inventory/progress');
-    const grid = el.querySelector('#sync-grid');
-    if (!result.ok || result.rooms.length === 0) {
-      grid.innerHTML = '<p class="empty-hint">No rooms configured yet.</p>';
-      return;
-    }
-
-    grid.innerHTML = result.rooms.map((r) => {
-      const tier = tierClass(r.pct);
-      const segments = Array.from({ length: 10 }, (_, i) =>
-        `<span class="segment ${i < Math.round((r.pct / 100) * 10) ? `filled tier-${tier}` : ''}"></span>`
-      ).join('');
-
-      return `
-        <div class="sync-card">
-          <div class="sync-card-title">${r.room_name}</div>
-          <div class="sync-card-last">Last: ${formatTime(r.last_sync)}</div>
-          <div class="segmented-bar">${segments}</div>
-          <div class="sync-card-footer">
-            <span class="sync-card-count tier-text-${tier}">${r.verified}/${r.expected}${r.awaiting ? ` <span class="awaiting-tag">+${r.awaiting} awaiting</span>` : ''}</span>
-            <button class="btn-retro small btn-sync-room" data-room="${r.room_id}">Sync</button>
-          </div>
-        </div>
-      `;
-    }).join('');
-
-    grid.querySelectorAll('.btn-sync-room').forEach((btn) => {
-      btn.addEventListener('click', async () => {
-        btn.textContent = '…';
-        await loadRooms();
-      });
-    });
-  }
+  const queueBody = el.querySelector('#queue-body');
+  let groups = [];
+  let shownCount = null;
+  let log = [];
 
   async function loadCheckinLog() {
     const result = await apiGet('/api/v1/inventory/sync-log?limit=20');
     const tbody = el.querySelector('#checkin-rows');
     if (!result.ok || result.log.length === 0) {
-      tbody.innerHTML = '<tr><td colspan="5">No sync activity yet.</td></tr>';
+      log = [];
+      tbody.innerHTML = '<tr><td colspan="6">No sync activity yet.</td></tr>';
       return;
     }
-    tbody.innerHTML = result.log.map((row) => `
-      <tr>
-        <td>${formatTime(row.time)}</td>
-        <td>${row.device}</td>
-        <td>${row.room}</td>
+    log = result.log;
+    tbody.innerHTML = log.map((row, i) => `
+      <tr class="checkin-row" data-i="${i}" tabindex="0" role="button" aria-label="Details of the check-in from ${esc(row.device)}">
+        <td>${localTime(row.time)}</td>
+        <td>${esc(row.device)}</td>
+        <td>${esc(row.room)}</td>
         <td>${row.count}</td>
-        <td><span class="status-dot status-${row.status}"></span> ${row.status === 'complete' ? 'Complete' : 'Partial'}</td>
-      </tr>
-    `).join('');
+        <td><span class="status-dot status-${row.status}"></span>${row.status === 'complete' ? 'Complete' : 'Partial'}</td>
+        <td class="q-go" aria-hidden="true">Details ›</td>
+      </tr>`).join('');
   }
 
-  // ---- verification queue ----
-  const queueBody = el.querySelector('#queue-body');
-  const lede = el.querySelector('#queue-lede');
-  const LEDE = {
-    registrations: 'A registration adds a new asset. Nothing is added until you verify it, and the Asset ID is generated then. Click an asset to review it, or verify a whole sync request at once.',
-    scans: 'A scan updates an asset that already exists. Its proposed changes are only applied, and the scan only counts as verified, once you verify it. Click an asset to see what would change.'
-  };
-  let queue = null;
-  let activeTab = null;
-  let shownCount = null;
+  const checkinBody = el.querySelector('#checkin-rows');
+  const openCheckin = (tr) => { const row = tr && log[Number(tr.dataset.i)]; if (row) openCheckinModal(el, row); };
+  checkinBody.addEventListener('click', (e) => openCheckin(e.target.closest('.checkin-row')));
+  checkinBody.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' && e.key !== ' ') return;
+    const tr = e.target.closest('.checkin-row');
+    if (tr) { e.preventDefault(); openCheckin(tr); }
+  });
 
-  function setTab(tab) {
-    activeTab = tab;
-    el.querySelectorAll('.queue-tab').forEach((b) => {
-      const on = b.dataset.tab === tab;
-      b.classList.toggle('is-active', on);
-      b.setAttribute('aria-selected', on ? 'true' : 'false');
-    });
-    lede.textContent = LEDE[tab];
-    drawQueue();
-  }
-
+  // ---- pending approval ----
   function drawQueue() {
-    if (!queue) return;
-    const list = queue[activeTab];
-    el.querySelector('#n-registrations').textContent = queue.registrations.count ? `(${queue.registrations.count})` : '';
-    el.querySelector('#n-scans').textContent = queue.scans.count ? `(${queue.scans.count})` : '';
-    if (list.batches.length === 0) {
-      queueBody.innerHTML = `<p class="empty-hint">${activeTab === 'registrations'
-        ? 'No registrations waiting. New assets registered on a phone appear here after the next sync.'
-        : 'No scans waiting. Scans and edits from a phone appear here after the next sync.'}</p>`;
+    const total = groups.reduce((n, g) => n + g.items.length, 0);
+    el.querySelector('#pa-count').textContent = total ? String(total) : '';
+    if (groups.length === 0) {
+      queueBody.innerHTML = '<p class="empty-hint">Nothing is waiting for approval. Registrations, scans and edits from a phone appear here after its next sync.</p>';
       return;
     }
-    const isReg = activeTab === 'registrations';
-    queueBody.innerHTML = list.batches.map((b) => `
-      <section class="queue-batch" data-batch="${esc(b.batch_id)}">
+    queueBody.innerHTML = groups.map((g) => {
+      const regs = g.items.filter((i) => i.type === 'registration').length;
+      const upds = g.items.length - regs;
+      const mix = [regs ? plural(regs, 'registration') : null, upds ? plural(upds, 'update') : null].filter(Boolean).join(', ');
+      return `
+      <section class="queue-batch" data-batch="${esc(g.batch_id)}">
         <header class="queue-batch-head">
-          <span class="queue-device">${esc(b.device)}</span>
-          <span class="queue-time">Sync request · ${localTime(b.received_at)} · ${b.items.length} ${isReg ? (b.items.length === 1 ? 'asset' : 'assets') : (b.items.length === 1 ? 'item' : 'items')}</span>
+          <span class="queue-device">${esc(g.device)}</span>
+          <span class="queue-time">Sync request · ${localTime(g.received_at)} · ${mix}</span>
         </header>
         <div class="queue-scroll">
           <table class="retro-table queue-table">
-            <thead><tr>${isReg
-              ? '<th>Asset name</th><th>Category</th><th>Room</th><th>Assigned to</th><th>Status</th>'
-              : '<th>Asset ID</th><th>Asset</th><th>Type</th><th>Scanned as</th><th>Scanned in</th><th>Changes</th>'}</tr></thead>
-            <tbody>
-              ${b.items.map((i) => isReg ? `
-                <tr class="q-item" data-id="${i.id}" tabindex="0" role="button" aria-label="Review ${esc(i.name)}">
-                  <td class="mono-strong">${esc(i.name)}</td><td>${esc(i.category) || '—'}</td><td>${esc(i.room)}</td>
-                  <td>${esc(i.assigned_to) || '—'}</td><td>${statusBadge(i.status)}</td>
-                </tr>` : `
-                <tr class="q-item ${i.room_mismatch ? 'q-flag' : ''}" data-id="${i.id}" tabindex="0" role="button" aria-label="Review ${esc(i.asset_tag)}">
-                  <td class="mono-strong">${esc(i.asset_tag)}</td><td>${esc(i.asset_name)}</td>
-                  <td>${i.kind === 'edit' ? '<span class="badge badge-asset-pending">Edit</span>' : '<span class="badge badge-asset-active">Scan</span>'}</td>
-                  <td>${i.kind === 'edit' ? '—' : scanBadge(i.scanned_as)}</td>
-                  <td>${i.kind === 'edit' ? '—' : esc(i.scanned_room)}${i.room_mismatch ? `<span class="q-warn">registered in ${esc(i.registered_room)}</span>` : ''}</td>
-                  <td>${i.change_fields.length ? esc(i.change_fields.join(', ')) : '—'}</td>
-                </tr>`).join('')}
-            </tbody>
+            <thead><tr><th>Type</th><th>Asset</th><th>Room</th><th>Details</th><th></th></tr></thead>
+            <tbody>${g.items.map(rowHtml).join('')}</tbody>
           </table>
         </div>
         <footer class="queue-batch-actions">
-          <span class="q-sel">Click an asset to review it</span>
+          <span class="q-sel">Click a row to review it</span>
           <button type="button" class="btn-retro small danger q-reject-all">Reject all</button>
           <button type="button" class="btn-retro small q-verify-all">Verify all</button>
         </footer>
-      </section>
-    `).join('');
+      </section>`;
+    }).join('');
 
     queueBody.querySelectorAll('.queue-batch').forEach((batchEl) => {
-      const batch = list.batches.find((x) => x.batch_id === batchEl.dataset.batch);
-      const type = isReg ? 'registration' : 'scan';
-      const open = (row) => row && openReviewModal(el, { type, id: Number(row.dataset.id) }, refreshAll);
+      const group = groups.find((x) => x.batch_id === batchEl.dataset.batch);
+      const open = (row) => row && openReviewModal(el, { type: row.dataset.type === 'registration' ? 'registration' : 'scan', id: Number(row.dataset.id) }, refreshAll);
       batchEl.addEventListener('click', (e) => open(e.target.closest('.q-item')));
       batchEl.addEventListener('keydown', (e) => {
         if (e.key !== 'Enter' && e.key !== ' ') return;
@@ -308,23 +335,35 @@ export function render() {
         e.preventDefault();
         open(row);
       });
-      batchEl.querySelector('.q-verify-all').addEventListener('click', () => reviewAll(type, 'approve', batch));
-      batchEl.querySelector('.q-reject-all').addEventListener('click', () => reviewAll(type, 'reject', batch));
+      batchEl.querySelector('.q-verify-all').addEventListener('click', () => reviewGroup('approve', group));
+      batchEl.querySelector('.q-reject-all').addEventListener('click', () => reviewGroup('reject', group));
     });
   }
 
-  async function reviewAll(type, action, batch) {
-    const n = batch.items.length;
-    const what = type === 'registration' ? `registration${n === 1 ? '' : 's'}` : `scan${n === 1 ? '' : 's'}`;
-    const flagged = batch.items.filter((i) => i.room_mismatch).length;
-    const msg = action === 'approve'
-      ? `Verify all ${n} ${what} from ${batch.user}?${type === 'registration' ? ' This adds them to the registry.' : ''}${flagged ? `\n\n${flagged} of them were scanned in a different room than registered.` : ''}`
-      : `Reject all ${n} ${what} from ${batch.user}? ${type === 'registration' ? 'No assets will be added.' : 'Nothing will be counted or changed.'}`;
-    if (!confirm(msg)) return;
-    queueBody.querySelectorAll(`[data-batch="${batch.batch_id}"] button`).forEach((b) => { b.disabled = true; });
-    const res = await apiPost('/api/v1/inventory/pending/review', { type, action, ids: batch.items.map((i) => i.id) });
-    if (!res.ok) alert(res.error || 'Could not save that. Try again.');
-    else if (res.failed && res.failed.length) alert(`${res.failed.length} could not be verified:\n${res.failed.map((f) => f.error).join('\n')}`);
+  async function reviewGroup(action, group) {
+    const regIds = group.items.filter((i) => i.type === 'registration').map((i) => i.id);
+    const updIds = group.items.filter((i) => i.type === 'update').map((i) => i.id);
+    const n = group.items.length;
+    const flagged = group.items.filter((i) => i.room_mismatch).length;
+    const what = [regIds.length ? plural(regIds.length, 'registration') : null, updIds.length ? plural(updIds.length, 'update') : null].filter(Boolean).join(' and ');
+    const approve = action === 'approve';
+    const ok = await confirmDialog({
+      title: approve ? `Verify all ${n}?` : `Reject all ${n}?`,
+      messageHtml: approve
+        ? `Verify ${esc(what)} from ${esc(group.user)}?${regIds.length ? ' Registrations are added to the registry.' : ''}${flagged ? `<br/><br/>${plural(flagged, 'item')} ${flagged === 1 ? 'was' : 'were'} scanned in a different room than registered.` : ''}`
+        : `Reject ${esc(what)} from ${esc(group.user)}? ${regIds.length ? 'No assets will be added. ' : ''}Nothing will be counted or changed.`,
+      confirmLabel: approve ? 'Verify all' : 'Reject all', danger: !approve
+    });
+    if (!ok) return;
+    queueBody.querySelectorAll(`[data-batch="${group.batch_id}"] button`).forEach((b) => { b.disabled = true; });
+    const calls = [];
+    if (regIds.length) calls.push(apiPost('/api/v1/inventory/pending/review', { type: 'registration', action, ids: regIds }));
+    if (updIds.length) calls.push(apiPost('/api/v1/inventory/pending/review', { type: 'scan', action, ids: updIds }));
+    const results = await Promise.all(calls);
+    const failedCalls = results.filter((r) => !r.ok);
+    const failedItems = results.flatMap((r) => r.failed || []);
+    if (failedCalls.length) alert(failedCalls[0].error || 'Could not save that. Try again.');
+    else if (failedItems.length) alert(`${plural(failedItems.length, 'item')} could not be verified:\n${failedItems.map((f) => f.error).join('\n')}`);
     refreshAll();
   }
 
@@ -334,19 +373,15 @@ export function render() {
       queueBody.innerHTML = `<p class="empty-hint">${esc(result.error || 'Could not load the queue.')}</p>`;
       return;
     }
-    queue = result;
     shownCount = result.count;
-    // First load: open on whichever list has something waiting.
-    if (!activeTab) activeTab = result.registrations.count || !result.scans.count ? 'registrations' : 'scans';
-    setTab(activeTab);
+    groups = groupQueue(result);
+    drawQueue();
   }
 
   async function refreshAll() {
-    await Promise.all([loadQueue(), loadRooms(), loadCheckinLog()]);
+    await Promise.all([loadQueue(), loadCheckinLog()]);
     document.dispatchEvent(new CustomEvent('assettrack:queue-changed'));
   }
-
-  el.querySelectorAll('.queue-tab').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
 
   // New sync requests show up on their own.
   async function pollQueue() {
@@ -360,7 +395,6 @@ export function render() {
   observer.observe(document.body, { childList: true, subtree: true });
 
   loadQueue();
-  loadRooms();
   loadCheckinLog();
   return el;
 }

@@ -8,10 +8,9 @@ const { getDb } = require('../../core/database');
 // routes.js), not anything the client could fake by editing a request
 // body.
 function deviceLabel(username, source, ip, deviceName) {
-  const icon = source === 'mobile' ? '📱' : source === 'desktop' ? '🖥' : '❓';
   const who = username || 'unknown';
   const device = deviceName ? ` · ${deviceName}` : '';
-  return ip ? `${icon} ${who}${device} · ${ip}` : `${icon} ${who}${device}`;
+  return ip ? `${who}${device} · ${ip}` : `${who}${device}`;
 }
 
 // ---- What a phone can send, and what happens to it ----------------------
@@ -284,6 +283,29 @@ function allRoomsProgress() {
 // a COMPLETE/PARTIAL verdict against the room's expected count.
 function syncLog(limit = 20) {
   const db = getDb();
+
+  // The assets that were checked in under one log row, so selecting the row can
+  // show what it actually covered (the pop-out on the Sync screen).
+  const itemsBySession = db.prepare(`
+    SELECT a.asset_tag, a.name, l.status, l.scanned_at
+    FROM inventory_logs l JOIN assets a ON a.id = l.asset_id
+    WHERE l.scanned_by = @user AND COALESCE(l.room_id, -1) = COALESCE(@room_id, -1)
+      AND l.scanned_at BETWEEN datetime(@at, '-10 minutes') AND datetime(@at, '+10 minutes')
+    ORDER BY l.id DESC LIMIT 200
+  `);
+  const itemsByGroup = db.prepare(`
+    SELECT a.asset_tag, a.name, l.status, l.scanned_at
+    FROM inventory_logs l
+    JOIN assets a ON a.id = l.asset_id
+    LEFT JOIN rooms r ON r.id = l.room_id
+    WHERE substr(l.scanned_at, 1, 16) = @time AND l.scanned_by = @user
+      AND COALESCE(l.device_source, '') = COALESCE(@source, '')
+      AND COALESCE(l.device_ip, '') = COALESCE(@ip, '')
+      AND COALESCE(l.device_name, '') = COALESCE(@device_name, '')
+      AND COALESCE(r.name, 'Unassigned') = @room
+    ORDER BY l.id DESC LIMIT 200
+  `);
+
   const sessions = db.prepare(`
     SELECT s.*, r.name AS room_name,
       (SELECT COUNT(*) FROM assets WHERE room_id = s.room_id) AS expected
@@ -295,12 +317,17 @@ function syncLog(limit = 20) {
 
   if (sessions.length > 0) {
     return sessions.map((s) => ({
+      id: `s${s.id}`,
       time: s.created_at,
       device: deviceLabel(s.scanned_by, s.device_source, s.device_ip, s.device_name),
       user: s.scanned_by,
       room: s.room_name || 'Unassigned',
       count: s.total_scanned,
-      status: s.expected > 0 && s.total_scanned >= s.expected ? 'complete' : 'partial'
+      expected: s.expected,
+      missing: s.missing_count,
+      notes: s.notes || null,
+      status: s.expected > 0 && s.total_scanned >= s.expected ? 'complete' : 'partial',
+      items: itemsBySession.all({ user: s.scanned_by, room_id: s.room_id, at: s.created_at })
     }));
   }
 
@@ -320,19 +347,18 @@ function syncLog(limit = 20) {
     GROUP BY time, user, source, ip, device_name, room
     ORDER BY time DESC
     LIMIT ?
-  `).all(limit).map((row) => ({
+  `).all(limit).map((row, i) => ({
+    id: `g${i}`,
     time: row.time,
     device: deviceLabel(row.user, row.source, row.ip, row.device_name),
     user: row.user,
     room: row.room,
     count: row.count,
-    status: 'complete'
+    status: 'complete',
+    items: itemsByGroup.all({ time: row.time, user: row.user, source: row.source, ip: row.ip, device_name: row.device_name, room: row.room })
   }));
 }
 
-// A single "Mark Scanned" action — same underlying log as a batch sync, just
-// one row. From a phone it waits in the review queue like any synced scan; from
-// the desktop it is verified straight away.
 function markScanned(assetId, meta = {}) {
   const db = getDb();
   const asset = db.prepare('SELECT room_id FROM assets WHERE id = ?').get(assetId);
@@ -354,6 +380,8 @@ function markScanned(assetId, meta = {}) {
 
 // ---- Review queue (the Inventory Sync screen's "Awaiting verification") ----
 
+// Order the review pop-out lists fields in (photo first, then the details).
+const COMPARE_FIELDS = ['photo', 'name', 'category', 'condition', 'status', 'room_id', 'assigned_to', 'value_php', 'acquired_date', 'description'];
 const FIELD_LABELS = {
   name: 'Asset name', category: 'Category', description: 'Description', condition: 'Condition',
   status: 'Status', room_id: 'Room', assigned_to: 'Assigned to', value_php: 'Value (PHP)',
@@ -467,6 +495,22 @@ function scanDetail(id) {
       to: field === 'room_id' ? roomName(db, to) : to
     });
   }
+  // Every field side by side — what is saved now (original) and what it becomes
+  // once verified (updated) — with the ones that change flagged. The review
+  // pop-out shows this as two columns; `diff` above stays the changed-only list.
+  const norm = (v) => (v === '' || v === undefined ? null : v);
+  const compare = COMPARE_FIELDS.map((field) => {
+    const from = norm(asset[field]);
+    const proposed = Object.prototype.hasOwnProperty.call(changes, field);
+    const to = proposed ? norm(changes[field]) : from;
+    return {
+      field, label: FIELD_LABELS[field] || field, is_photo: field === 'photo',
+      from: field === 'room_id' ? roomName(db, from) : from,
+      to: field === 'room_id' ? roomName(db, to) : to,
+      changed: proposed && from !== to
+    };
+  });
+
   return {
     id: r.id, kind: r.kind, scanned_by: r.scanned_by, received_at: r.received_at,
     device: deviceLabel(r.scanned_by, r.device_source, r.device_ip, r.device_name),
@@ -474,7 +518,7 @@ function scanDetail(id) {
     scanned_room: r.kind === 'scan' ? roomName(db, r.room_id) : null,
     registered_room: roomName(db, asset.room_id),
     room_mismatch: r.kind === 'scan' && r.room_id !== null && asset.room_id !== null && r.room_id !== asset.room_id,
-    asset, diff
+    asset, diff, compare
   };
 }
 

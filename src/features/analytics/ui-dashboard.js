@@ -135,11 +135,7 @@ export function render() {
           <span class="bk-ring-hint">${r.hint}</span>
         </div>
       `;
-    }).join('')}</div>${s.awaitingReview ? `
-      <a class="bk-review-note" href="#/inventory">
-        <strong>${s.awaitingReview}</strong> item${s.awaitingReview === 1 ? '' : 's'} from the mobile app ${s.awaitingReview === 1 ? 'is' : 'are'} waiting for verification
-        <span>Review ›</span>
-      </a>` : ''}`;
+    }).join('')}</div>`;
   }
 
   // ---- spreadsheet: report logs ----
