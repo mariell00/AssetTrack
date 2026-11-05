@@ -184,6 +184,8 @@ function updateAsset(id, data) {
 function deleteAsset(id) {
   const db = getDb();
   const existing = getAsset(id);
+  // Explicit, in case foreign-key cascades are off: nothing waiting for review may outlive its asset.
+  db.prepare('DELETE FROM pending_scans WHERE asset_id = ?').run(id);
   db.prepare('DELETE FROM assets WHERE id = ?').run(id);
   if (existing) require('../system/services').logEvent('UPDATE', `Asset ${existing.asset_tag} deleted`, 'warn');
   return { ok: true };
@@ -250,61 +252,36 @@ function mapRow(row) {
   return mapped;
 }
 
-function importFromExcelBuffer(buffer) {
+// A CSV/XLSX import never touches the registry directly. Every row is parsed and
+// validated here, then handed to the Inventory Sync review queue
+// (inventory/services.js -> queueImportBatch). Nothing becomes an asset, and no
+// existing asset changes, until the super admin verifies it on that screen.
+function importFromExcelBuffer(buffer, meta = {}) {
   const workbook = XLSX.read(buffer, { type: 'buffer' });
   const sheet = workbook.Sheets[workbook.SheetNames[0]];
   const rows = XLSX.utils.sheet_to_json(sheet);
 
-  const db = getDb();
-  const findRoom = db.prepare('SELECT id FROM rooms WHERE name = ? COLLATE NOCASE');
-  const insertRoom = db.prepare('INSERT INTO rooms (name) VALUES (?)');
-  const upsertAsset = db.prepare(`
-    INSERT INTO assets (asset_tag, name, category, description, condition, room_id, assigned_to, status)
-    VALUES (@asset_tag, @name, @category, @description, @condition, @room_id, @assigned_to, @status)
-    ON CONFLICT(asset_tag) DO UPDATE SET
-      name=excluded.name, category=excluded.category,
-      description=excluded.description, condition=excluded.condition,
-      room_id=excluded.room_id, assigned_to=excluded.assigned_to, status=excluded.status
-  `);
+  const records = [];
+  let invalid = 0;
+  for (const raw of rows) {
+    const row = mapRow(raw);
+    if (!row.asset_tag || !row.name) { invalid++; continue; }
+    const assignedTo = (row.assigned_to && row.assigned_to.toLowerCase() !== 'unassigned') ? row.assigned_to : null;
+    const statusLower = row.status ? row.status.toLowerCase() : '';
+    records.push({
+      asset_tag: row.asset_tag,
+      name: row.name,
+      category: row.category || null,
+      description: row.description || null,
+      condition: row.condition || 'good',
+      room_name: row.room || null,
+      assigned_to: assignedTo,
+      status: VALID_STATUSES.has(statusLower) ? statusLower : 'active'
+    });
+  }
 
-  let imported = 0;
-  const tx = db.transaction((records) => {
-    for (const raw of records) {
-      const row = mapRow(raw);
-      if (!row.asset_tag || !row.name) continue;
-
-      let roomId = null;
-      if (row.room) {
-        let r = findRoom.get(row.room);
-        if (!r) { const info = insertRoom.run(row.room); roomId = info.lastInsertRowid; }
-        else roomId = r.id;
-      }
-
-      const assignedTo = (row.assigned_to && row.assigned_to.toLowerCase() !== 'unassigned')
-        ? row.assigned_to : null;
-
-      const statusLower = row.status ? row.status.toLowerCase() : '';
-      const status = VALID_STATUSES.has(statusLower) ? statusLower : 'active';
-
-      require('../assignees/services').ensurePerson(db, assignedTo);
-
-      upsertAsset.run({
-        asset_tag: row.asset_tag,
-        name: row.name,
-        category: row.category || null,
-        description: row.description || null,
-        condition: row.condition || 'good',
-        room_id: roomId,
-        assigned_to: assignedTo,
-        status
-      });
-      imported++;
-    }
-  });
-  tx(rows);
-
-  require('../system/services').logEvent('IMPORT', `CSV batch imported: ${imported} records staged`, 'success');
-  return { ok: true, imported, total_rows: rows.length };
+  const queued = require('../inventory/services').queueImportBatch(records, meta);
+  return { ok: true, total_rows: rows.length, invalid, ...queued, needs_review: queued.queued > 0 };
 }
 
 // Dashboard headline numbers: Total Assets / Verified Today / Pending Sync / Maintenance Due
@@ -327,7 +304,7 @@ function dashboardStats() {
 // label printed with this code works with the mobile scanner as-is.
 async function generateAssetQrDataUrl(assetTag) {
   return QRCode.toDataURL(assetTag, {
-    color: { dark: '#111827', light: '#FFFFFF' },
+    color: { dark: '#0F172A', light: '#FFFFFF' },
     margin: 1,
     width: 320
   });

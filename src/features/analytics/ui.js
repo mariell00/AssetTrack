@@ -32,9 +32,9 @@ export function render() {
   `;
 
   function heatColor(value, max) {
-    if (max === 0) return 'rgba(37, 99, 235, 0.06)';
+    if (max === 0) return 'rgba(59, 130, 246, 0.07)';
     const intensity = Math.min(1, value / max);
-    return `rgba(37, 99, 235, ${0.10 + intensity * 0.70})`;
+    return `rgba(59, 130, 246, ${0.10 + intensity * 0.70})`;
   }
 
   async function load() {
