@@ -340,6 +340,28 @@ a.user-card.active { background: var(--blue-soft); border-color: var(--blue); }
 .modal-form { padding-top: 2px; }
 .asset-form-box { max-height: calc(100vh - 48px); overflow-y: auto; }
 
+/* Register / Edit asset: the form, plus a Specifications window that pops out beside it once the
+   chosen category has spec fields. The pair is centred together; clicking the gap still closes it. */
+.modal-overlay { overflow-y: auto; }
+.modal-pair { display: flex; align-items: flex-start; justify-content: center; gap: 16px; max-width: 100%; pointer-events: none; }
+.modal-pair > .modal-box { pointer-events: auto; }
+.spec-box { width: 480px; max-width: 92vw; max-height: calc(100vh - 48px); display: flex; flex-direction: column; overflow: hidden; }
+.spec-box.is-new { animation: spec-in .22s ease-out; }
+@keyframes spec-in { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+.spec-scroll { flex: 1; min-height: 0; overflow-y: auto; padding-right: 4px; }
+.spec-cat { margin-left: auto; }
+.spec-section + .spec-section { margin-top: 20px; }
+.spec-section h3 { margin: 0 0 8px; padding-bottom: 6px; border-bottom: 1px solid var(--border); font-size: 13px; font-weight: 600; }
+.spec-note { margin: 0 0 10px; font-size: 12px; color: var(--slate); }
+.spec-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 14px; }
+.spec-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; font-size: 13px; color: var(--slate); }
+.spec-field.spec-text, .spec-field.spec-select { grid-column: 1 / -1; }
+.spec-control { display: flex; align-items: center; gap: 8px; }
+.spec-control .retro-input { flex: 1; min-width: 0; }
+.spec-unit { flex: none; min-width: 22px; font-size: 12px; color: var(--slate); }
+.spec-req { color: var(--danger); }
+.spec-legend { margin: 16px 0 0; }
+
 .confirm-dialog { width: min(420px, 92vw); max-width: none; padding: 0; background: var(--bg); color: var(--ink); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow-pop); }
 .confirm-dialog::backdrop { background: rgba(15, 23, 42, .4); }
 .confirm-dialog[open] { animation: pop .14s ease-out; }
@@ -674,6 +696,14 @@ body:has(#shell.auth-mode) { background: var(--surface); }
 @media (max-width: 1000px) {
   .bk-row { grid-template-columns: 1fr; }
 }
+/* Register/Edit: below ~1000px the two windows no longer fit side by side, so the specs window stacks under the form. */
+@media (max-width: 1000px) {
+  .modal-overlay:has(.modal-pair) { align-items: flex-start; padding: 24px 0; }
+  .modal-pair { flex-direction: column; align-items: center; }
+  .modal-pair .asset-form-box, .modal-pair .spec-box { max-height: none; }
+  .spec-box.is-new { animation-name: spec-in-up; }
+}
+@keyframes spec-in-up { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
 @media (max-width: 900px) {
   .stat-card-row, .report-params-grid, .report-preview-grid { grid-template-columns: repeat(2, 1fr); }
   .qr-layout, .analytics-layout { grid-template-columns: 1fr; }
@@ -700,7 +730,7 @@ body:has(#shell.auth-mode) { background: var(--surface); }
   .pending-toast { right: 12px; bottom: 12px; left: 12px; max-width: none; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .confirm-dialog[open], .lg-modal[open], .pending-toast { animation: none; }
+  .confirm-dialog[open], .lg-modal[open], .pending-toast, .spec-box.is-new { animation: none; }
   * { transition: none !important; }
 }
 html:has(#shell.auth-mode) { background: var(--surface); }

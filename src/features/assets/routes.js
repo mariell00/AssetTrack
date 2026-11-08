@@ -53,6 +53,7 @@ router.post('/', (req, res) => {
   try {
     asset = svc.createAsset(req.body);
   } catch (err) {
+    if (err.status === 400) return res.status(400).json({ ok: false, error: err.message });
     if (duplicateTag(err, res, req.body.asset_tag)) return;
     throw err;
   }
@@ -81,6 +82,7 @@ router.put('/:id', (req, res) => {
   try {
     updated = svc.updateAsset(req.params.id, req.body);
   } catch (err) {
+    if (err.status === 400) return res.status(400).json({ ok: false, error: err.message });
     if (duplicateTag(err, res, req.body.asset_tag)) return;
     throw err;
   }
@@ -132,7 +134,7 @@ router.post('/:id/report-issue', (req, res) => {
 // (Content-Type: application/octet-stream).
 router.post('/import', requireRole('superadmin'), express.raw({ type: '*/*', limit: '20mb' }), (req, res) => {
   try {
-    const result = svc.importFromExcelBuffer(req.body);
+    const result = svc.importFromExcelBuffer(req.body, { scannedBy: req.user?.username || 'admin' });
     res.json(result);
   } catch (err) {
     res.status(400).json({ ok: false, error: 'Import failed: ' + err.message });

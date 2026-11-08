@@ -24,6 +24,8 @@ async function initDatabase(userDataPath) {
   require('../features/assets/models').init(db);
   // Extends the `people` table from assets/models (must run after it).
   require('../features/assignees/models').init(db);
+  // Category spec fields + each asset's spec values (needs the assets table).
+  require('../features/specs/models').init(db);
   // Must run after assets/models (rooms table must already exist — this
   // adds buildings + rooms.building_id and backfills from legacy data).
   require('../features/mapping/models').init(db);

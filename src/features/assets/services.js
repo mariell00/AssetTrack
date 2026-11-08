@@ -77,9 +77,13 @@ function getAssetDetail(id) {
     LIMIT 5
   `).all(id);
 
+  // Specifications and attached equipment for the asset's category (empty for "Other" / older categories).
+  const specsSvc = require('../specs/services');
   return {
     ...asset, room_name: asset.room_name, last_scanned: lastScanned, open_issues: openIssues,
-    recent_scans: recentScans, issues
+    recent_scans: recentScans, issues,
+    specs: specsSvc.describe(id, asset.category),
+    spec_values: specsSvc.values(id, asset.category)
   };
 }
 
@@ -120,8 +124,21 @@ function generateAssetTag(db) {
   return tag;
 }
 
+// Throws a 400-style error the route turns into a readable message (nothing has been saved yet).
+function rejectBadSpecs(check) {
+  if (check.ok) return;
+  const err = new Error(check.error);
+  err.status = 400;
+  throw err;
+}
+
 function createAsset(data) {
   const db = getDb();
+  const specs = require('../specs/services');
+  const category = require('../specs/categories').canonicalCategory(data.category);
+  // Checked BEFORE anything is saved, so a bad spec never leaves a half-registered asset behind.
+  const specCheck = specs.validate(category, data.specs);
+  rejectBadSpecs(specCheck);
   // The Asset ID is generated here. Only an import (or an older client) supplies
   // one; a phone's registration never does (see inventory/services.js).
   const assetTag = (data.asset_tag && String(data.asset_tag).trim()) || generateAssetTag(db);
@@ -132,7 +149,7 @@ function createAsset(data) {
   `).run({
     asset_tag: assetTag,
     name: data.name,
-    category: data.category || null,
+    category,
     description: data.description || null,
     condition: data.condition || 'good',
     status: data.status || 'active',
@@ -143,6 +160,8 @@ function createAsset(data) {
     photo: data.photo || null,
     client_uuid: data.client_uuid || null // the phone's internal reference, when verified from a registration
   });
+
+  if (!specCheck.skip) specs.write(info.lastInsertRowid, specCheck.rows);
 
   // Keeps every assigned name on the Assignees list (mobile lets admins type one freely).
   require('../assignees/services').ensurePerson(db, data.assigned_to);
@@ -161,12 +180,23 @@ function updateAsset(id, data) {
   const existing = getAsset(id);
   if (!existing) return null;
   const roomId = data.room_name !== undefined ? resolveRoomId(db, data.room_name) : (data.room_id !== undefined ? data.room_id : existing.room_id);
-  const merged = { ...existing, ...data, room_id: roomId, id };
+  const { specs: submittedSpecs, ...fields } = data;
+  const category = data.category !== undefined ? require('../specs/categories').canonicalCategory(data.category) : existing.category;
+  // Specs are checked against the category the asset will have AFTER this save, before anything changes.
+  const specs = require('../specs/services');
+  const specCheck = specs.validate(category, submittedSpecs);
+  rejectBadSpecs(specCheck);
+  const merged = { ...existing, ...fields, category, room_id: roomId, id };
   db.prepare(`
     UPDATE assets SET asset_tag=@asset_tag, name=@name, category=@category,
       description=@description, condition=@condition, status=@status, acquired_date=@acquired_date,
       value_php=@value_php, room_id=@room_id, assigned_to=@assigned_to, photo=@photo WHERE id=@id
   `).run(merged);
+
+  if (!specCheck.skip) specs.write(id, specCheck.rows);
+  // Specs belong to a category: moving the asset to another one without supplying new specs
+  // (e.g. a phone's edit, approved later) must not leave the old category's values behind.
+  else if (category !== existing.category) specs.remove(id);
 
   require('../assignees/services').ensurePerson(db, merged.assigned_to);
 
@@ -186,6 +216,7 @@ function deleteAsset(id) {
   const existing = getAsset(id);
   // Explicit, in case foreign-key cascades are off: nothing waiting for review may outlive its asset.
   db.prepare('DELETE FROM pending_scans WHERE asset_id = ?').run(id);
+  require('../specs/services').remove(id);
   db.prepare('DELETE FROM assets WHERE id = ?').run(id);
   if (existing) require('../system/services').logEvent('UPDATE', `Asset ${existing.asset_tag} deleted`, 'warn');
   return { ok: true };
@@ -271,7 +302,7 @@ function importFromExcelBuffer(buffer, meta = {}) {
     records.push({
       asset_tag: row.asset_tag,
       name: row.name,
-      category: row.category || null,
+      category: require('../specs/categories').canonicalCategory(row.category),
       description: row.description || null,
       condition: row.condition || 'good',
       room_name: row.room || null,

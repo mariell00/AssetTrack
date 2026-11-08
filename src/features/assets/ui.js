@@ -129,18 +129,57 @@ function roomOptionsHtml(rooms, selectedRoomId) {
   return html;
 }
 
-// Category choices for the register/edit form — edit this list to change the
-// dropdown. A category already saved on an asset (e.g. from a CSV import) that
-// isn't listed here is added as an extra option, so editing never drops it.
-const CATEGORY_OPTIONS = [
-  'Personal Computer', 'Laptop', 'Monitor', 'Printer', 'Projector',
-  'Network Equipment', 'Air Conditioner', 'Furniture', 'Laboratory Equipment', 'Other'
-];
-
-function categoryOptionsHtml(selected) {
-  const extra = selected && !CATEGORY_OPTIONS.includes(selected) ? [selected] : [];
+// Category choices for the register/edit form come from the server (features/specs), which
+// also says which spec fields each category has. A category already saved on an asset that
+// isn't in that list (an older one such as "Monitor", or one from a CSV import) is added as
+// an extra option, so editing never drops it.
+function categoryOptionsHtml(selected, categories) {
+  const same = (a, b) => String(a || '').toLowerCase() === String(b || '').toLowerCase();
+  const labels = categories.map((c) => c.label);
+  const extra = selected && !labels.some((l) => same(l, selected)) ? [selected] : [];
   return `<option value="">— Select category —</option>`
-    + [...CATEGORY_OPTIONS, ...extra].map((c) => `<option value="${esc(c)}" ${c === selected ? 'selected' : ''}>${esc(c)}</option>`).join('');
+    + [...labels, ...extra].map((c) => `<option value="${esc(c)}" ${same(c, selected) ? 'selected' : ''}>${esc(c)}</option>`).join('');
+}
+
+// One input in the Specifications window. They belong to the registration <form> through the
+// `form` attribute even though the window sits beside it, so the one Save button and the
+// browser's required-field checks cover both windows.
+function specFieldHtml(f, value) {
+  const common = `id="spec-${esc(f.key)}" data-spec="${esc(f.key)}" form="asset-form" class="retro-input"${f.required ? ' required' : ''}`;
+  let control;
+  if (f.type === 'select') {
+    control = `<select ${common}><option value="">— Select —</option>${(f.options || []).map((o) => `<option value="${esc(o)}" ${o === value ? 'selected' : ''}>${esc(o)}</option>`).join('')}</select>`;
+  } else if (f.type === 'boolean') {
+    control = `<select ${common}><option value="">—</option><option value="1" ${value === '1' ? 'selected' : ''}>Yes</option><option value="0" ${value === '0' ? 'selected' : ''}>No</option></select>`;
+  } else if (f.type === 'number') {
+    control = `<input type="number" step="any" min="0" ${common} value="${esc(value)}" />`;
+  } else if (f.type === 'date') {
+    control = `<input type="date" ${common} value="${esc(value)}" />`;
+  } else {
+    control = `<input type="text" maxlength="200" ${common} value="${esc(value)}" />`;
+  }
+  return `
+    <label class="spec-field spec-${esc(f.type)}">
+      <span class="spec-label">${esc(f.label)}${f.required ? '<span class="spec-req" aria-hidden="true"> *</span>' : ''}</span>
+      <span class="spec-control">${control}${f.unit ? `<span class="spec-unit">${esc(f.unit)}</span>` : ''}</span>
+    </label>`;
+}
+
+function specWindowHtml(entry, values) {
+  const specs = entry.fields.filter((f) => !f.attached);
+  const attached = entry.fields.filter((f) => f.attached);
+  const section = (title, note, fields) => (fields.length ? `
+    <section class="spec-section">
+      <h3>${title}</h3>${note ? `<p class="spec-note">${note}</p>` : ''}
+      <div class="spec-grid">${fields.map((f) => specFieldHtml(f, values[f.key] ?? '')).join('')}</div>
+    </section>` : '');
+  return `
+    <div class="crt-header"><span class="crt-dot"></span> Specifications <span class="badge spec-cat">${esc(entry.label)}</span></div>
+    <div class="spec-scroll">
+      ${section('Specifications', '', specs)}
+      ${section('Attached equipment', 'Anything that goes with this asset.', attached)}
+      <p class="spec-note spec-legend"><span class="spec-req">*</span> required</p>
+    </div>`;
 }
 
 // The ASSIGNED TO dropdown is fed by the Manage Assignees screen
@@ -160,12 +199,17 @@ function assigneeOptionsHtml(assignees, current) {
 
 async function openAssetModal(root, { asset } = {}) {
   const isEdit = !!asset;
-  const [roomsResult, assigneesResult] = await Promise.all([
+  const [roomsResult, assigneesResult, catalogResult, savedSpecsResult] = await Promise.all([
     apiGet('/api/v1/map/rooms/list'),
-    apiGet('/api/v1/assignees')
+    apiGet('/api/v1/assignees'),
+    apiGet('/api/v1/specs/categories'),
+    // The detail pop-up already carries the saved spec values; anywhere else, fetch them.
+    isEdit && !asset.spec_values ? apiGet(`/api/v1/specs/asset/${asset.id}`) : Promise.resolve(null)
   ]);
   const rooms = roomsResult.ok ? roomsResult.rooms : [];
   const assignees = assigneesResult.ok ? assigneesResult.assignees : [];
+  const categories = catalogResult.ok ? catalogResult.categories : [];
+  const savedSpecs = !isEdit ? {} : (asset.spec_values || (savedSpecsResult && savedSpecsResult.ok ? savedSpecsResult.values : {}));
   // Name → saved photo, so picking someone previews their picture without
   // stuffing every base64 image into the <option> attributes.
   const assigneePhotos = new Map(assignees.map((p) => [p.name.toLowerCase(), p.photo]));
@@ -173,6 +217,7 @@ async function openAssetModal(root, { asset } = {}) {
   const overlay = document.createElement('div');
   overlay.className = 'modal-overlay';
   overlay.innerHTML = `
+    <div class="modal-pair">
     <div class="modal-box crt-panel asset-form-box">
       <div class="crt-header">
         <span class="crt-dot"></span> ${isEdit ? 'Edit asset' : 'Register asset'}
@@ -186,7 +231,7 @@ async function openAssetModal(root, { asset } = {}) {
           <input type="text" id="f-name" class="retro-input" value="${asset ? asset.name : ''}" required />
         </label>
         <label>Category
-          <select id="f-category" class="retro-input">${categoryOptionsHtml(asset ? asset.category : '')}</select>
+          <select id="f-category" class="retro-input">${categoryOptionsHtml(asset ? asset.category : '', categories)}</select>
         </label>
         <label>Room
           <select id="f-room" class="retro-input">${roomOptionsHtml(rooms, asset ? asset.room_id : '')}</select>
@@ -224,8 +269,49 @@ async function openAssetModal(root, { asset } = {}) {
         <p id="modal-error" class="form-error"></p>
       </form>
     </div>
+    </div>
   `;
   root.appendChild(overlay);
+
+  // ---- Specifications window: pops out beside this one once a category that has spec fields is
+  // picked (laptop, printer, projector…), and goes away for one that doesn't (Other, older ones).
+  // What was typed is remembered per category, so flipping the dropdown back and forth loses nothing,
+  // and one category's values never leak into another's.
+  const pair = overlay.querySelector('.modal-pair');
+  const categorySelect = overlay.querySelector('#f-category');
+  const specWindowFor = (label) => categories.find((c) => c.label.toLowerCase() === String(label || '').toLowerCase());
+  const specValues = new Map(); // category key -> { field key: value }
+  const initialEntry = isEdit ? specWindowFor(asset.category) : null;
+  if (initialEntry) specValues.set(initialEntry.key, { ...savedSpecs });
+  let specBox = null;
+
+  function syncSpecWindow() {
+    const entry = specWindowFor(categorySelect.value);
+    if (!entry || entry.fields.length === 0) {
+      if (specBox) { specBox.remove(); specBox = null; }
+      return;
+    }
+    if (!specValues.has(entry.key)) specValues.set(entry.key, {});
+    if (!specBox) {
+      specBox = document.createElement('div');
+      specBox.className = 'modal-box crt-panel spec-box is-new';
+      specBox.setAttribute('role', 'region');
+      pair.appendChild(specBox);
+    } else {
+      specBox.classList.remove('is-new');
+    }
+    specBox.dataset.category = entry.key;
+    specBox.setAttribute('aria-label', `${entry.label} specifications`);
+    specBox.innerHTML = specWindowHtml(entry, specValues.get(entry.key));
+  }
+  const rememberSpec = (e) => {
+    const key = e.target.dataset && e.target.dataset.spec;
+    if (key && specBox) specValues.get(specBox.dataset.category)[key] = e.target.value;
+  };
+  overlay.addEventListener('input', rememberSpec);
+  overlay.addEventListener('change', rememberSpec);
+  categorySelect.addEventListener('change', syncSpecWindow);
+  syncSpecWindow();
 
   overlay.querySelector('#modal-close').addEventListener('click', () => overlay.remove());
   overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
@@ -310,6 +396,12 @@ async function openAssetModal(root, { asset } = {}) {
     // didn't touch it.
     if (newPhotoDataUrl) payload.photo = newPhotoDataUrl;
     if (newAssignedPhotoDataUrl) payload.assigned_photo = newAssignedPhotoDataUrl;
+    // The spec window's fields are the complete set for this category (a cleared field is removed).
+    // With no spec window there is nothing to send, which leaves any saved specs as they are.
+    if (specBox) {
+      payload.specs = {};
+      specBox.querySelectorAll('[data-spec]').forEach((el) => { payload.specs[el.dataset.spec] = el.value; });
+    }
 
     const result = isEdit
       ? await apiPut(`/api/v1/assets/${asset.id}`, payload)
@@ -366,6 +458,12 @@ async function openAssetDetailModal(root, assetId) {
   const field = (label, value) => `
     <div class="ad-field"><span class="ad-label">${label}</span><span class="ad-value">${value}</span></div>`;
   const location = [a.building_name, a.room_name].filter(Boolean).map(esc).join(' › ') || '—';
+  // A two-column grid; an odd count gets an empty cell so the last row keeps its borders.
+  const specGrid = (title, rows) => (rows.length
+    ? `<div class="ad-section"><h3>${title}</h3><div class="ad-grid">${rows.map((s) => field(esc(s.label), esc(s.display))).join('')}${rows.length % 2 ? '<div class="ad-field"></div>' : ''}</div></div>`
+    : '');
+  const specRows = (a.specs || []).filter((s) => !s.attached);
+  const attachedRows = (a.specs || []).filter((s) => s.attached);
 
   overlay.innerHTML = `
     <div class="modal-box crt-panel asset-detail-box" role="dialog" aria-modal="true" aria-label="Asset details">
@@ -398,6 +496,9 @@ async function openAssetDetailModal(root, assetId) {
       </div>
 
       ${a.description ? `<div class="ad-section"><h3>Description</h3><p class="ad-text">${esc(a.description)}</p></div>` : ''}
+
+      ${specGrid('Specifications', specRows)}
+      ${specGrid('Attached equipment', attachedRows)}
 
       <div class="ad-section">
         <h3>Open issues <span class="mono-dim">(${a.open_issues})</span></h3>
@@ -647,7 +748,17 @@ export function render() {
       body: buffer
     });
     const result = await res.json().catch(() => ({ ok: false, error: `Import failed (HTTP ${res.status}).` }));
-    alert(result.ok ? `Imported ${result.imported} of ${result.total_rows} rows.` : (result.error || 'Import failed.'));
+    if (!result.ok) alert(result.error || 'Import failed.');
+    else {
+      const bits = [];
+      if (result.new_assets) bits.push(`${result.new_assets} new asset(s)`);
+      if (result.updates) bits.push(`${result.updates} update(s) to existing assets`);
+      const skipped = [result.unchanged ? `${result.unchanged} unchanged` : '', result.duplicates ? `${result.duplicates} duplicate(s)` : '', result.invalid ? `${result.invalid} row(s) missing Asset ID or name` : ''].filter(Boolean).join(', ');
+      alert((bits.length
+        ? `Sent ${bits.join(' and ')} to Inventory Sync for verification. Nothing is added to the registry until you approve it there.`
+        : 'Nothing to send for verification.') + (skipped ? `\n\nSkipped: ${skipped}.` : ''));
+    }
+    e.target.value = '';
     loadAssets();
   });
 
