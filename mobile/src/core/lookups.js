@@ -11,9 +11,13 @@ const ROOMS_KEY = 'assettrack_mobile_rooms_cache';
 const ASSIGNEES_KEY = 'assettrack_mobile_assignees_cache';
 
 // Same list as the desktop Asset Registry (src/features/assets/ui.js).
+// Same categories (and spelling) as the desktop registry — the desktop is what fills in each one's
+// specifications when an asset is registered or edited there. Keep in step with
+// src/features/specs/categories.js.
 export const CATEGORY_OPTIONS = [
-  'Personal Computer', 'Laptop', 'Monitor', 'Printer', 'Projector',
-  'Network Equipment', 'Air Conditioner', 'Furniture', 'Laboratory Equipment', 'Other'
+  'Laptop', 'Tablet', 'Desktop (All-in-One)', 'Printer', 'Projector', 'Scanner',
+  'Camera / Drone', 'Audio / Visual', 'Network / Security', 'External Storage',
+  'Furniture', 'Office Equipment', 'Appliance', 'Display / TV', 'Recorder', 'Other'
 ];
 export const STATUS_OPTIONS = [['active', 'Active'], ['pending', 'Pending'], ['maintenance', 'Maintenance'], ['offline', 'Offline']];
 export const CONDITION_OPTIONS = [['good', 'Good'], ['fair', 'Fair'], ['poor', 'Poor']];

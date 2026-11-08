@@ -1,4 +1,4 @@
-/* mobile.css — mobile build of the AssetTrack minimal light theme (same palette,
+/* mobile.css — mobile build of the AssetTrack minimal light theme (same toned-down palette,
    same font as the desktop theme.css), tuned for touch: 16px form text (no iOS
    zoom-on-focus), 44px+ tap targets, press feedback instead of hover.
    Inter is bundled in /assets/fonts so the app looks right with no internet
@@ -8,17 +8,18 @@
 @font-face { font-family: 'Inter'; font-weight: 400; font-style: normal; font-display: swap; src: url('../assets/fonts/inter-latin-400-normal.woff2') format('woff2'); }
 
 :root {
-  --bg: #FFFFFF;        /* Pure White: page */
-  --surface: #F7F8FA;   /* Fog: surfaces, inputs */
-  --border: #E5E7EB;    /* Hairline */
+  --page: #F3F4F6;      /* app background */
+  --bg: #FAFBFC;        /* Soft White: cards, drawer, buttons */
+  --surface: #EEF0F3;   /* Fog: inputs */
+  --border: #E0E3E8;    /* Hairline */
   --ink: #111827;       /* Ink: text */
-  --slate: #6B7280;     /* Slate: secondary text */
+  --slate: #656C79;     /* Slate: secondary text */
   --blue: #2563EB;      /* Calm Cobalt: actions */
   --blue-hover: #1D4ED8;
-  --blue-soft: #EFF6FF; /* Blue Mist: pressed / selected */
-  --success: #16A34A;  --success-soft: #F0FDF4;
-  --warning: #D97706;  --warning-soft: #FFFBEB;
-  --danger:  #DC2626;  --danger-soft:  #FEF2F2;
+  --blue-soft: #E8F0FE; /* Blue Mist: pressed / selected */
+  --success: #16A34A;  --success-soft: #E8F6EE;
+  --warning: #D97706;  --warning-soft: #FBF1DD;
+  --danger:  #DC2626;  --danger-soft:  #FBEAEA;
   --radius: 12px;
   --radius-sm: 10px;
   --font-body: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
@@ -27,7 +28,7 @@
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
-html, body { margin: 0; height: 100%; background: var(--bg); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+html, body { margin: 0; height: 100%; background: var(--page); color: var(--ink); font-family: var(--font-body); font-size: 15px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
 button, input, select, textarea { font: inherit; color: inherit; }
 :focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
 

@@ -1,6 +1,6 @@
 // sw.js — Service Worker. Caches the PWA shell for offline use and serves
 // cached assets when the phone has no Wi-Fi connection to the desktop host.
-const CACHE_NAME = 'assettrack-mobile-v9';
+const CACHE_NAME = 'assettrack-mobile-v17';
 const APP_SHELL = [
   './index.html',
   './manifest.json',
