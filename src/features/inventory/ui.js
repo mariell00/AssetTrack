@@ -114,7 +114,14 @@ async function openReviewModal(root, { type, id }, onDone) {
         ${field('Assigned to', esc(a.assigned_to) || '—')}
         ${field('Value', peso(a.value_php))}
         ${field('Acquired', esc(a.acquired_date) || '—')}
+        ${field('Property No.', esc(a.property_no) || '—')}
+        ${field('ICS No.', esc(a.ics_no) || '—')}
+        ${field('Serial No.', esc(a.serial_no) || '—')}
+        ${field('Quantity', esc(a.quantity ?? 1))}
+        ${field('Useful life', a.useful_life == null ? '—' : `${esc(a.useful_life)} year${a.useful_life === 1 ? '' : 's'}`)}
+        ${field('End-user office', esc(a.end_user_unit) || '—')}
       </div>
+      ${a.remarks ? `<div class="ad-section"><h3>Remarks</h3><p class="ad-text" style="white-space:pre-line">${esc(a.remarks)}</p></div>` : ''}
       ${a.description ? `<div class="ad-section"><h3>Description</h3><p class="ad-text">${esc(a.description)}</p></div>` : ''}
       <div class="ad-section"><h3>Sent from</h3><p class="ad-text">${esc(d.device)} · ${localTime(d.received_at)}</p></div>`;
   } else {
@@ -133,7 +140,10 @@ async function openReviewModal(root, { type, id }, onDone) {
         ${field('Registered in', esc(d.registered_room))}
         ${field('Sent by', esc(d.scanned_by))}
         ${field('Sent', localTime(d.received_at))}
+        ${d.counted !== null && d.counted !== undefined ? field('Counted', String(d.counted)) : ''}
+        ${d.counted !== null && d.counted !== undefined ? field('Quantity on record', d.quantity_after !== d.quantity_before ? `${d.quantity_before} → ${d.quantity_after}` : String(d.quantity_before)) : ''}
       </div>
+      ${d.count_mismatch ? `<p class="q-callout">Counted <strong>${d.counted}</strong> but the record will say <strong>${d.quantity_after}</strong> (${countGap(d.counted, d.quantity_after)}). Check before verifying.</p>` : ''}
       ${d.room_mismatch ? `<p class="q-callout">This asset was scanned in <strong>${esc(d.scanned_room)}</strong> but is registered in <strong>${esc(d.registered_room)}</strong>. Check before verifying.</p>` : ''}
       ${changed.length
         ? `<p class="cmp-summary">${plural(changed.length, 'field')} will change. Changes are highlighted.</p>
@@ -192,7 +202,7 @@ function openCheckinModal(root, row) {
       ${items.length
         ? items.map((i) => `
           <div class="ad-row">
-            <span class="ad-row-main"><strong>${esc(i.asset_tag)}</strong> · ${esc(i.name)}</span>
+            <span class="ad-row-main"><strong>${esc(i.asset_tag)}</strong> · ${esc(i.name)}${i.counted !== null && i.counted !== undefined ? ` · counted ${i.counted}` : ''}</span>
             ${scanBadge(i.status)}
             <span class="ad-row-meta">${localTime(i.scanned_at)}</span>
           </div>`).join('')
@@ -214,6 +224,9 @@ function groupQueue(queue) {
   return [...groups.values()].sort((a, b) => String(b.received_at).localeCompare(String(a.received_at)));
 }
 
+// "2 short" / "3 over" for a count that doesn't match the quantity the record will have.
+const countGap = (counted, quantity) => (counted < quantity ? `${quantity - counted} short` : `${counted - quantity} over`);
+
 function rowHtml(i) {
   if (i.type === 'registration') {
     const extra = [i.category, i.assigned_to ? `for ${i.assigned_to}` : null].filter(Boolean).join(' · ');
@@ -227,15 +240,16 @@ function rowHtml(i) {
       </tr>`;
   }
   const changes = i.change_fields.length ? `changes ${esc(i.change_fields.join(', '))}` : '';
+  const hasCount = i.counted !== null && i.counted !== undefined;
   const what = i.kind === 'edit'
     ? `Edit · ${changes || 'no changes'}`
-    : `Mobile scan · ${SCAN_LABELS[i.scanned_as] || esc(i.scanned_as)}${changes ? ` · ${changes}` : ''}`;
+    : `Mobile scan · ${SCAN_LABELS[i.scanned_as] || esc(i.scanned_as)}${hasCount ? ` · counted ${i.counted} of ${i.quantity_after}` : ''}${changes ? ` · ${changes}` : ''}`;
   return `
-    <tr class="q-item${i.room_mismatch ? ' q-flag' : ''}" data-type="scan" data-id="${i.id}" tabindex="0" role="button" aria-label="Review update ${esc(i.asset_tag)}">
+    <tr class="q-item${i.room_mismatch || i.count_mismatch ? ' q-flag' : ''}" data-type="scan" data-id="${i.id}" tabindex="0" role="button" aria-label="Review update ${esc(i.asset_tag)}">
       <td>${typeBadge('update')}</td>
       <td><span class="mono-strong">${esc(i.asset_name)}</span><span class="q-sub">${esc(i.asset_tag)}</span></td>
       <td>${i.kind === 'edit' ? esc(i.registered_room) : esc(i.scanned_room)}${i.room_mismatch ? `<span class="q-warn">registered in ${esc(i.registered_room)}</span>` : ''}</td>
-      <td>${what}</td>
+      <td>${what}${i.count_mismatch ? `<span class="q-warn">count is ${countGap(i.counted, i.quantity_after)}</span>` : ''}</td>
       <td class="q-go" aria-hidden="true">Review ›</td>
     </tr>`;
 }
@@ -345,12 +359,13 @@ export function render() {
     const updIds = group.items.filter((i) => i.type === 'update').map((i) => i.id);
     const n = group.items.length;
     const flagged = group.items.filter((i) => i.room_mismatch).length;
+    const miscounted = group.items.filter((i) => i.count_mismatch).length;
     const what = [regIds.length ? plural(regIds.length, 'registration') : null, updIds.length ? plural(updIds.length, 'update') : null].filter(Boolean).join(' and ');
     const approve = action === 'approve';
     const ok = await confirmDialog({
       title: approve ? `Verify all ${n}?` : `Reject all ${n}?`,
       messageHtml: approve
-        ? `Verify ${esc(what)} from ${esc(group.user)}?${regIds.length ? ' Registrations are added to the registry.' : ''}${flagged ? `<br/><br/>${plural(flagged, 'item')} ${flagged === 1 ? 'was' : 'were'} scanned in a different room than registered.` : ''}`
+        ? `Verify ${esc(what)} from ${esc(group.user)}?${regIds.length ? ' Registrations are added to the registry.' : ''}${flagged ? `<br/><br/>${plural(flagged, 'item')} ${flagged === 1 ? 'was' : 'were'} scanned in a different room than registered.` : ''}${miscounted ? `<br/><br/>${plural(miscounted, 'item')} ${miscounted === 1 ? 'was' : 'were'} counted differently from the quantity on record.` : ''}`
         : `Reject ${esc(what)} from ${esc(group.user)}? ${regIds.length ? 'No assets will be added. ' : ''}Nothing will be counted or changed.`,
       confirmLabel: approve ? 'Verify all' : 'Reject all', danger: !approve
     });

@@ -1,5 +1,6 @@
 // features/assignees/services.js — CRUD for the people assets are assigned to.
 const { getDb } = require('../../core/database');
+const { samePerson } = require('./names');
 
 const clean = (v) => (v === undefined || v === null ? null : (String(v).trim() || null));
 
@@ -32,16 +33,30 @@ function getAssignee(id) {
   `).get(id);
 }
 
+// The person already on the list that `name` refers to — same spelling, or the same person written
+// differently ("ACUESA, MARY KOREN WITTING" = "Mary Koren W. Acuesa"). null when there is none.
+function findPerson(db, name, exceptId = null) {
+  const n = clean(name);
+  if (!n) return null;
+  const exact = db.prepare('SELECT id, name FROM people WHERE name = ? COLLATE NOCASE').get(n);
+  if (exact && Number(exact.id) !== Number(exceptId)) return exact;
+  for (const p of db.prepare('SELECT id, name FROM people ORDER BY id').all()) {
+    if (Number(p.id) === Number(exceptId)) continue;
+    if (samePerson(n, p.name)) return p;
+  }
+  return null;
+}
+
 function nameTaken(db, name, exceptId = null) {
-  const row = db.prepare('SELECT id FROM people WHERE name = ? COLLATE NOCASE').get(name);
-  return !!row && Number(row.id) !== Number(exceptId);
+  return findPerson(db, name, exceptId);
 }
 
 function createAssignee(data) {
   const db = getDb();
   const name = clean(data.name);
   if (!name) return { ok: false, status: 400, error: 'Name is required.' };
-  if (nameTaken(db, name)) return { ok: false, status: 409, error: `“${name}” is already on the assignee list.` };
+  const dup = nameTaken(db, name);
+  if (dup) return { ok: false, status: 409, error: dup.name.toLowerCase() === name.toLowerCase() ? `“${name}” is already on the assignee list.` : `“${name}” is the same person as “${dup.name}”, who is already on the assignee list.` };
 
   const info = db.prepare(`
     INSERT INTO people (name, position, department, contact, photo, status, created_at, updated_at)
@@ -59,7 +74,8 @@ function updateAssignee(id, data) {
 
   const name = data.name !== undefined ? clean(data.name) : existing.name;
   if (!name) return { ok: false, status: 400, error: 'Name is required.' };
-  if (nameTaken(db, name, id)) return { ok: false, status: 409, error: `“${name}” is already on the assignee list.` };
+  const dup = nameTaken(db, name, id);
+  if (dup) return { ok: false, status: 409, error: dup.name.toLowerCase() === name.toLowerCase() ? `“${name}” is already on the assignee list.` : `“${name}” is the same person as “${dup.name}”, who is already on the assignee list.` };
 
   const status = data.status === undefined ? existing.status : data.status;
   if (!['active', 'inactive'].includes(status)) return { ok: false, status: 400, error: "status must be 'active' or 'inactive'." };
@@ -106,13 +122,43 @@ function deleteAssignee(id) {
   return { ok: true };
 }
 
-// Called whenever an asset is saved with an assigned_to name (desktop form,
-// mobile free-text field, spreadsheet import) so that name always exists in
-// the list — keeps mobile-typed names from becoming invisible to the panel.
+// Called whenever an asset is saved with an assigned_to name (desktop form, mobile free-text
+// field, spreadsheet import). Returns the name the asset must be stored under: the person already
+// on the list when this is the same person written differently (so "ACUESA, MARY KOREN WITTING"
+// lands on "Mary Koren W. Acuesa"), otherwise the name itself, which is added to the list.
 function ensurePerson(db, name) {
   const n = clean(name);
-  if (!n) return;
+  if (!n) return null;
+  const existing = findPerson(db, n);
+  if (existing) return existing.name;
   db.prepare(`INSERT OR IGNORE INTO people (name, created_at) VALUES (?, datetime('now'))`).run(n);
+  return n;
 }
 
-module.exports = { listAssignees, getAssignee, createAssignee, updateAssignee, deleteAssignee, ensurePerson };
+// Joins duplicates that were created before names were compared this way: one person per real
+// person, keeping the one with a photo (else the oldest). Their assets move to the kept name and
+// any detail the kept row lacks (photo, position, office, contact) is filled in from the others.
+function mergeDuplicatePeople(db) {
+  const people = db.prepare('SELECT * FROM people ORDER BY id').all();
+  const gone = new Set();
+  let merged = 0;
+  for (const p of people) {
+    if (gone.has(p.id)) continue;
+    const group = [p, ...people.filter((q) => q.id > p.id && !gone.has(q.id) && samePerson(p.name, q.name))];
+    if (group.length < 2) continue;
+    const keeper = group.find((g) => g.photo) || group[0];
+    for (const other of group) {
+      if (other.id === keeper.id) continue;
+      db.prepare('UPDATE assets SET assigned_to = ? WHERE assigned_to = ? COLLATE NOCASE').run(keeper.name, other.name);
+      for (const col of ['photo', 'position', 'department', 'contact']) {
+        if (!keeper[col] && other[col]) { db.prepare(`UPDATE people SET ${col} = ? WHERE id = ?`).run(other[col], keeper.id); keeper[col] = other[col]; }
+      }
+      db.prepare('DELETE FROM people WHERE id = ?').run(other.id);
+      gone.add(other.id);
+      merged++;
+    }
+  }
+  return merged;
+}
+
+module.exports = { listAssignees, getAssignee, createAssignee, updateAssignee, deleteAssignee, ensurePerson, findPerson, mergeDuplicatePeople };

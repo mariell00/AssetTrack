@@ -126,33 +126,19 @@ input::placeholder, textarea::placeholder { color: var(--slate); opacity: .85; }
 .m-scanned-list { margin-top: 20px; }
 .m-row { padding: 11px 2px; border-bottom: 1px solid var(--border); font-size: 14px; overflow-wrap: anywhere; }
 
-/* ---- asset edit + photo picker ---- */
+/* ---- asset info panel (what a phone may change) ---- */
 .m-asset-edit { margin-bottom: 16px; }
-.m-photo-row { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
-.m-photo-preview { flex: none; width: 56px; height: 56px; object-fit: cover; border: 1px solid var(--border); border-radius: var(--radius-sm); }
-.m-photo-pick { display: inline-flex; align-items: center; justify-content: center; width: auto; flex: 1; margin-top: 0; text-align: center; }
+.m-asset-id { display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px; padding-bottom: 12px; border-bottom: 1px solid var(--border); }
+.m-asset-id strong { font-size: 17px; font-weight: 600; overflow-wrap: anywhere; }
+.m-asset-id .m-hint { margin: 0; }
+.m-row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 12px; align-items: start; }
+.m-row2 label { white-space: nowrap; }
+.m-count-note { min-height: 20px; margin: -6px 0 14px; font-size: 13px; line-height: 1.45; color: var(--success); }
+.m-count-note.is-warn { color: var(--warning); }
 
-/* ---- hints, sync count, registry list ---- */
+/* ---- hints, sync count ---- */
 .m-hint { margin: 8px 0 0; font-size: 13px; line-height: 1.5; color: var(--slate); }
 .m-asset-edit .m-hint, .m-register .m-hint { margin: 0 0 16px; }
 .m-sync-pending { margin: 0 0 16px; font-size: 15px; }
-.m-back { margin: 0 0 14px; }
-.m-reg-search-label { margin-top: 16px; }
-.m-registry input[type="search"] { margin-bottom: 8px; }
-.m-asset-list { margin-top: 6px; }
-.m-asset-row { display: block; width: 100%; padding: 13px 6px; text-align: left; background: transparent; color: var(--ink); border: 0; border-bottom: 1px solid var(--border); border-radius: 0; cursor: pointer; }
-.m-asset-row:active { background: var(--blue-soft); }
-.m-asset-row-main { display: block; font-size: 15px; overflow-wrap: anywhere; }
-.m-asset-row-main strong { font-weight: 600; }
-.m-asset-row-sub { display: block; margin-top: 4px; font-size: 13px; color: var(--slate); }
-.m-pill { display: inline-block; padding: 1px 9px; border-radius: 999px; background: var(--surface); color: var(--slate); font-size: 12px; }
-.m-pill-active { background: var(--success-soft); color: var(--success); }
-.m-pill-maintenance, .m-pill-pending { background: var(--warning-soft); color: var(--warning); }
-.m-pill-offline { background: var(--danger-soft); color: var(--danger); }
-
-/* ---- my registrations (Sync screen) ---- */
-.m-myreg-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; padding: 11px 0; border-bottom: 1px solid var(--border); }
-.m-myreg-main { flex: 1 1 60%; min-width: 0; font-size: 15px; overflow-wrap: anywhere; }
-.m-myreg-sub { flex-basis: 100%; font-size: 13px; color: var(--slate); }
 
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }

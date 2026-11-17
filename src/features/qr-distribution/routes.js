@@ -11,7 +11,7 @@ router.get('/code', async (req, res) => {
     return res.status(503).json({ ok: false, error: 'Mobile access URL not ready yet — try again in a few seconds.' });
   }
   const result = await generateMobileQrDataUrl(baseUrl);
-  res.json({ ok: true, mode: req.app.locals.mobileAccessMode || 'lan', ...result });
+  res.json({ ok: true, mode: req.app.locals.mobileAccessMode || 'lan', webUrl: `${baseUrl.replace(/\/$/, '')}/admin/`, ...result });
 });
 
 // Lets the QR screen show "setting up public tunnel..." instead of a dead

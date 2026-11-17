@@ -33,9 +33,17 @@ function deviceLabel(username, source, ip, deviceName) {
 // asset, approving a scan applies its edits and logs the scan as verified.
 const SCAN_STATUSES = new Set(['verified', 'missing', 'misplaced']);
 
-// Fields a phone is allowed to propose for an existing asset. The Asset ID is
+// What a PHONE may propose for an existing asset: where it is, what shape it is in, whether it is in
+// service, how many there are on record, and who has it. Everything else about an asset (name,
+// category, description, photo, value, property numbers…) is the desktop's to change. Enforced here
+// — not only hidden in the phone's screen — so an older copy of the app can't send more.
+const PHONE_EDITABLE_FIELDS = ['room_id', 'condition', 'status', 'quantity', 'assigned_to'];
+const PHONE_EDIT_MESSAGE = 'Phones can only change an asset\'s location, condition, status, quantity and user.';
+
+// Fields that can be proposed for an existing asset from anywhere else (the desktop). The Asset ID is
 // deliberately not one of them.
-const EDITABLE_FIELDS = ['name', 'category', 'description', 'condition', 'status', 'room_id', 'assigned_to', 'value_php', 'acquired_date', 'photo'];
+const EDITABLE_FIELDS = ['name', 'category', 'description', 'condition', 'status', 'room_id', 'assigned_to', 'value_php', 'acquired_date', 'photo',
+  'property_no', 'ics_no', 'serial_no', 'useful_life', 'quantity', 'end_user_unit', 'remarks'];
 // A phone can't propose an Asset ID for a new asset: it is generated here, when the
 // registration is verified (the QR label is made from it then).
 const REGISTRATION_FIELDS = [...EDITABLE_FIELDS];
@@ -44,6 +52,13 @@ const REGISTRATION_FIELDS = [...EDITABLE_FIELDS];
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function cleanUuid(value) {
   return typeof value === 'string' && UUID_RE.test(value.trim()) ? value.trim().toLowerCase() : null;
+}
+
+// A counted quantity from a phone: a whole number from 0 up, or null if none was entered.
+function cleanCount(value) {
+  if (value === undefined || value === null || value === '') return null;
+  const n = Math.round(Number(value));
+  return Number.isFinite(n) && n >= 0 && n <= 1000000 ? n : null;
 }
 
 // What we already know about a registration the phone calls `uuid`, or null if it
@@ -74,10 +89,12 @@ function pickFields(obj, allowed) {
     if (typeof v === 'string') v = v.trim();
     if (key === 'room_id') v = v === '' || v === null ? null : Number(v);
     if (key === 'value_php') v = v === '' || v === null ? null : Number(v);
+    if (key === 'useful_life' || key === 'quantity') v = v === '' || v === null ? null : Math.round(Number(v));
     if (v === '') v = null;
     out[key] = v;
   }
   if ('name' in out && !out.name) delete out.name; // a name can't be blanked out
+  if ('quantity' in out && !(out.quantity >= 1)) delete out.quantity; // at least 1 on record; anything else is ignored
   return out;
 }
 
@@ -92,12 +109,12 @@ function recordSyncBatch(items, meta = {}) {
 
   const findByTag = db.prepare('SELECT id FROM assets WHERE asset_tag = ?');
   const insertLog = db.prepare(`
-    INSERT INTO inventory_logs (asset_id, room_id, scanned_by, status, device_source, device_ip, device_name)
-    VALUES (@asset_id, @room_id, @scanned_by, @status, @device_source, @device_ip, @device_name)
+    INSERT INTO inventory_logs (asset_id, room_id, scanned_by, status, counted, device_source, device_ip, device_name)
+    VALUES (@asset_id, @room_id, @scanned_by, @status, @counted, @device_source, @device_ip, @device_name)
   `);
   const insertPending = db.prepare(`
-    INSERT INTO pending_scans (batch_id, asset_id, room_id, scanned_by, claimed_status, kind, changes_json, device_source, device_ip, device_name)
-    VALUES (@batch_id, @asset_id, @room_id, @scanned_by, @status, @kind, @changes_json, @device_source, @device_ip, @device_name)
+    INSERT INTO pending_scans (batch_id, asset_id, room_id, scanned_by, claimed_status, kind, changes_json, counted, device_source, device_ip, device_name)
+    VALUES (@batch_id, @asset_id, @room_id, @scanned_by, @status, @kind, @changes_json, @counted, @device_source, @device_ip, @device_name)
   `);
   const insertRegistration = db.prepare(`
     INSERT INTO pending_registrations (batch_id, requested_by, payload_json, device_source, device_ip, device_name, client_uuid)
@@ -109,6 +126,7 @@ function recordSyncBatch(items, meta = {}) {
     WHERE review_status = 'pending' AND asset_id = ? AND scanned_by = ? AND kind = ? AND COALESCE(room_id, 0) = COALESCE(?, 0)
   `);
   const updateQueued = db.prepare('UPDATE pending_scans SET changes_json = ? WHERE id = ?');
+  const updateQueuedCount = db.prepare('UPDATE pending_scans SET counted = ? WHERE id = ?'); // the latest count wins
 
   const counts = { scans: 0, edits: 0, registrations: 0 };
   const skipped = [];
@@ -119,6 +137,9 @@ function recordSyncBatch(items, meta = {}) {
       const type = s.type || 'scan';
 
       if (type === 'registration') {
+        // New assets are registered on the desktop, never from a phone. (An older copy of the app
+        // that still has one saved is told so, and drops it.)
+        if (source === 'mobile') { skipped.push({ ...s, reason: 'Phones can\'t register new assets. Register it on the desktop.' }); continue; }
         const by = s.scanned_by || scannedBy;
         const uuid = cleanUuid(s.client_uuid);
 
@@ -143,7 +164,7 @@ function recordSyncBatch(items, meta = {}) {
       const asset = s.asset_tag ? findByTag.get(s.asset_tag) : null;
       if (!asset) { skipped.push(s); continue; }
 
-      const changes = pickFields(s.changes || {}, EDITABLE_FIELDS);
+      const changes = pickFields(s.changes || {}, source === 'mobile' ? PHONE_EDITABLE_FIELDS : EDITABLE_FIELDS);
       const hasChanges = Object.keys(changes).length > 0;
       const by = s.scanned_by || scannedBy;
 
@@ -151,7 +172,7 @@ function recordSyncBatch(items, meta = {}) {
         if (!hasChanges) continue;
         const existing = findQueued.get(asset.id, by, 'edit', null);
         if (existing) updateQueued.run(JSON.stringify({ ...JSON.parse(existing.changes_json || '{}'), ...changes }), existing.id);
-        else insertPending.run({ batch_id: batchId, asset_id: asset.id, room_id: null, scanned_by: by, status: 'verified', kind: 'edit', changes_json: JSON.stringify(changes), ...dev });
+        else insertPending.run({ batch_id: batchId, asset_id: asset.id, room_id: null, scanned_by: by, status: 'verified', kind: 'edit', changes_json: JSON.stringify(changes), counted: null, ...dev });
         counts.edits++;
         continue;
       }
@@ -161,12 +182,14 @@ function recordSyncBatch(items, meta = {}) {
         asset_id: asset.id,
         room_id: s.room_id || null,
         scanned_by: by,
-        status: SCAN_STATUSES.has(s.status) ? s.status : 'verified'
+        status: SCAN_STATUSES.has(s.status) ? s.status : 'verified',
+        counted: cleanCount(s.counted)
       };
       if (source === 'mobile') {
         const existing = findQueued.get(row.asset_id, row.scanned_by, 'scan', row.room_id);
         if (existing) {
           if (hasChanges) updateQueued.run(JSON.stringify({ ...JSON.parse(existing.changes_json || '{}'), ...changes }), existing.id);
+          if (row.counted !== null) updateQueuedCount.run(row.counted, existing.id);
         } else {
           insertPending.run({ batch_id: batchId, ...row, kind: 'scan', changes_json: hasChanges ? JSON.stringify(changes) : null, ...dev });
         }
@@ -208,34 +231,103 @@ function recordSyncBatch(items, meta = {}) {
   };
 }
 
-// A mobile client that still calls the live endpoints (POST /assets, PUT
-// /assets/:id) is routed into the same review queue, so nothing from a phone
-// can reach the registry without verification.
-function queueMobileRegistration(body, meta = {}) {
-  const payload = pickFields(body, REGISTRATION_FIELDS);
-  if (!payload.name) return { ok: false, status: 400, error: 'name is required.' };
+// ---- CSV / XLSX import --------------------------------------------------
+// Rows parsed by assets/importer.js arrive here and wait in the review queue like anything
+// else from outside: nothing becomes an asset until the super admin verifies it.
+//   * a row that carries an Asset ID the registry already has  -> a pending EDIT holding only
+//     the fields that differ (nothing queued when the row matches what is saved)
+//   * every other row                                          -> a pending REGISTRATION
+// Every row carries a stable `client_uuid` made from its own content, so uploading the same
+// file twice never queues, or adds, anything twice (see registrationOutcome()).
+function queueImportBatch(records, meta = {}) {
   const db = getDb();
-  const by = meta.scannedBy || 'unknown';
-  const uuid = cleanUuid(body.client_uuid);
-  const known = uuid ? registrationOutcome(db, uuid) : null;
-  if (known) {
-    if (known.owner && known.owner !== by) return { ok: false, status: 409, error: 'This registration id belongs to another account.' };
-    return { ok: true, pending: known.status === 'pending', duplicate: true, ...publicOutcome(known) };
-  }
-  db.prepare(`
+  const by = meta.scannedBy || 'admin';
+  const batchId = crypto.randomUUID();
+  const dev = { device_source: 'import', device_ip: meta.ip || null, device_name: meta.deviceName || 'CSV/XLSX import' };
+
+  const findAsset = db.prepare('SELECT * FROM assets WHERE asset_tag = ?');
+  const insertReg = db.prepare(`
     INSERT INTO pending_registrations (batch_id, requested_by, payload_json, device_source, device_ip, device_name, client_uuid)
     VALUES (?, ?, ?, ?, ?, ?, ?)
-  `).run(crypto.randomUUID(), by, JSON.stringify(payload), meta.source || null, meta.ip || null, meta.deviceName || null, uuid);
-  require('../system/services').logEvent('SYNC', `${deviceLabel(meta.scannedBy, meta.source, meta.ip, meta.deviceName)} sent 1 registration(s) for verification`, 'warn');
-  return { ok: true, pending: true };
+  `);
+  const insertEdit = db.prepare(`
+    INSERT INTO pending_scans (batch_id, asset_id, room_id, scanned_by, claimed_status, kind, changes_json, device_source, device_ip, device_name)
+    VALUES (@batch_id, @asset_id, NULL, @scanned_by, 'verified', 'edit', @changes_json, @device_source, @device_ip, @device_name)
+  `);
+  const findQueuedEdit = db.prepare(`SELECT id, changes_json FROM pending_scans WHERE review_status = 'pending' AND asset_id = ? AND kind = 'edit' AND device_source = 'import'`);
+  const updateEdit = db.prepare('UPDATE pending_scans SET changes_json = ? WHERE id = ?');
+  const queuedTag = db.prepare(`SELECT 1 AS x FROM pending_registrations WHERE review_status = 'pending' AND device_source = 'import' AND json_extract(payload_json, '$.asset_tag') = ?`);
+
+  const out = { queued: 0, new_assets: 0, updates: 0, unchanged: 0, duplicates: 0 };
+  const seenTags = new Set();
+  db.transaction(() => {
+    for (const rec of records) {
+      const { client_uuid: uuid, asset_tag: tag, room_name: roomName_, ...fields } = rec;
+      const payload = pickFields(fields, EDITABLE_FIELDS);
+      if (roomName_) payload.room_name = roomName_;
+      if (tag) payload.asset_tag = tag;
+      if (payload.assigned_to) { // same person, different spelling -> the assignee already on the list
+        const person = require('../assignees/services').findPerson(db, payload.assigned_to);
+        if (person) payload.assigned_to = person.name;
+      }
+
+      const asset = tag ? findAsset.get(tag) : null;
+      if (asset) {
+        const changes = {};
+        for (const [k, v] of Object.entries(payload)) {
+          if (k === 'asset_tag' || k === 'room_name') continue;
+          if (v === null || v === undefined) continue; // an empty cell never erases what is saved
+          const cur = asset[k] === undefined || asset[k] === '' ? null : asset[k];
+          if (String(cur) !== String(v)) changes[k] = v;
+        }
+        if (roomName_) { // only an existing room can be proposed for an existing asset
+          const room = db.prepare('SELECT id FROM rooms WHERE name = ?').get(roomName_);
+          if (room && room.id !== asset.room_id) changes.room_id = room.id;
+        }
+        if (Object.keys(changes).length === 0) { out.unchanged++; continue; }
+        const queued = findQueuedEdit.get(asset.id);
+        if (queued) updateEdit.run(JSON.stringify({ ...JSON.parse(queued.changes_json || '{}'), ...changes }), queued.id);
+        else insertEdit.run({ batch_id: batchId, asset_id: asset.id, scanned_by: by, changes_json: JSON.stringify(changes), ...dev });
+        out.updates++; out.queued++;
+        continue;
+      }
+
+      if (tag) {
+        if (seenTags.has(tag) || queuedTag.get(tag)) { out.duplicates++; continue; }
+        seenTags.add(tag);
+      }
+      if (uuid && registrationOutcome(db, uuid)) { out.duplicates++; continue; } // this exact row was uploaded before
+      insertReg.run(batchId, by, JSON.stringify(payload), dev.device_source, dev.device_ip, dev.device_name, uuid || null);
+      out.new_assets++; out.queued++;
+    }
+  })();
+
+  if (out.queued > 0) {
+    const parts = [];
+    if (out.new_assets) parts.push(`${out.new_assets} registration(s)`);
+    if (out.updates) parts.push(`${out.updates} edit(s)`);
+    require('../system/services').logEvent('SYNC', `${by} imported ${parts.join(', ')} from a file — waiting for verification`, 'warn');
+  }
+  return out;
+}
+
+// A mobile client that still calls the live endpoints (POST /assets, PUT /assets/:id) is held to
+// the same rules as a sync: it can't register anything, and what it can change goes into the same
+// review queue, so nothing from a phone reaches the registry without verification.
+function queueMobileRegistration() {
+  return { ok: false, status: 403, error: 'Phones can\'t register new assets. Register it on the desktop.' };
 }
 
 function queueMobileEdit(assetId, body, meta = {}) {
   const db = getDb();
   const asset = db.prepare('SELECT id FROM assets WHERE id = ?').get(assetId);
   if (!asset) return { ok: false, status: 404, error: 'Asset not found.' };
-  const changes = pickFields(body, EDITABLE_FIELDS);
-  if (Object.keys(changes).length === 0) return { ok: true, pending: true };
+  const changes = pickFields(body, PHONE_EDITABLE_FIELDS);
+  if (Object.keys(changes).length === 0) {
+    // Nothing allowed was sent. If that's because something NOT allowed was, say so rather than "ok".
+    const sentOther = Object.keys(body || {}).some((k) => EDITABLE_FIELDS.includes(k));
+    return sentOther ? { ok: false, status: 403, error: PHONE_EDIT_MESSAGE } : { ok: true, pending: true };
+  }
   db.prepare(`
     INSERT INTO pending_scans (batch_id, asset_id, room_id, scanned_by, claimed_status, kind, changes_json, device_source, device_ip, device_name)
     VALUES (?, ?, NULL, ?, 'verified', 'edit', ?, ?, ?, ?)
@@ -287,14 +379,14 @@ function syncLog(limit = 20) {
   // The assets that were checked in under one log row, so selecting the row can
   // show what it actually covered (the pop-out on the Sync screen).
   const itemsBySession = db.prepare(`
-    SELECT a.asset_tag, a.name, l.status, l.scanned_at
+    SELECT a.asset_tag, a.name, l.status, l.counted, l.scanned_at
     FROM inventory_logs l JOIN assets a ON a.id = l.asset_id
     WHERE l.scanned_by = @user AND COALESCE(l.room_id, -1) = COALESCE(@room_id, -1)
       AND l.scanned_at BETWEEN datetime(@at, '-10 minutes') AND datetime(@at, '+10 minutes')
     ORDER BY l.id DESC LIMIT 200
   `);
   const itemsByGroup = db.prepare(`
-    SELECT a.asset_tag, a.name, l.status, l.scanned_at
+    SELECT a.asset_tag, a.name, l.status, l.counted, l.scanned_at
     FROM inventory_logs l
     JOIN assets a ON a.id = l.asset_id
     LEFT JOIN rooms r ON r.id = l.room_id
@@ -380,12 +472,26 @@ function markScanned(assetId, meta = {}) {
 
 // ---- Review queue (the Inventory Sync screen's "Awaiting verification") ----
 
+// Quantity on record, and what it WOULD be once this item is verified (a scan can propose a new quantity
+// too). Older assets have none stored, which means 1.
+const qtyOf = (v) => (v === null || v === undefined || v === '' ? 1 : Number(v));
+function countFigures(row, recordQty, changes) {
+  const before = qtyOf(recordQty);
+  const after = Object.prototype.hasOwnProperty.call(changes, 'quantity') && changes.quantity !== null ? qtyOf(changes.quantity) : before;
+  const counted = row.counted === null || row.counted === undefined ? null : Number(row.counted);
+  // A count that doesn't match what the record will say afterwards is worth a second look.
+  return { counted, quantity_before: before, quantity_after: after, count_mismatch: counted !== null && counted !== after };
+}
+
 // Order the review pop-out lists fields in (photo first, then the details).
-const COMPARE_FIELDS = ['photo', 'name', 'category', 'condition', 'status', 'room_id', 'assigned_to', 'value_php', 'acquired_date', 'description'];
+const COMPARE_FIELDS = ['photo', 'name', 'category', 'condition', 'status', 'room_id', 'assigned_to', 'end_user_unit', 'value_php', 'quantity', 'acquired_date',
+  'property_no', 'ics_no', 'serial_no', 'useful_life', 'description', 'remarks'];
 const FIELD_LABELS = {
   name: 'Asset name', category: 'Category', description: 'Description', condition: 'Condition',
   status: 'Status', room_id: 'Room', assigned_to: 'Assigned to', value_php: 'Value (PHP)',
-  acquired_date: 'Acquired', photo: 'Photo'
+  acquired_date: 'Acquired', photo: 'Photo',
+  property_no: 'Property No.', ics_no: 'ICS No.', serial_no: 'Serial No.', useful_life: 'Useful life (years)',
+  quantity: 'Quantity', end_user_unit: 'End-user office', remarks: 'Remarks'
 };
 
 function roomName(db, id) {
@@ -424,7 +530,7 @@ function pendingQueue() {
     });
 
   const scanRows = db.prepare(`
-    SELECT p.*, a.asset_tag, a.name AS asset_name,
+    SELECT p.*, a.asset_tag, a.name AS asset_name, a.quantity AS record_qty,
            r.name AS scanned_room, rr.name AS registered_room,
            (p.kind = 'scan' AND p.room_id IS NOT NULL AND a.room_id IS NOT NULL AND p.room_id <> a.room_id) AS room_mismatch
     FROM pending_scans p
@@ -444,6 +550,7 @@ function pendingQueue() {
         scanned_room: r.kind === 'scan' ? (r.scanned_room || 'Unassigned') : null,
         registered_room: r.registered_room || 'Unassigned',
         room_mismatch: !!r.room_mismatch,
+        ...countFigures(r, r.record_qty, changes),
         change_fields: Object.keys(changes).map((k) => FIELD_LABELS[k] || k)
       };
     });
@@ -458,7 +565,8 @@ function pendingQueue() {
 function pendingCount() {
   const db = getDb();
   const registrations = db.prepare("SELECT COUNT(*) AS c FROM pending_registrations WHERE review_status = 'pending'").get().c;
-  const scans = db.prepare("SELECT COUNT(*) AS c FROM pending_scans WHERE review_status = 'pending'").get().c;
+  // Same JOIN as pendingQueue(), so the number always matches what the list can show.
+  const scans = db.prepare("SELECT COUNT(*) AS c FROM pending_scans p JOIN assets a ON a.id = p.asset_id WHERE p.review_status = 'pending'").get().c;
   return { count: registrations + scans, registrations, scans };
 }
 
@@ -472,7 +580,7 @@ function registrationDetail(id) {
     id: r.id, requested_by: r.requested_by, received_at: r.received_at,
     device: deviceLabel(r.requested_by, r.device_source, r.device_ip, r.device_name),
     // The Asset ID doesn't exist yet: it is generated when this is approved.
-    asset: { ...p, room_name: roomName(db, p.room_id) }
+    asset: { ...p, room_name: p.room_id != null ? roomName(db, p.room_id) : (p.room_name || 'Unassigned') }
   };
 }
 
@@ -518,15 +626,16 @@ function scanDetail(id) {
     scanned_room: r.kind === 'scan' ? roomName(db, r.room_id) : null,
     registered_room: roomName(db, asset.room_id),
     room_mismatch: r.kind === 'scan' && r.room_id !== null && asset.room_id !== null && r.room_id !== asset.room_id,
+    ...countFigures(r, asset.quantity, changes),
     asset, diff, compare
   };
 }
 
 function insertVerifiedLog(db, row) {
   db.prepare(`
-    INSERT INTO inventory_logs (asset_id, room_id, scanned_by, status, scanned_at, device_source, device_ip, device_name)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-  `).run(row.asset_id, row.room_id, row.scanned_by, row.status, row.scanned_at, row.device_source, row.device_ip, row.device_name);
+    INSERT INTO inventory_logs (asset_id, room_id, scanned_by, status, counted, scanned_at, device_source, device_ip, device_name)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(row.asset_id, row.room_id, row.scanned_by, row.status, row.counted ?? null, row.scanned_at, row.device_source, row.device_ip, row.device_name);
 }
 
 function cleanIds(ids) {
@@ -555,7 +664,7 @@ function reviewScans(action, ids, reviewer) {
         }
         if (row.kind === 'scan') {
           // Keep the time the phone's data arrived, so the log shows when it happened, not when it was reviewed.
-          insertVerifiedLog(db, { asset_id: row.asset_id, room_id: row.room_id, scanned_by: row.scanned_by, status: row.claimed_status, scanned_at: row.received_at, device_source: row.device_source, device_ip: row.device_ip, device_name: row.device_name });
+          insertVerifiedLog(db, { asset_id: row.asset_id, room_id: row.room_id, scanned_by: row.scanned_by, status: row.claimed_status, counted: row.counted, scanned_at: row.received_at, device_source: row.device_source, device_ip: row.device_ip, device_name: row.device_name });
         }
       }
       close.run(action === 'approve' ? 'approved' : 'rejected', reviewer, id);
@@ -680,5 +789,5 @@ module.exports = {
   recordSyncBatch, roomProgress, allRoomsProgress, recentLogs,
   markScanned, recordSyncSession, syncLog,
   pendingQueue, pendingCount, registrationDetail, scanDetail, reviewPending, registrationStatuses,
-  queueMobileRegistration, queueMobileEdit
+  queueMobileRegistration, queueMobileEdit, queueImportBatch
 };

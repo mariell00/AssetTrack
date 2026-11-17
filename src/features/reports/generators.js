@@ -45,6 +45,16 @@ async function generateExcelReport(rows) {
     { header: 'Room', key: 'room_name', width: 18 },
     { header: 'Condition', key: 'condition', width: 12 },
     { header: 'Value (PHP)', key: 'value_php', width: 14 },
+    // The columns of the property custodian sheet, so the export can be compared with it
+    { header: 'Date Acquired', key: 'acquired_date', width: 14 },
+    { header: 'ICS No.', key: 'ics_no', width: 22 },
+    { header: 'Property No.', key: 'property_no', width: 28 },
+    { header: 'Serial No.', key: 'serial_no', width: 24 },
+    { header: 'Eul (years)', key: 'useful_life', width: 11 },
+    { header: 'Qty.', key: 'quantity', width: 7 },
+    { header: 'End-User', key: 'assigned_to', width: 30 },
+    { header: 'Office', key: 'end_user_unit', width: 12 },
+    { header: 'Item Description', key: 'description', width: 70 },
     { header: 'Last Verified', key: 'last_verified', width: 20 },
     { header: 'Missing Flags', key: 'missing_flags', width: 14 }
   ];

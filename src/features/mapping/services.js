@@ -243,8 +243,47 @@ function assetsForMap() {
   `).all();
 }
 
+// ---- Cluster Map: people and the assets assigned to them ---------------------
+// One entry per assignee with every asset assigned to them and where that asset is (its room's
+// building, with the building's pin coordinates when it has been placed on the map). The Cluster
+// Map lists these names; picking one drops pins for just that person's assets. Asset photos are
+// not sent (they would bloat this payload); the person's own photo is.
+function peopleForMap() {
+  const db = getDb();
+  const rows = db.prepare(`
+    SELECT a.id, a.asset_tag, a.name, a.status, a.assigned_to, a.property_no, a.serial_no, a.quantity,
+      r.id AS room_id, r.name AS room_name, r.floor,
+      b.id AS building_id, b.name AS building_name, b.latitude, b.longitude
+    FROM assets a
+    LEFT JOIN rooms r ON r.id = a.room_id
+    LEFT JOIN buildings b ON b.id = r.building_id
+    WHERE a.assigned_to IS NOT NULL AND TRIM(a.assigned_to) <> ''
+    ORDER BY a.name COLLATE NOCASE
+  `).all();
+
+  const key = (name) => String(name).trim().toLowerCase();
+  const byKey = new Map();
+  for (const p of db.prepare('SELECT id, name, position, department, photo, status FROM people ORDER BY name COLLATE NOCASE').all()) {
+    byKey.set(key(p.name), { ...p, assets: [] });
+  }
+  for (const a of rows) {
+    const k = key(a.assigned_to);
+    if (!byKey.has(k)) byKey.set(k, { id: null, name: a.assigned_to.trim(), position: null, department: null, photo: null, status: 'active', assets: [] });
+    byKey.get(k).assets.push({
+      id: a.id, asset_tag: a.asset_tag, name: a.name, status: a.status,
+      property_no: a.property_no, serial_no: a.serial_no, quantity: a.quantity || 1,
+      room_id: a.room_id, room_name: a.room_name, floor: a.floor,
+      building_id: a.building_id, building_name: a.building_name,
+      latitude: a.latitude, longitude: a.longitude
+    });
+  }
+  return [...byKey.values()]
+    .map((p) => ({ ...p, asset_count: p.assets.length }))
+    .sort((x, y) => x.name.localeCompare(y.name));
+}
+
 module.exports = {
-  listBuildings, createBuilding, updateBuilding, setBuildingLocation, deleteBuilding,
+  peopleForMap, listBuildings, createBuilding, updateBuilding, setBuildingLocation, deleteBuilding,
   listRooms, createRoom, updateRoom, deleteRoom,
   buildingsForMap, assetsForMap
 };

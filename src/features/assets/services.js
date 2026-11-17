@@ -1,5 +1,4 @@
 // features/assets/services.js — CRUD logic + Excel-to-JSON bulk importer.
-const XLSX = require('xlsx');
 const QRCode = require('qrcode');
 const { getDb } = require('../../core/database');
 
@@ -14,7 +13,11 @@ function listAssets({ roomId, search } = {}) {
   `;
   const params = [];
   if (roomId) { sql += ' AND a.room_id = ?'; params.push(roomId); }
-  if (search) { sql += ' AND (a.name LIKE ? OR a.asset_tag LIKE ?)'; params.push(`%${search}%`, `%${search}%`); }
+  if (search) {
+    // Also finds what is written on the custodian sheet: property no., ICS no., serial no., description.
+    sql += ` AND (a.name LIKE ? OR a.asset_tag LIKE ? OR a.property_no LIKE ? OR a.ics_no LIKE ? OR a.serial_no LIKE ? OR a.description LIKE ? OR a.assigned_to LIKE ?)`;
+    for (let i = 0; i < 7; i++) params.push(`%${search}%`);
+  }
   sql += ' ORDER BY a.asset_tag';
   return db.prepare(sql).all(...params);
 }
@@ -61,7 +64,7 @@ function getAssetDetail(id) {
 
   // Shown in the Asset Registry's detail pop-up (the mobile app ignores the extras).
   const recentScans = db.prepare(`
-    SELECT l.scanned_at, l.status, l.scanned_by, r.name AS room_name
+    SELECT l.scanned_at, l.status, l.scanned_by, l.counted, r.name AS room_name
     FROM inventory_logs l
     LEFT JOIN rooms r ON r.id = l.room_id
     WHERE l.asset_id = ?
@@ -132,6 +135,9 @@ function rejectBadSpecs(check) {
   throw err;
 }
 
+function textOrNull(v) { const s = v === undefined || v === null ? '' : String(v).trim(); return s || null; }
+function intOrNull(v) { if (v === undefined || v === null || v === '') return null; const n = Math.round(Number(v)); return Number.isFinite(n) ? n : null; }
+
 function createAsset(data) {
   const db = getDb();
   const specs = require('../specs/services');
@@ -143,9 +149,13 @@ function createAsset(data) {
   // one; a phone's registration never does (see inventory/services.js).
   const assetTag = (data.asset_tag && String(data.asset_tag).trim()) || generateAssetTag(db);
   const roomId = data.room_id || resolveRoomId(db, data.room_name);
+  // Same person, different spelling -> the assignee already on the list (see assignees/names.js).
+  const assignedTo = require('../assignees/services').ensurePerson(db, data.assigned_to);
   const info = db.prepare(`
-    INSERT INTO assets (asset_tag, name, category, description, condition, status, acquired_date, value_php, room_id, assigned_to, photo, client_uuid)
-    VALUES (@asset_tag, @name, @category, @description, @condition, @status, @acquired_date, @value_php, @room_id, @assigned_to, @photo, @client_uuid)
+    INSERT INTO assets (asset_tag, name, category, description, condition, status, acquired_date, value_php, room_id, assigned_to, photo, client_uuid,
+                        property_no, ics_no, serial_no, useful_life, quantity, end_user_unit, remarks)
+    VALUES (@asset_tag, @name, @category, @description, @condition, @status, @acquired_date, @value_php, @room_id, @assigned_to, @photo, @client_uuid,
+            @property_no, @ics_no, @serial_no, @useful_life, @quantity, @end_user_unit, @remarks)
   `).run({
     asset_tag: assetTag,
     name: data.name,
@@ -154,22 +164,26 @@ function createAsset(data) {
     condition: data.condition || 'good',
     status: data.status || 'active',
     acquired_date: data.acquired_date || null,
-    value_php: data.value_php || null,
+    value_php: data.value_php === undefined || data.value_php === '' ? null : data.value_php, // 0 is a real amount
     room_id: roomId,
-    assigned_to: data.assigned_to || null,
+    assigned_to: assignedTo,
     photo: data.photo || null,
-    client_uuid: data.client_uuid || null // the phone's internal reference, when verified from a registration
+    client_uuid: data.client_uuid || null, // the phone's internal reference, when verified from a registration
+    property_no: textOrNull(data.property_no),
+    ics_no: textOrNull(data.ics_no),
+    serial_no: textOrNull(data.serial_no),
+    useful_life: intOrNull(data.useful_life),
+    quantity: intOrNull(data.quantity) || 1,
+    end_user_unit: textOrNull(data.end_user_unit),
+    remarks: textOrNull(data.remarks)
   });
 
   if (!specCheck.skip) specs.write(info.lastInsertRowid, specCheck.rows);
 
-  // Keeps every assigned name on the Assignees list (mobile lets admins type one freely).
-  require('../assignees/services').ensurePerson(db, data.assigned_to);
-
   // `assigned_photo` here is whatever the Asset Registry modal's "ASSIGNED
   // USER PHOTO" field just picked — remembered against the person's name
   // (people table) rather than this asset row.
-  if (data.assigned_photo) upsertPersonPhoto(db, data.assigned_to, data.assigned_photo);
+  if (data.assigned_photo) upsertPersonPhoto(db, assignedTo, data.assigned_photo);
 
   require('../system/services').logEvent('IMPORT', `Asset ${assetTag} registered: ${data.name}`, 'success');
   return getAsset(info.lastInsertRowid);
@@ -187,18 +201,22 @@ function updateAsset(id, data) {
   const specCheck = specs.validate(category, submittedSpecs);
   rejectBadSpecs(specCheck);
   const merged = { ...existing, ...fields, category, room_id: roomId, id };
+  for (const k of ['property_no', 'ics_no', 'serial_no', 'end_user_unit', 'remarks']) merged[k] = textOrNull(merged[k]);
+  if (fields.assigned_to !== undefined) merged.assigned_to = require('../assignees/services').ensurePerson(db, fields.assigned_to);
+  merged.useful_life = intOrNull(merged.useful_life);
+  merged.quantity = intOrNull(merged.quantity) || 1;
   db.prepare(`
     UPDATE assets SET asset_tag=@asset_tag, name=@name, category=@category,
       description=@description, condition=@condition, status=@status, acquired_date=@acquired_date,
-      value_php=@value_php, room_id=@room_id, assigned_to=@assigned_to, photo=@photo WHERE id=@id
+      value_php=@value_php, room_id=@room_id, assigned_to=@assigned_to, photo=@photo,
+      property_no=@property_no, ics_no=@ics_no, serial_no=@serial_no, useful_life=@useful_life,
+      quantity=@quantity, end_user_unit=@end_user_unit, remarks=@remarks WHERE id=@id
   `).run(merged);
 
   if (!specCheck.skip) specs.write(id, specCheck.rows);
   // Specs belong to a category: moving the asset to another one without supplying new specs
   // (e.g. a phone's edit, approved later) must not leave the old category's values behind.
   else if (category !== existing.category) specs.remove(id);
-
-  require('../assignees/services').ensurePerson(db, merged.assigned_to);
 
   // Save against whichever name the asset ends up assigned to after this
   // update (merged.assigned_to), same as createAsset() above.
@@ -239,80 +257,25 @@ function reportIssue(assetId, note, reportedBy) {
   return { id: info.lastInsertRowid, asset_id: Number(assetId), note, reported_by: reportedBy };
 }
 
-// Bulk import: reads an uploaded .xlsx/.csv buffer and inserts/updates rows.
-// Column headers are matched flexibly (case/spacing/punctuation-insensitive)
-// against several accepted names per field, so both a human-friendly export
-// like "Asset ID / Name / Assigned To / Room / Status" and the original
-// snake_case format ("asset_tag" / "room" / "condition") both work.
-const IMPORT_FIELD_ALIASES = {
-  asset_tag: ['asset_tag', 'asset id', 'assetid', 'asset tag', 'tag', 'id'],
-  name: ['name', 'asset name'],
-  category: ['category'],
-  description: ['description', 'notes'],
-  condition: ['condition'],
-  room: ['room', 'location'],
-  assigned_to: ['assigned_to', 'assigned to', 'assignee', 'assigned'],
-  status: ['status']
-};
-const VALID_STATUSES = new Set(['active', 'pending', 'maintenance', 'offline']);
-
-// Collapses a header like "Asset ID", "asset_tag" or "Asset-Id" down to
-// "assetid" so all three match the same alias regardless of how the sheet
-// author formatted it.
-function normalizeHeader(key) {
-  return String(key).toLowerCase().replace(/[^a-z0-9]/g, '');
-}
-
-// Builds a { assetTag, name, ... } object for one raw sheet row by matching
-// its actual (arbitrarily-cased) column headers against IMPORT_FIELD_ALIASES.
-function mapRow(row) {
-  const normalized = {};
-  for (const [rawKey, value] of Object.entries(row)) {
-    normalized[normalizeHeader(rawKey)] = value;
-  }
-  const mapped = {};
-  for (const [field, aliases] of Object.entries(IMPORT_FIELD_ALIASES)) {
-    for (const alias of aliases) {
-      const value = normalized[normalizeHeader(alias)];
-      if (value !== undefined && String(value).trim() !== '') {
-        mapped[field] = String(value).trim();
-        break;
-      }
-    }
-  }
-  return mapped;
-}
-
-// A CSV/XLSX import never touches the registry directly. Every row is parsed and
-// validated here, then handed to the Inventory Sync review queue
-// (inventory/services.js -> queueImportBatch). Nothing becomes an asset, and no
-// existing asset changes, until the super admin verifies it on that screen.
+// Bulk import: reads an uploaded .csv / .xlsx and hands every row to the Inventory Sync review
+// queue (inventory/services.js -> queueImportBatch). Nothing becomes an asset, and no existing
+// asset changes, until the super admin verifies it there. Reading, column matching and value
+// cleaning live in importer.js (built around the property custodian sheet: Date Acquired,
+// ICS No., Property No., Item Description, Eul, Qty., End-User, Amount).
 function importFromExcelBuffer(buffer, meta = {}) {
-  const workbook = XLSX.read(buffer, { type: 'buffer' });
-  const sheet = workbook.Sheets[workbook.SheetNames[0]];
-  const rows = XLSX.utils.sheet_to_json(sheet);
-
-  const records = [];
-  let invalid = 0;
-  for (const raw of rows) {
-    const row = mapRow(raw);
-    if (!row.asset_tag || !row.name) { invalid++; continue; }
-    const assignedTo = (row.assigned_to && row.assigned_to.toLowerCase() !== 'unassigned') ? row.assigned_to : null;
-    const statusLower = row.status ? row.status.toLowerCase() : '';
-    records.push({
-      asset_tag: row.asset_tag,
-      name: row.name,
-      category: require('../specs/categories').canonicalCategory(row.category),
-      description: row.description || null,
-      condition: row.condition || 'good',
-      room_name: row.room || null,
-      assigned_to: assignedTo,
-      status: VALID_STATUSES.has(statusLower) ? statusLower : 'active'
-    });
-  }
-
-  const queued = require('../inventory/services').queueImportBatch(records, meta);
-  return { ok: true, total_rows: rows.length, invalid, ...queued, needs_review: queued.queued > 0 };
+  const parsed = require('./importer').parseUpload(buffer);
+  if (parsed.error) throw new Error(parsed.error);
+  const queued = require('../inventory/services').queueImportBatch(parsed.records, meta);
+  return {
+    ok: true,
+    total_rows: parsed.totalRows,
+    invalid: parsed.skipped.length,
+    skipped_rows: parsed.skipped.slice(0, 20),
+    columns_read: parsed.mappedColumns,
+    columns_kept_in_remarks: parsed.unmappedColumns,
+    ...queued,
+    needs_review: queued.queued > 0
+  };
 }
 
 // Dashboard headline numbers: Total Assets / Verified Today / Pending Sync / Maintenance Due
@@ -323,7 +286,9 @@ function dashboardStats() {
     SELECT COUNT(DISTINCT asset_id) AS c FROM inventory_logs
     WHERE status = 'verified' AND date(scanned_at) = date('now')
   `).get().c;
-  const pendingSync = Math.max(0, totalAssets - verifiedToday);
+  // Pending sync = everything a phone or an import sent that still waits for the super admin to
+  // verify it: the same number as the badge on the Inventory Sync menu item.
+  const pendingSync = require('../inventory/services').pendingCount().count;
   const maintenanceDue = db.prepare(`SELECT COUNT(*) AS c FROM assets WHERE status = 'maintenance'`).get().c;
 
   return { totalAssets, verifiedToday, pendingSync, maintenanceDue };

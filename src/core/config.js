@@ -26,8 +26,14 @@ function loadConfig() {
   return config;
 }
 
+// Never writes secrets back into settings.json: whatever came from settings.local.json (API keys,
+// the SMTP password, the tunnel token) is blanked in the copy that is saved.
 function saveConfig(config) {
-  fs.writeFileSync(settingsPath(), JSON.stringify(config, null, 2));
+  const copy = JSON.parse(JSON.stringify(config));
+  if (copy.tileProvider) copy.tileProvider.apiKey = '';
+  if (copy.recovery) { copy.recovery.email = ''; if (copy.recovery.smtp) Object.assign(copy.recovery.smtp, { user: '', pass: '', from: '' }); }
+  if (copy.publicAccess && copy.publicAccess.namedTunnel) copy.publicAccess.namedTunnel.token = '';
+  fs.writeFileSync(settingsPath(), JSON.stringify(copy, null, 2));
 }
 
 // Scans all network interfaces and returns the first non-internal IPv4

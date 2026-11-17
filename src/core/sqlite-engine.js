@@ -140,6 +140,9 @@ class Database {
   persist() {
     if (!this._dirty || !this._dbPath) return;
     const data = this._raw.export();
+    // sql.js's export() quietly resets PRAGMA foreign_keys to OFF. Without this, cascades stop
+    // working after the first auto-save (a deleted asset's pending scans were left behind).
+    this._raw.run('PRAGMA foreign_keys = ON');
     fs.writeFileSync(this._dbPath, Buffer.from(data));
     this._dirty = false;
   }

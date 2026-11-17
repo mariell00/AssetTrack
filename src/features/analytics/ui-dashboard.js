@@ -111,13 +111,13 @@ export function render() {
       return;
     }
     const rows = [
-      { key: 'pending', label: 'Pending sync', hint: 'not verified today', value: s.pendingSync },
+      { key: 'pending', label: 'Pending sync', hint: 'waiting for verification', value: s.pendingSync },
       { key: 'active', label: 'Active', hint: 'in service', value: s.active },
       { key: 'maintenance', label: 'Maintenance', hint: 'flagged for repair', value: s.maintenance },
       { key: 'offline', label: 'Offline', hint: 'out of service', value: s.offline }
     ];
     statusBox.innerHTML = `<div class="bk-rings">${rows.map((r) => {
-      const share = (r.value / s.total) * 100;
+      const share = Math.min(100, (r.value / s.total) * 100); // the waiting items can outnumber the assets already registered
       const pct = Math.round(share);
       return `
         <div class="bk-ring bk-ring-${r.key}">

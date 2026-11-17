@@ -3,7 +3,7 @@
 // Two roles, each tied to exactly one app:
 //   superadmin — the single owner account. Signs in to the DESKTOP app only,
 //                and only from the computer running it.
-//   admin      — everyone else. Signs in to the MOBILE app only.
+//   admin      — everyone else. Signs in to the WEB app (browser, read-only) or the MOBILE app.
 // Imports the shared db singleton — never opens its own connection.
 const { getDb } = require('../../core/database');
 const { verifyPassword, issueToken, hashPassword } = require('../../core/security');
@@ -15,7 +15,7 @@ const { verifyPassword, issueToken, hashPassword } = require('../../core/securit
 // direct API calls that don't send the header still behave exactly as
 // before.
 function login(username, password, meta = {}) {
-  const source = meta.source === 'mobile' ? 'mobile' : 'desktop';
+  const source = ['mobile', 'web'].includes(meta.source) ? meta.source : 'desktop';
   const ip = meta.ip || null;
   const device = meta.device || null;
   const db = getDb();
@@ -39,7 +39,7 @@ function login(username, password, meta = {}) {
     "UPDATE users SET last_active = datetime('now'), last_login_source = ?, last_login_ip = ?, last_login_device = ? WHERE id = ?"
   ).run(source, ip, device, user.id);
 
-  const label = source === 'mobile' ? 'Mobile login' : 'Superadmin login';
+  const label = { mobile: 'Mobile login', web: 'Web login' }[source] || 'Superadmin login';
   logEvent('AUTH', `${label}: user=${user.username.toUpperCase()}${device ? ` · ${device}` : ''}${ip ? ` from ${ip}` : ''}`, 'success');
 
   const token = issueToken({ id: user.id, username: user.username, role: user.role, source });
@@ -63,8 +63,8 @@ function checkAppAccess(role, source, isLocalDesktop) {
     }
     return null;
   }
-  if (source !== 'mobile') {
-    return 'Admin accounts sign in from the AssetTrack mobile app only.';
+  if (source !== 'mobile' && source !== 'web') {
+    return 'Admin accounts sign in from the AssetTrack web app or the mobile app.';
   }
   return null;
 }

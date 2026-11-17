@@ -30,6 +30,10 @@ function init(db) {
     WHERE assigned_to IS NOT NULL AND TRIM(assigned_to) <> ''
   `);
   db.exec(`UPDATE people SET created_at = COALESCE(updated_at, datetime('now')) WHERE created_at IS NULL`);
+
+  // One row per real person: "ACUESA, MARY KOREN WITTING" and "Mary Koren W. Acuesa" are the same
+  // person, so join them (their assets move to the surviving name). Safe to repeat every startup.
+  require('./services').mergeDuplicatePeople(db);
 }
 
 module.exports = { init };

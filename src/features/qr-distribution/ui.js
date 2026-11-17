@@ -23,6 +23,12 @@ export function render() {
         </div>
 
         <div class="crt-panel">
+          <div class="panel-title">Admin web app</div>
+          <div id="web-url" class="server-url">loading…</div>
+          <div class="download-caption">Admins open this in any browser (view-only). Super admin stays on this desktop app.</div>
+        </div>
+
+        <div class="crt-panel">
           <div class="panel-title">Network status</div>
           <div id="network-status" class="status-list">Loading…</div>
         </div>
@@ -95,6 +101,7 @@ export function render() {
     mobileUrl = result.url;
     holder.innerHTML = `<img src="${result.dataUrl}" alt="Scan to install AssetTrack mobile" width="220" height="220" />`;
     el.querySelector('#qr-url').textContent = result.url;
+    el.querySelector('#web-url').textContent = result.webUrl || '—';
     applyAccessMode(result.mode);
   }
 

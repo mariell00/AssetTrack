@@ -1,6 +1,5 @@
-// mobile/src/core/lookups.js — the pick-lists the desktop Asset Registry form
-// uses (rooms by building, categories, assignees, status, condition), shared
-// by the Register form and the Asset Info panel so both match the desktop.
+// mobile/src/core/lookups.js — the pick-lists the Asset Info panel offers (rooms by
+// building, assignees, status, condition), matching the desktop Asset Registry.
 //
 // Rooms and assignees are cached on the phone after every successful fetch,
 // so the Scanner's room picker still works with no Wi-Fi (it is an
@@ -10,15 +9,6 @@ import { apiGet } from './api-client.js';
 const ROOMS_KEY = 'assettrack_mobile_rooms_cache';
 const ASSIGNEES_KEY = 'assettrack_mobile_assignees_cache';
 
-// Same list as the desktop Asset Registry (src/features/assets/ui.js).
-// Same categories (and spelling) as the desktop registry — the desktop is what fills in each one's
-// specifications when an asset is registered or edited there. Keep in step with
-// src/features/specs/categories.js.
-export const CATEGORY_OPTIONS = [
-  'Laptop', 'Tablet', 'Desktop (All-in-One)', 'Printer', 'Projector', 'Scanner',
-  'Camera / Drone', 'Audio / Visual', 'Network / Security', 'External Storage',
-  'Furniture', 'Office Equipment', 'Appliance', 'Display / TV', 'Recorder', 'Other'
-];
 export const STATUS_OPTIONS = [['active', 'Active'], ['pending', 'Pending'], ['maintenance', 'Maintenance'], ['offline', 'Offline']];
 export const CONDITION_OPTIONS = [['good', 'Good'], ['fair', 'Fair'], ['poor', 'Poor']];
 
@@ -64,14 +54,6 @@ export function roomOptionsHtml(rooms, selectedId, placeholder = '— Unassigned
       : inBuilding.map(optionHtml).join('');
   }
   return html;
-}
-
-// Keeps whatever value the asset already has even if it's not in the list
-// (e.g. an imported category), so editing never silently wipes it.
-export function categoryOptionsHtml(selected) {
-  const extra = selected && !CATEGORY_OPTIONS.includes(selected) ? [selected] : [];
-  return `<option value="">— Select category —</option>`
-    + [...CATEGORY_OPTIONS, ...extra].map((c) => `<option value="${esc(c)}" ${c === selected ? 'selected' : ''}>${esc(c)}</option>`).join('');
 }
 
 export function assigneeOptionsHtml(assignees, current) {

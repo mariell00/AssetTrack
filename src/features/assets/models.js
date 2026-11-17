@@ -99,6 +99,20 @@ function init(db) {
   }
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_assets_client_uuid ON assets(client_uuid) WHERE client_uuid IS NOT NULL`);
 
+  // Columns of the property custodian sheet (ACUESA ... xlsx) the registry did not have:
+  //   property_no  "Property No."  (NOT unique: units of one lot share it)
+  //   ics_no       "ICS No."       (Inventory Custodian Slip, e.g. SPHV-2024-08-0258)
+  //   serial_no    pulled out of the item description ("Serial Number: ...")
+  //   useful_life  "Eul" - estimated useful life, in years
+  //   quantity     "Qty."
+  //   end_user_unit  the office after the name in "End-User" (Research, IGP)
+  //   remarks      anything in the sheet that has no column of its own (notes, unreadable dates)
+  for (const [col, type] of [['property_no', 'TEXT'], ['ics_no', 'TEXT'], ['serial_no', 'TEXT'],
+    ['useful_life', 'INTEGER'], ['quantity', 'INTEGER NOT NULL DEFAULT 1'], ['end_user_unit', 'TEXT'], ['remarks', 'TEXT']]) {
+    if (!columnExists(db, 'assets', col)) db.exec(`ALTER TABLE assets ADD COLUMN ${col} ${type}`);
+  }
+  db.exec('CREATE INDEX IF NOT EXISTS idx_assets_property_no ON assets(property_no)');
+
   // One-time-per-startup backfill: carry forward any photo that was
   // already attached the old, per-asset way into the new per-person
   // `people` table, so upgrading doesn't make existing photos disappear.

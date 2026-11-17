@@ -77,9 +77,8 @@ function activityHeatmap() {
 // Everything the redesigned Dashboard needs in one round trip:
 //   monthly - distinct assets verified per calendar month, last 12 months
 //             (months with no scans are returned as 0 so the chart has no gaps)
-//   status  - asset counts for the progress bars. pendingSync uses the same
-//             definition as assets/services.js dashboardStats(): assets not
-//             verified yet today. active/maintenance/offline are the asset's
+//   status  - asset counts for the progress bars. pendingSync is what is waiting
+//             for verification on the Inventory Sync screen. active/maintenance/offline are the asset's
 //             own status field.
 //   logs    - latest scans as spreadsheet rows (where, which asset, result,
 //             who it is assigned to, who scanned it)
@@ -115,13 +114,14 @@ function statusBreakdown() {
   const counts = Object.fromEntries(
     db.prepare('SELECT status, COUNT(*) AS c FROM assets GROUP BY status').all().map((r) => [r.status, r.c])
   );
+  const waiting = require('../inventory/services').pendingCount();
   return {
     total,
     verifiedToday,
-    pendingSync: Math.max(0, total - verifiedToday),
-    awaitingReview:
-      db.prepare("SELECT COUNT(*) AS c FROM pending_scans WHERE review_status = 'pending'").get().c +
-      db.prepare("SELECT COUNT(*) AS c FROM pending_registrations WHERE review_status = 'pending'").get().c,
+    // Waiting for the super admin to verify (registrations + updates) — the same number as the
+    // badge on the Inventory Sync menu item, so the two can never disagree.
+    pendingSync: waiting.count,
+    awaitingReview: waiting.count,
     active: counts.active || 0,
     maintenance: counts.maintenance || 0,
     offline: counts.offline || 0

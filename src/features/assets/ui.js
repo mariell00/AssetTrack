@@ -199,6 +199,7 @@ function assigneeOptionsHtml(assignees, current) {
 
 async function openAssetModal(root, { asset } = {}) {
   const isEdit = !!asset;
+  const fv = (k) => esc(asset && asset[k] !== null && asset[k] !== undefined ? asset[k] : '');
   const [roomsResult, assigneesResult, catalogResult, savedSpecsResult] = await Promise.all([
     apiGet('/api/v1/map/rooms/list'),
     apiGet('/api/v1/assignees'),
@@ -228,7 +229,16 @@ async function openAssetModal(root, { asset } = {}) {
           <input type="text" class="retro-input" value="${esc(asset.asset_tag)}" readonly aria-readonly="true" />
         </label>` : ''}
         <label>Name
-          <input type="text" id="f-name" class="retro-input" value="${asset ? asset.name : ''}" required />
+          <input type="text" id="f-name" class="retro-input" value="${fv('name')}" required />
+        </label>
+        <label>Property No.
+          <input type="text" id="f-property-no" class="retro-input" maxlength="120" value="${fv('property_no')}" />
+        </label>
+        <label>ICS No.
+          <input type="text" id="f-ics-no" class="retro-input" maxlength="120" value="${fv('ics_no')}" />
+        </label>
+        <label>Serial No.
+          <input type="text" id="f-serial-no" class="retro-input" maxlength="200" value="${fv('serial_no')}" />
         </label>
         <label>Category
           <select id="f-category" class="retro-input">${categoryOptionsHtml(asset ? asset.category : '', categories)}</select>
@@ -248,6 +258,27 @@ async function openAssetModal(root, { asset } = {}) {
               <input type="file" id="f-assigned-photo" accept="image/*" hidden />
             </label>
           </div>
+        </label>
+        <label>End-user office <span class="mono-dim">(e.g. Research, IGP)</span>
+          <input type="text" id="f-end-user-unit" class="retro-input" maxlength="120" value="${fv('end_user_unit')}" />
+        </label>
+        <label>Date acquired
+          <input type="date" id="f-acquired" class="retro-input" value="${fv('acquired_date')}" />
+        </label>
+        <label>Amount (PHP)
+          <input type="number" id="f-value" class="retro-input" step="0.01" min="0" value="${fv('value_php')}" />
+        </label>
+        <label>Quantity
+          <input type="number" id="f-quantity" class="retro-input" step="1" min="1" value="${fv('quantity') || 1}" />
+        </label>
+        <label>Estimated useful life (years)
+          <input type="number" id="f-useful-life" class="retro-input" step="1" min="0" value="${fv('useful_life')}" />
+        </label>
+        <label>Description
+          <textarea id="f-description" class="retro-input" rows="4">${fv('description')}</textarea>
+        </label>
+        <label>Remarks
+          <textarea id="f-remarks" class="retro-input" rows="2">${fv('remarks')}</textarea>
         </label>
         <label>Status
           <select id="f-status" class="retro-input">
@@ -383,7 +414,17 @@ async function openAssetModal(root, { asset } = {}) {
       name: overlay.querySelector('#f-name').value.trim(),
       category: overlay.querySelector('#f-category').value || null,
       assigned_to: assignedSelect.value || null,
-      status: overlay.querySelector('#f-status').value
+      status: overlay.querySelector('#f-status').value,
+      property_no: overlay.querySelector('#f-property-no').value.trim() || null,
+      ics_no: overlay.querySelector('#f-ics-no').value.trim() || null,
+      serial_no: overlay.querySelector('#f-serial-no').value.trim() || null,
+      end_user_unit: overlay.querySelector('#f-end-user-unit').value.trim() || null,
+      acquired_date: overlay.querySelector('#f-acquired').value || null,
+      value_php: overlay.querySelector('#f-value').value === '' ? null : Number(overlay.querySelector('#f-value').value),
+      quantity: Number(overlay.querySelector('#f-quantity').value) || 1,
+      useful_life: overlay.querySelector('#f-useful-life').value === '' ? null : Number(overlay.querySelector('#f-useful-life').value),
+      description: overlay.querySelector('#f-description').value.trim() || null,
+      remarks: overlay.querySelector('#f-remarks').value.trim() || null
     };
     // Room comes from the managed list (mapping/ui-locations.js) as a
     // room_id now, rather than a free-typed name the backend had to
@@ -491,11 +532,21 @@ async function openAssetDetailModal(root, assetId) {
         ${field('Assigned to', a.assigned_to
           ? `${a.assigned_photo ? `<img src="${a.assigned_photo}" class="assigned-row-photo" alt="" />` : ''}${esc(a.assigned_to)}`
           : '—')}
+        ${field('Property No.', esc(a.property_no) || '—')}
+        ${field('ICS No.', esc(a.ics_no) || '—')}
+        ${field('Serial No.', esc(a.serial_no) || '—')}
+        ${field('Quantity', esc(a.quantity ?? 1))}
+        ${field('Date acquired', formatDate(a.acquired_date))}
+        ${field('Amount', a.value_php === null || a.value_php === undefined ? '—' : `₱${Number(a.value_php).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`)}
+        ${field('Useful life', a.useful_life === null || a.useful_life === undefined ? '—' : `${esc(a.useful_life)} year${a.useful_life === 1 ? '' : 's'}`)}
+        ${field('End-user office', esc(a.end_user_unit) || '—')}
         ${field('Registered', formatDateTime(a.created_at))}
         ${field('Last scanned', formatDateTime(a.last_scanned))}
       </div>
 
       ${a.description ? `<div class="ad-section"><h3>Description</h3><p class="ad-text">${esc(a.description)}</p></div>` : ''}
+
+      ${a.remarks ? `<div class="ad-section"><h3>Remarks</h3><p class="ad-text" style="white-space:pre-line">${esc(a.remarks)}</p></div>` : ''}
 
       ${specGrid('Specifications', specRows)}
       ${specGrid('Attached equipment', attachedRows)}
@@ -515,7 +566,7 @@ async function openAssetDetailModal(root, assetId) {
         ${a.recent_scans && a.recent_scans.length ? a.recent_scans.map((s) => `
           <div class="ad-row">
             <span class="badge badge-scan-${esc(s.status)}">${SCAN_LABELS[s.status] || esc(s.status).toUpperCase()}</span>
-            <span class="ad-row-main">${esc(s.room_name) || '—'}</span>
+            <span class="ad-row-main">${esc(s.room_name) || '—'}${s.counted !== null && s.counted !== undefined ? ` · counted ${s.counted}` : ''}</span>
             <span class="ad-row-meta">${esc(s.scanned_by)} · ${formatDateTime(s.scanned_at)}</span>
           </div>`).join('') : '<p class="ad-empty">Not scanned yet.</p>'}
       </div>
@@ -566,6 +617,7 @@ async function openAssetDetailModal(root, assetId) {
 // ---- sorting ----
 const SORT_OPTIONS = [
   { key: 'asset_tag', label: 'Asset ID' },
+  { key: 'property_no', label: 'Property No.' },
   { key: 'name', label: 'Name' },
   { key: 'assigned_to', label: 'Assigned to' },
   { key: 'room_name', label: 'Room' },
@@ -611,7 +663,7 @@ export function render() {
   el.innerHTML = `
     <div class="crt-panel">
       <div class="registry-toolbar">
-        <input type="text" id="asset-search" class="retro-input search-input" placeholder="Search assets…" aria-label="Search assets" />
+        <input type="text" id="asset-search" class="retro-input search-input" placeholder="Search name, Asset ID, Property No., ICS No., serial…" aria-label="Search assets" />
         <div class="sort-group">
           <label class="sort-label" for="asset-sort">Sort by</label>
           <select id="asset-sort" class="retro-input sort-select">
@@ -623,7 +675,7 @@ export function render() {
           <button id="btn-add-asset" class="btn-retro">+ Register asset</button>
           <label class="btn-retro outline file-btn">
             Import CSV
-            <input type="file" id="import-file" accept=".xlsx,.csv" hidden />
+            <input type="file" id="import-file" accept=".xlsx,.xls,.csv,text/csv" hidden />
           </label>
         </div>
       </div>
@@ -632,13 +684,14 @@ export function render() {
           <tr>
             <th></th>
             ${sortableTh('asset_tag', 'Asset ID')}
+            ${sortableTh('property_no', 'Property No.')}
             ${sortableTh('name', 'Name')}
             ${sortableTh('assigned_to', 'Assigned to')}
             ${sortableTh('room_name', 'Room')}
             ${sortableTh('status', 'Status')}
           </tr>
         </thead>
-        <tbody id="asset-rows"><tr><td colspan="6">Loading…</td></tr></tbody>
+        <tbody id="asset-rows"><tr><td colspan="7">Loading…</td></tr></tbody>
       </table>
       <div class="reg-foot" aria-live="polite">
         <span id="asset-foot-count"></span>
@@ -681,14 +734,15 @@ export function render() {
     syncSortControls();
     drawFoot();
     if (assets.length === 0) {
-      tbody.innerHTML = `<tr><td colspan="6">No assets found.</td></tr>`;
+      tbody.innerHTML = `<tr><td colspan="7">No assets found.</td></tr>`;
       return;
     }
     tbody.innerHTML = sortAssets(assets, sort.key, sort.dir).map((a) => `
       <tr class="asset-row" data-id="${a.id}" tabindex="0" role="button" aria-label="Open details for ${esc(a.asset_tag)}">
         <td>${a.photo ? `<img src="${a.photo}" class="asset-row-photo" alt="" />` : ''}</td>
         <td class="mono-strong">${esc(a.asset_tag)}</td>
-        <td>${esc(a.name)}</td>
+        <td class="mono-dim">${esc(a.property_no) || '—'}</td>
+        <td>${esc(a.name)}${a.quantity > 1 ? ` <span class="mono-dim">× ${esc(a.quantity)}</span>` : ''}</td>
         <td>
           ${a.assigned_photo ? `<img src="${a.assigned_photo}" class="assigned-row-photo" alt="" />` : ''}
           ${esc(a.assigned_to) || '—'}
@@ -753,10 +807,12 @@ export function render() {
       const bits = [];
       if (result.new_assets) bits.push(`${result.new_assets} new asset(s)`);
       if (result.updates) bits.push(`${result.updates} update(s) to existing assets`);
-      const skipped = [result.unchanged ? `${result.unchanged} unchanged` : '', result.duplicates ? `${result.duplicates} duplicate(s)` : '', result.invalid ? `${result.invalid} row(s) missing Asset ID or name` : ''].filter(Boolean).join(', ');
-      alert((bits.length
+      const skipped = [result.unchanged ? `${result.unchanged} unchanged` : '', result.duplicates ? `${result.duplicates} already uploaded before` : '', result.invalid ? `${result.invalid} row(s) with no item name or description` : ''].filter(Boolean).join(', ');
+      const kept = (result.columns_kept_in_remarks || []).length ? `\n\nColumns with no matching field were kept in each asset's Remarks: ${result.columns_kept_in_remarks.join(', ')}.` : '';
+      const rows = (result.skipped_rows || []).length ? `\n\nSkipped rows: ${result.skipped_rows.map((r) => `row ${r.row} (${r.reason})`).join('; ')}` : '';
+      alert(`Read ${result.total_rows} row(s). ` + (bits.length
         ? `Sent ${bits.join(' and ')} to Inventory Sync for verification. Nothing is added to the registry until you approve it there.`
-        : 'Nothing to send for verification.') + (skipped ? `\n\nSkipped: ${skipped}.` : ''));
+        : 'Nothing to send for verification.') + (skipped ? `\n\nSkipped: ${skipped}.` : '') + kept + rows);
     }
     e.target.value = '';
     loadAssets();

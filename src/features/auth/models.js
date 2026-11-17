@@ -70,10 +70,25 @@ function init(db) {
   const row = db.prepare('SELECT COUNT(*) AS c FROM users').get();
   if (row.c === 0) {
     const { hashPassword } = require('../../core/security');
+    // No shared default password: every install gets its own random one (or the one set in the
+    // ASSETTRACK_ADMIN_PASSWORD environment variable), written once to data/first-login.txt.
+    const crypto = require('crypto');
+    const fs = require('fs');
+    const path = require('path');
+    const initial = process.env.ASSETTRACK_ADMIN_PASSWORD
+      || crypto.randomBytes(12).toString('base64').replace(/[+/=]/g, '').slice(0, 14);
     db.prepare(
       'INSERT INTO users (username, password_hash, role, status, assigned_area) VALUES (?, ?, ?, ?, ?)'
-    ).run('admin', hashPassword('changeme'), 'superadmin', 'active', 'All Areas');
-    console.log('[AssetTrack] Seeded default superadmin user (admin / changeme) — change this password.');
+    ).run('admin', hashPassword(initial), 'superadmin', 'active', 'All Areas');
+    if (!process.env.ASSETTRACK_ADMIN_PASSWORD) {
+      try {
+        const dir = require('../../core/paths').DATA_DIR;
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, 'first-login.txt'),
+          `AssetTrack first login\nUser name: admin\nPassword:  ${initial}\n\nSign in, change this password, then DELETE this file.\n`, { mode: 0o600 });
+      } catch { /* the password is still shown below */ }
+    }
+    console.log('[AssetTrack] Created the superadmin account "admin". Its first-run password is in data/first-login.txt — sign in and change it, then delete that file.');
   }
 }
 

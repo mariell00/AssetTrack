@@ -16,7 +16,7 @@ function duplicateTag(err, res, tag) {
 
 function mobileMeta(req) {
   const { simplifyUserAgent } = require('../../core/device');
-  return { scannedBy: req.user?.username, source: 'mobile', ip: req.ip, deviceName: simplifyUserAgent(req.headers['user-agent']) };
+  return { scannedBy: req.user?.username, source: req.user?.source || 'mobile', ip: req.ip, deviceName: simplifyUserAgent(req.headers['user-agent']) };
 }
 
 router.get('/', (req, res) => {
@@ -43,6 +43,7 @@ router.post('/', (req, res) => {
   if (!req.body.name) {
     return res.status(400).json({ ok: false, error: 'name is required.' });
   }
+  // The admin web app can't register assets at all (the server gate in src/server/app.js refuses it).
   // From the mobile app a registration is never added directly: it waits in the
   // Inventory Sync review queue until the super admin verifies it.
   if (req.user?.source === 'mobile') {
@@ -73,8 +74,8 @@ router.post('/', (req, res) => {
 });
 
 router.put('/:id', (req, res) => {
-  // Likewise a phone's edit is proposed, not applied: the super admin confirms it first.
-  if (req.user?.source === 'mobile') {
+  // Likewise an edit from a phone or the admin web app is proposed, not applied: the super admin confirms it first.
+  if (req.user?.source === 'mobile' || req.user?.source === 'web') {
     const queued = require('../inventory/services').queueMobileEdit(req.params.id, req.body, mobileMeta(req));
     return res.status(queued.ok ? 202 : queued.status || 400).json(queued.ok ? queued : { ok: false, error: queued.error });
   }

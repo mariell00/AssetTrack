@@ -100,8 +100,8 @@ function requireAuth(req, res, next) {
   // change takes effect on the very next request. Each role also belongs to
   // exactly one app: a session whose app doesn't match its role (e.g. one
   // issued before roles were split) is ended rather than honoured.
-  const appForRole = { superadmin: 'desktop', admin: 'mobile' };
-  if (appForRole[user.role] !== payload.source) {
+  const appsForRole = { superadmin: ['desktop'], admin: ['mobile', 'web'] };
+  if (!(appsForRole[user.role] || []).includes(payload.source)) {
     return res.status(401).json({ ok: false, error: 'Your session has ended. Please log in again.' });
   }
 

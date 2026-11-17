@@ -1,8 +1,9 @@
 // mobile/features/asset-scan/ui-scan.js — the Scanner: the first screen after
 // login. Shows the camera, and a list of what's been scanned this session.
 // After each scan the camera pauses and the Asset Info panel comes up so the
-// admin can correct details (condition, status, room, etc.) on the spot
-// before scanning the next item — not just log a bare "verified" tick.
+// admin can enter what they counted and correct location, condition, status,
+// quantity or user on the spot before scanning the next item — not just log
+// a bare "verified" tick.
 import { renderScanner } from '../qr-reader/ui-scanner.js';
 import { recordScan, fetchAssetByTag, fetchRoomsList } from './services.js';
 import { renderAssetEditPanel } from './ui-asset-edit.js';
@@ -13,7 +14,7 @@ const LAST_ROOM_KEY = 'assettrack_mobile_last_room';
 // Lives at module level (not inside renderAssetScan) because the Scanner
 // screen is rebuilt every time you come back to it from the menu — the
 // session list shouldn't vanish just because you looked at the Registry.
-const session = { scanned: [] }; // [{ code, name, changed }]
+const session = { scanned: [] }; // [{ code, name, changed, counted }]
 
 export function resetScanSession() { session.scanned = []; }
 
@@ -61,7 +62,7 @@ export function renderAssetScan() {
 
   function refreshList() {
     list.innerHTML = session.scanned
-      .map(({ code, name, changed }) => `<div class="m-row">✔ ${esc(code)}${name ? ` — ${esc(name)}` : ''}${changed ? ' · edits saved' : ''}</div>`)
+      .map(({ code, name, changed, counted }) => `<div class="m-row">✔ ${esc(code)}${name ? ` — ${esc(name)}` : ''}${counted !== null && counted !== undefined ? ` · counted ${esc(counted)}` : ''}${changed ? ' · edits saved' : ''}</div>`)
       .join('') || '<p class="m-status">No assets scanned yet in this session.</p>';
   }
 
@@ -85,15 +86,17 @@ export function renderAssetScan() {
 
     const result = await fetchAssetByTag(code);
     const asset = result.ok ? result.asset : null;
-    const entry = { code, name: asset ? asset.name : null, changed: false };
+    const entry = { code, name: asset ? asset.name : null, changed: false, counted: null };
     session.scanned.push(entry);
     refreshList();
 
     const reason = !result.ok && result.offline ? 'offline' : 'not_found';
     editEl = await renderAssetEditPanel(asset, code, reason, {
       scanLocalId,
-      onDone: (saved) => {
-        if (saved === true) { entry.changed = true; refreshList(); }
+      onDone: (saved, info = {}) => {
+        if (saved === true) entry.changed = true;
+        if (info.counted !== null && info.counted !== undefined) entry.counted = info.counted;
+        if (saved === true || entry.counted !== null) refreshList();
         editEl?.remove();
         editEl = null;
         busy = false;

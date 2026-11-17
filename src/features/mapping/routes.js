@@ -65,6 +65,10 @@ router.get('/buildings-map', (req, res) => {
   res.json({ ok: true, buildings: svc.buildingsForMap() });
 });
 
+router.get('/people-map', (req, res) => {
+  res.json({ ok: true, people: svc.peopleForMap() });
+});
+
 router.get('/assets-map', (req, res) => {
   res.json({ ok: true, assets: svc.assetsForMap() });
 });

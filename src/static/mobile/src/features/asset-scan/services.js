@@ -30,23 +30,26 @@ async function fetchAssetByTag(qrValue) {
 }
 
 // Same detail record, by id — used when opening an asset from the Asset Registry list.
-async function fetchAssetDetail(id) {
-  return apiGet(`/api/v1/assets/${id}/detail`);
-}
-
-// Edits made on the "Asset Info" panel are NOT sent to the desktop straight away.
-// They are saved on the phone and go out with the next SYNC as a proposed update;
-// the super admin verifies it in Inventory sync before it changes the asset.
-//   scanLocalId — the scan these edits belong to (so they travel together);
-//                 without one (opened from the registry list) they go as an
-//                 edit-only item.
-async function queueAssetChanges(assetTag, changes, { scanLocalId = null } = {}) {
+// What is entered on the "Asset Info" panel is NOT sent to the desktop straight away.
+// It is saved on the phone and goes out with the next SYNC as a proposed update;
+// the super admin verifies it on the Sync screen before it changes the asset.
+//   changes     — the fields that differ from the record (location, condition, status,
+//                 quantity, user); may be empty if only a count was entered
+//   scanLocalId — the scan these belong to (so they travel together)
+//   counted     — how many were counted at this scan (a number, or null for none); it
+//                 describes the scan, so it only ever rides on one
+async function queueAssetChanges(assetTag, changes, { scanLocalId = null, counted = null } = {}) {
+  const hasChanges = !!changes && Object.keys(changes).length > 0;
   if (scanLocalId) {
-    const ok = await updatePendingItem(scanLocalId, { changes });
+    const patch = {};
+    if (hasChanges) patch.changes = changes;
+    if (counted !== null && counted !== undefined) patch.counted = counted;
+    const ok = await updatePendingItem(scanLocalId, patch);
     if (ok) return;
   }
+  if (!hasChanges) return; // a count with no scan to attach to means nothing
   const user = currentUser();
   await addPendingScan({ type: 'edit', asset_tag: assetTag, scanned_by: user ? user.username : 'unknown', changes });
 }
 
-export { recordScan, fetchAssetByTag, fetchAssetDetail, queueAssetChanges, fetchRoomsList };
+export { recordScan, fetchAssetByTag, queueAssetChanges, fetchRoomsList };

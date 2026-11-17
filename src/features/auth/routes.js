@@ -5,21 +5,45 @@ const { login, listUsers, createUser, setUserStatus, deleteUser, requireRole } =
 const { simplifyUserAgent } = require('../../core/device');
 const recovery = require('./recovery');
 
+// Brute-force guard: after 8 wrong passwords for the same user name from the same address, that pair
+// is blocked for 15 minutes. Kept in memory (resets when the app restarts).
+const FAIL_LIMIT = 8;
+const FAIL_WINDOW_MS = 15 * 60 * 1000;
+const failures = new Map(); // `${ip}|${username}` -> [timestamps]
+function recentFailures(key) {
+  const now = Date.now();
+  const list = (failures.get(key) || []).filter((t) => now - t < FAIL_WINDOW_MS);
+  if (list.length) failures.set(key, list); else failures.delete(key);
+  return list;
+}
+
 router.post('/login', (req, res) => {
   const { username, password } = req.body || {};
-  if (!username || !password) {
+  if (!username || !password || typeof username !== 'string' || typeof password !== 'string') {
     return res.status(400).json({ ok: false, error: 'username and password are required.' });
+  }
+  const key = `${req.ip}|${username.toLowerCase().slice(0, 100)}`;
+  const recent = recentFailures(key);
+  if (recent.length >= FAIL_LIMIT) {
+    const retry = Math.ceil((FAIL_WINDOW_MS - (Date.now() - recent[0])) / 1000);
+    res.setHeader('Retry-After', String(retry));
+    return res.status(429).json({ ok: false, error: `Too many failed sign-in attempts. Try again in ${Math.ceil(retry / 60)} minute(s).` });
   }
   // The mobile PWA's api-client sends 'X-Client-Type: mobile' on every
   // request; the Admin Hub sends none, so it falls back to 'desktop' in
   // login(). This is how one shared /auth/login route tells the two
   // clients apart for the activity log and the Manage Users screen.
-  const source = (req.headers['x-client-type'] || '').toLowerCase() === 'mobile' ? 'mobile' : 'desktop';
+  const clientType = (req.headers['x-client-type'] || '').toLowerCase();
+  const source = ['mobile', 'web'].includes(clientType) ? clientType : 'desktop';
   const device = simplifyUserAgent(req.headers['user-agent']);
   // The superadmin may only sign in from the Admin Hub window on this computer.
   const isLocalDesktop = source === 'desktop' && recovery.isDesktopRequest(req);
   const result = login(username, password, { source, ip: req.ip, device, isLocalDesktop });
-  if (!result.ok) return res.status(401).json(result);
+  if (!result.ok) {
+    failures.set(key, [...recent, Date.now()]);
+    return res.status(401).json(result);
+  }
+  failures.delete(key);
   res.json(result);
 });
 

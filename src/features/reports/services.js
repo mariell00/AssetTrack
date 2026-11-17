@@ -29,6 +29,7 @@ function auditData({ fromDate, toDate, room, status } = {}) {
   const sql = `
     SELECT
       a.asset_tag, a.name, a.category, a.condition, a.value_php, a.status,
+      a.property_no, a.ics_no, a.serial_no, a.acquired_date, a.quantity, a.useful_life, a.assigned_to, a.end_user_unit, a.description,
       r.name AS room_name,
       MAX(l.scanned_at) AS last_verified,
       (SELECT COUNT(*) FROM inventory_logs l2

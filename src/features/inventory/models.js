@@ -97,6 +97,14 @@ function init(db) {
     db.exec(`ALTER TABLE pending_scans ADD COLUMN changes_json TEXT`);
   }
 
+  // How many units the person actually counted when they scanned the asset (a physical count),
+  // to set against the asset's quantity on record. NULL = no count was entered. It belongs to the
+  // scan, not the asset: each scan is a fresh count. Carried from pending_scans into inventory_logs
+  // when the scan is verified.
+  for (const table of ['pending_scans', 'inventory_logs']) {
+    if (!columnExists(db, table, 'counted')) db.exec(`ALTER TABLE ${table} ADD COLUMN counted INTEGER`);
+  }
+
   // The phone's own id for a registration (see assets.client_uuid). Unique, and kept
   // for approved and rejected rows too — so a registration the phone sends again
   // after the reply was lost is recognised even once it has been reviewed.
@@ -104,6 +112,10 @@ function init(db) {
     db.exec(`ALTER TABLE pending_registrations ADD COLUMN client_uuid TEXT`);
   }
   db.exec(`CREATE UNIQUE INDEX IF NOT EXISTS idx_pendreg_client_uuid ON pending_registrations(client_uuid) WHERE client_uuid IS NOT NULL`);
+
+  // Clean-up for databases hit by the foreign-key bug: pending scans whose asset was deleted
+  // can never be reviewed (the queue skips them) but were still being counted.
+  db.exec(`DELETE FROM pending_scans WHERE asset_id NOT IN (SELECT id FROM assets)`);
 
   for (const table of ['inventory_logs', 'sync_sessions']) {
     if (!columnExists(db, table, 'device_source')) {
