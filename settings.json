@@ -28,21 +28,21 @@
     ]
   },
   "tileProvider": {
-    "note": "tiles:fetch needs a real tile provider here \u2014 it will refuse to run without one. Bulk-downloading straight from tile.openstreetmap.org (the public tile.openstreetmap.org server) is explicitly against OpenStreetMap's tile usage policy (osmfoundation.org/wiki/Policies/Tile_usage): that server auto-detects bulk/scripted downloads and blocks them, returning a black-and-yellow 'Access blocked' image INSTEAD of the real tile \u2014 which is exactly what got saved into src/static/map_tiles/ and is now showing up on the Cluster Map. Sign up for a free API key from a provider meant for this (e.g. MapTiler: https://cloud.maptiler.com \u2014 free tier covers a small single-campus map easily) and paste its raw tile URL template below with {key} where the key goes, e.g. 'https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={key}'.",
+    "note": "Put the tile provider's API key in settings.local.json (git-ignored), never in this file. See settings.local.example.json.",
     "urlTemplate": "https://api.maptiler.com/maps/streets-v2/256/{z}/{x}/{y}.png?key={key}",
-    "apiKey": "vux7lhW4KeOhltaVgf2G",
+    "apiKey": "",
     "attribution": "&copy; MapTiler &copy; OpenStreetMap contributors"
   },
   "recovery": {
-    "note": "Where the superadmin's one-time recovery code is emailed (the system administrator / creator). For Gmail: turn on 2-step verification, create an App Password, and put that 16-character password in 'pass' (NOT your normal password). Keep this file private \u2014 it holds the mail password.",
-    "email": "creator@example.com",
+    "note": "The superadmin's one-time recovery code is emailed here. Put the real email and the SMTP App Password in settings.local.json (git-ignored), never in this file.",
+    "email": "",
     "smtp": {
       "host": "smtp.gmail.com",
       "port": 465,
       "secure": true,
-      "user": "creator@example.com",
-      "pass": "your-app-password",
-      "from": "AssetTrack <creator@example.com>"
+      "user": "",
+      "pass": "",
+      "from": ""
     }
   }
 }

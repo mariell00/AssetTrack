@@ -1,10 +1,9 @@
 // mobile/src/app.js — root PWA. Flow: (one-time install choice) → login →
 // the Scanner. The menu (☰, top right) opens a sidebar with the other
-// screens — Asset Registry and Sync — and Log out. Kept intentionally simple
+// screens — Scanner and Sync — and Log out. Kept intentionally simple
 // for a single-purpose field tool.
 import { renderLogin } from './features/auth/ui-login.js';
 import { renderAssetScan, resetScanSession } from './features/asset-scan/ui-scan.js';
-import { renderRegistry } from './features/registry/ui-registry.js';
 import { renderSync } from './features/sync/ui-sync.js';
 import { pendingCount } from './features/sync/services.js';
 import { currentUser, logout } from './features/auth/services.js';
@@ -25,14 +24,12 @@ window.addEventListener('beforeinstallprompt', (e) => {
 
 const PAGES = {
   scan: { title: 'Scanner', label: 'Scanner', icon: '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><path d="M14 14h3v3M21 14v.01M14 21h3M21 17v4"/></svg>' },
-  registry: { title: 'Asset registry', label: 'Asset registry', icon: '<svg viewBox="0 0 24 24"><path d="M21 8l-9-5-9 5v8l9 5 9-5z"/><path d="M3 8l9 5 9-5M12 13v8"/></svg>' },
   sync: { title: 'Sync', label: 'Sync', icon: '<svg viewBox="0 0 24 24"><path d="M20 11a8 8 0 0 0-14-4L4 9"/><path d="M4 4v5h5"/><path d="M4 13a8 8 0 0 0 14 4l2-2"/><path d="M20 20v-5h-5"/></svg>' }
 };
 
 let clockTimer = null;
 
 function renderPage(page) {
-  if (page === 'registry') return renderRegistry();
   if (page === 'sync') return renderSync();
   return renderAssetScan();
 }

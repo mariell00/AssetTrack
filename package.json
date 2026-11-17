@@ -8,6 +8,7 @@
   "scripts": {
     "prestart": "npm run build:mobile",
     "start": "electron .",
+    "serve": "node server.js",
     "build:mobile": "node scripts/build-mobile.js",
     "build:desktop": "npm run build:mobile && electron-builder",
     "tiles:fetch": "node src/features/mapping/tile-cache.js"
@@ -40,6 +41,7 @@
       "preload.js",
       "src/**/*",
       "mobile/**/*",
+      "web/**/*",
       "node_modules/**/*",
       "package.json"
     ],

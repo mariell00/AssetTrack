@@ -22,6 +22,48 @@ Express routes, and UI. To add a new feature (e.g. "depreciation"), copy the
 shape of an existing feature folder, register its routes in `main.js`, and
 add a nav link in `src/renderer/index.html` — nothing else needs to change.
 
+## Who uses which app
+
+| Account | App | What it can do |
+| --- | --- | --- |
+| **Super admin** | Electron desktop app (Admin Hub) | Everything. Only on the computer that holds the data. Verifies what phones and the web app send, manages users, imports, deletes. |
+| **Admin** | **Web app** at `/admin/` (any browser, always on) | A limited version of the Admin Hub: dashboard + room progress, asset search/detail/QR label, locations, assignees, audit reports (PDF/Excel). Can *propose* a change to an asset's location, condition, status, quantity or user; it waits for the super admin. Source: `web/`. |
+| **Admin** | Mobile PWA at `/static/mobile/` | Unchanged: field scanning and proposed edits. |
+
+The web app sends `X-Client-Type: web`. A single gate in `src/server/app.js` refuses every write from a web
+session except "propose an edit to one asset", which only enters the review queue. Super admin sign-in
+stays Electron-only, on the machine running the server.
+
+## Always-on server (for the web app)
+
+The API, the web app and the phone PWA run from the same Express app (`src/server/app.js`). The Electron
+app starts it for you, but the web app needs it running *without* anyone having the window open, so there is
+also a headless entry point:
+
+```bash
+npm install            # full install: the super admin's Electron app on this PC needs it
+npm run serve          # = node server.js ; web app at http://<this-pc>:3000/admin/
+```
+
+(On a machine that will *only* run the server and never the desktop app, `npm install --omit=dev` is fine and
+smaller. Don't use it on the PC where you run `npm start`: it removes Electron.)
+
+Run the server in one terminal and, if you want the desktop app, `npm start` in a second one.
+
+Keep it alive with PM2 (`pm2 start server.js --name assettrack`), a Windows service/Task Scheduler entry, or systemd.
+Settings (`settings.json` / `settings.local.json`, including the Cloudflare `publicAccess` tunnel) work exactly
+as for the desktop app, so a named tunnel gives the web app a permanent public address. Behind your own
+reverse proxy/domain instead, set `ASSETTRACK_PUBLIC_URL=https://your.domain` and `ASSETTRACK_TRUST_PROXY=1`.
+`GET /api/v1/health` is a public liveness check for uptime monitors.
+
+**One database, one server.** When the Electron app starts and finds `server.js` already running on this
+computer, it doesn't start a second server: it just opens its window onto the running one. So run `server.js`
+on the always-on PC, and the super admin opens the Electron app on that same PC to verify changes.
+
+> The super admin can only sign in from the machine itself (loopback). That is deliberate, and it means the
+> data and server must live on the supervisor's own computer, not on a remote host or inside a Docker
+> container that hides the loopback address.
+
 ## 1. Install dependencies
 
 ```bash
@@ -52,7 +94,7 @@ This launches Electron, which boots the Express API on `localhost:3000`
 with the seeded default account:
 
 - **Username:** `admin`
-- **Password:** `changeme` — change this immediately via the user panel.
+- **Password:** generated on first run and saved in `data/first-login.txt` (there is no shared default password). Sign in, change it, then delete that file. To choose your own, set the `ASSETTRACK_ADMIN_PASSWORD` environment variable before the first start.
 
 Public internet access (Cloudflare tunnel) is controlled by `publicAccess.enabled`; see
 `publicAccess` in `settings.json` (`quick` or `named` mode). Set it to `false` for LAN-only phones.
@@ -86,31 +128,38 @@ changes, aside from re-scanning the QR code if the local IP changes.
 1. Admin registers assets and NFC tags in the **Assets** screen (or bulk
    imports an `.xlsx` sheet with columns `asset_tag, name, category,
    description, condition, room`).
-2. Staff walk rooms with the mobile app, tapping NFC tags. Scans are saved
-   to IndexedDB immediately — no Wi-Fi required.
+2. Staff walk rooms with the mobile app, scanning QR labels. Each scan, with the count
+   and any changes entered, is saved to IndexedDB immediately — no Wi-Fi required.
 3. Staff hit **SYNC** when back in Wi-Fi range; scans POST to
    `/api/v1/inventory/sync` and clear from the local queue on success.
 4. The Admin Hub dashboard shows live per-room verification progress.
 5. **Reports** generates a consolidated PDF or Excel audit at any time.
 
-### New assets registered on a phone
+### What a phone can and can't do
 
-Staff never type an Asset ID on the phone — they only enter the details.
+New assets are **registered on the desktop only** (the Assets screen, or a bulk import).
+A phone can't register anything, and the server refuses it even from an older copy of
+the app.
 
-- **Phone-made ID (internal).** When a registration is saved, the phone gives it a
-  random unique code (a UUID). Nobody sees or types it. It travels with the
-  registration every time it is sent.
-- **Desktop-made Asset ID (the one people see).** When the super admin verifies the
-  registration in Inventory sync, the desktop creates the asset and generates its
-  Asset ID (`AST-0001`, `AST-0002`, …). The phone's code stays on the asset as an
-  internal reference. The QR label holds the short Asset ID, so it scans easily and
-  can be read out in reports.
-- **Why the extra code.** If a sync reaches the desktop but the phone never hears
-  back, the phone sends the same registration again. The code lets the desktop
-  recognise it as the same one, so it is never queued — or verified — twice, even
-  after it has already been verified or rejected. The phone also uses it to ask
-  which asset a registration became (the Sync screen's **My registrations** list).
-  The database backs this up: a second asset or queue row with the same code is refused.
+When a phone scans an asset it can record, and propose changes to, these six things:
+
+| Field | Meaning |
+| --- | --- |
+| **Location** | the room the asset is in |
+| **Condition** | good / fair / poor |
+| **Status** | active / pending / maintenance / offline |
+| **Quantity** | how many the asset record says there are |
+| **User** | who is using it (from the Assignees list) |
+| **Counted** | how many were actually counted *at this scan* (a physical count) |
+
+Everything else about an asset (name, category, specifications, photo, value, property
+numbers…) can only be changed on the desktop. The server enforces this list
+(`PHONE_EDITABLE_FIELDS` in `src/features/inventory/services.js`), not just the phone's screen.
+
+**Counted vs Quantity.** Quantity belongs to the asset; Counted belongs to the scan, so
+each scan is a fresh count and the history is kept. Nothing a phone sends takes effect
+until the super admin verifies it on the Sync screen, where a count that doesn't match
+the quantity the record will have is flagged ("2 short" / "1 over").
 
 ## Portability & backups
 
